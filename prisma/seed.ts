@@ -1,0 +1,101 @@
+import { PrismaClient } from '@prisma/client'
+import bcrypt from 'bcryptjs'
+
+const prisma = new PrismaClient()
+
+async function main() {
+    console.log('Starting DB Seed...')
+
+    // 1. Setup Admin Area
+    const areaPusat = await prisma.area.upsert({
+        where: { name: 'JABODETABEK' },
+        update: {},
+        create: {
+            name: 'JABODETABEK',
+        },
+    })
+
+    // 2. Setup Warehouse Pusat
+    const warehousePusat = await prisma.warehouse.create({
+        data: {
+            name: 'Gudang Pusat Jakarta',
+            type: 'PUSAT',
+            areaId: areaPusat.id,
+            location: 'Jakarta',
+        },
+    })
+
+    // 3. Setup Master Admin User
+    const passwordHash = await bcrypt.hash('!Tahun2026', 10)
+
+    const masterUser = await prisma.user.upsert({
+        where: { username: 'hendra@servicex.id' },
+        update: {},
+        create: {
+            username: 'hendra@servicex.id',
+            password: passwordHash,
+            name: 'Hendra',
+            level: 'MASTER',
+            isActive: true,
+            warehouseId: warehousePusat.id,
+            jabatan: 'System Administrator',
+        },
+    })
+
+    // 4. Setup Categories
+    const categories = ['SWITCH', 'ROUTER', 'SFP', 'ONT', 'CABLE', 'ACCESSORY']
+    for (const cat of categories) {
+        await prisma.category.create({
+            data: {
+                name: cat,
+            }
+        })
+    }
+
+    // 5. Setup Item Types and Statuses
+    const itemTypes = ['Baru', 'Dismantle', 'Rusak', 'Return', 'Awal']
+    for (const type of itemTypes) {
+        await prisma.itemType.upsert({
+            where: { name: type },
+            update: {},
+            create: { name: type },
+        })
+    }
+
+    const itemStatuses = ['Belum disetujui', 'Disetujui', 'Ditolak', 'On Progress', 'Di Return', 'In Stock', 'Dipakai', 'Rusak']
+    for (const status of itemStatuses) {
+        await prisma.itemStatus.upsert({
+            where: { name: status },
+            update: {},
+            create: { name: status },
+        })
+    }
+
+    // 6. Setup Sample Default Item
+    const switchCat = await prisma.category.findFirst({ where: { name: 'SWITCH' } })
+
+    if (switchCat) {
+        await prisma.item.upsert({
+            where: { code: 'SW-RB4011' },
+            update: {},
+            create: {
+                code: 'SW-RB4011',
+                name: 'Mikrotik RB4011',
+                hasSN: true,
+                minStock: 5,
+                categoryId: switchCat.id,
+            }
+        })
+    }
+
+    console.log(`Seed successfully finished! Created Master user: ${masterUser.username}`)
+}
+
+main()
+    .catch((e) => {
+        console.error(e)
+        process.exit(1)
+    })
+    .finally(async () => {
+        await prisma.$disconnect()
+    })
