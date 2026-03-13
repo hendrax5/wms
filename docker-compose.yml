@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  wms-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: wms-app
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      # Koneksi internal antar container di Docker Compose
+      - DATABASE_URL=mysql://root:wmspassword@wms-db:3306/wms_2026
+      - NODE_ENV=production
+      # NEXTAUTH_URL & NEXTAUTH_SECRET sebaiknya diset via Coolify Dashboard
+    depends_on:
+      wms-db:
+        condition: service_healthy
+
+  wms-db:
+    image: mysql:8.0
+    container_name: wms-db
+    restart: always
+    environment:
+      - MYSQL_ROOT_PASSWORD=wmspassword
+      - MYSQL_DATABASE=wms_2026
+    ports:
+      - "3306:3306"
+    volumes:
+      - wms_db_data:/var/lib/mysql
+      # File SQL akan otomatis diunggah dan dijalankan saat container DB pertama kali dibuat
+      - ./wms_2026.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-pwmspassword"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  wms_db_data:
