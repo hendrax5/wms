@@ -31,7 +31,7 @@ export default function Header() {
         .split(" ").map((w: string) => w[0]).slice(0, 2).join("").toUpperCase();
 
     return (
-        <header className="h-14 bg-[#020617]/90 backdrop-blur-xl border-b border-[#0F172A] flex items-center justify-between px-4 lg:px-6 shrink-0 z-10">
+        <header className="h-14 bg-background/90 backdrop-blur-xl border-b border-border flex items-center justify-between px-4 lg:px-6 shrink-0 z-10">
             {/* Left: Breadcrumb */}
             <div className="flex items-center gap-2 text-sm">
                 <span className="text-slate-500 hidden sm:block">WMS-2026</span>
@@ -45,7 +45,7 @@ export default function Header() {
                 <input
                     type="text"
                     placeholder="Cari SN, Item, atau PO..."
-                    className="w-full !bg-[#0F172A] !border-[#1E293B] rounded-lg pl-9 pr-4 py-1.5 text-sm text-white placeholder-slate-600 focus:!border-green-500 focus:!ring-1 focus:!ring-green-500/25"
+                    className="w-full !bg-surface !border-surface-2 rounded-lg pl-9 pr-4 py-1.5 text-sm text-white placeholder-slate-600 focus:!border-primary focus:!ring-1 focus:!ring-primary/25"
                     style={{ fontSize: '14px' }}
                 />
             </div>
@@ -53,7 +53,7 @@ export default function Header() {
             {/* Right: Actions */}
             <div className="flex items-center gap-2">
                 {/* Notification Bell */}
-                <button className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-500 hover:text-white hover:bg-[#0F172A] transition-all relative">
+                <button className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-500 hover:text-white hover:bg-surface transition-all relative">
                     <Bell size={17} />
                     <span className="absolute top-1 right-1 w-1.5 h-1.5 bg-green-500 rounded-full" />
                 </button>
@@ -62,7 +62,7 @@ export default function Header() {
                 <div className="relative">
                     <button
                         onClick={() => setShowDropdown(!showDropdown)}
-                        className="flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-lg hover:bg-[#0F172A] transition-all cursor-pointer"
+                        className="flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-lg hover:bg-surface transition-all cursor-pointer"
                     >
                         <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center text-white text-xs font-bold">
                             {initials}
@@ -75,8 +75,8 @@ export default function Header() {
                     {showDropdown && (
                         <>
                             <div className="fixed inset-0 z-40" onClick={() => setShowDropdown(false)} />
-                            <div className="absolute right-0 mt-1 w-44 glass-card border border-[#1E293B] py-1 z-50 shadow-xl">
-                                <div className="px-3 py-2 border-b border-[#1E293B]">
+                            <div className="absolute right-0 mt-1 w-44 glass-card border border-border py-1 z-50 shadow-xl">
+                                <div className="px-3 py-2 border-b border-border">
                                     <p className="text-xs font-semibold text-white">{session?.user?.name || "Admin"}</p>
                                     <p className="text-[10px] text-slate-500">{session?.user?.level || "MASTER"}</p>
                                 </div>

@@ -171,8 +171,8 @@ export default function UsersClient({ initialUsers, warehouses }: { initialUsers
             </div>
 
             {/* Table Card */}
-            <div className={`card !p-0 overflow-hidden border border-[#1E293B] transition-all duration-300`}>
-                <div className="p-4 border-b border-[#1E293B] bg-[#0F172A]/50">
+            <div className={`card !p-0 overflow-hidden border border-border transition-all duration-300`}>
+                <div className="p-4 border-b border-border bg-surface/50">
                     <div className="relative w-full sm:w-80">
                         <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
                         <input
@@ -180,7 +180,7 @@ export default function UsersClient({ initialUsers, warehouses }: { initialUsers
                             placeholder="Cari nama, username, role..."
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
-                            className="input-field pl-10 h-10 bg-[#020617] border-[#1E293B] text-sm"
+                            className="input-field pl-10 h-10 bg-background border-border text-sm"
                         />
                     </div>
                 </div>
@@ -188,7 +188,7 @@ export default function UsersClient({ initialUsers, warehouses }: { initialUsers
                 <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse">
                         <thead>
-                            <tr className="border-b border-[#1E293B] bg-[#020617]/90 text-[10px] uppercase tracking-wider text-slate-500 font-semibold">
+                            <tr className="border-b border-border bg-background/90 text-[10px] uppercase tracking-wider text-slate-500 font-semibold">
                                 <th className="px-5 py-3 w-12 text-center">No</th>
                                 <th className="px-5 py-3">Nama Pengguna</th>
                                 <th className="px-5 py-3">Username</th>
@@ -207,7 +207,7 @@ export default function UsersClient({ initialUsers, warehouses }: { initialUsers
                                 </tr>
                             ) : (
                                 filteredUsers.map((user, idx) => (
-                                    <tr key={user.id} className="border-b border-[#1E293B]/50 hover:bg-[#0F172A] transition-colors">
+                                    <tr key={user.id} className="border-b border-border/50 hover:bg-surface transition-colors">
                                         <td className="px-5 py-3 text-center text-xs text-slate-500">{idx + 1}</td>
                                         <td className="px-5 py-3">
                                             <div className="flex items-center gap-3">
@@ -271,10 +271,10 @@ export default function UsersClient({ initialUsers, warehouses }: { initialUsers
                     <div className="absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity" onClick={closePanel} />
 
                     {/* Panel */}
-                    <div className="relative z-50 w-full max-w-md bg-[#0F172A]/95 backdrop-blur-xl border-l border-slate-800 h-full flex flex-col shadow-2xl overflow-y-auto animate-slide-in">
+                    <div className="relative z-50 w-full max-w-md bg-surface/95 backdrop-blur-xl border-l border-border h-full flex flex-col shadow-2xl overflow-y-auto animate-slide-in">
 
                         {/* Panel Header */}
-                        <div className="flex items-center justify-between px-8 py-6 border-b border-slate-800/60 sticky top-0 z-10 bg-[#0F172A]/80 backdrop-blur-md">
+                        <div className="flex items-center justify-between px-8 py-6 border-b border-border/60 sticky top-0 z-10 bg-surface/80 backdrop-blur-md">
                             <div className="flex items-center gap-4">
                                 <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center border border-primary/20 shadow-inner">
                                     <UserCircle size={22} className="text-primary" />

@@ -4,21 +4,21 @@
 
 
 :root {
-  --background: #020617;
-  --surface: #0F172A;
-  --surface-2: #1E293B;
+  --background: #0B1121;
+  --surface: #111827;
+  --surface-2: #1e293b;
   --foreground: #F8FAFC;
-  --muted-foreground: #94A3B8;
-  --border: rgba(255, 255, 255, 0.06);
-  --border-solid: #1E293B;
-  --primary: #22C55E;
-  --primary-dim: rgba(34, 197, 94, 0.15);
+  --muted-foreground: #9ca3af;
+  --border: rgba(255, 255, 255, 0.05); /* Softer */
+  --border-solid: rgba(255, 255, 255, 0.08); /* More subtle solid border */
+  --primary: #10B981; /* Emerald 500 */
+  --primary-dim: rgba(16, 185, 129, 0.15);
   --blue: #3B82F6;
   --blue-dim: rgba(59, 130, 246, 0.15);
   --amber: #F59E0B;
-  --red: #EF4444;
-  --red-dim: rgba(239, 68, 68, 0.15);
-  --radius: 0.75rem;
+  --red: #fb7185; /* Soft modern red */
+  --red-dim: rgba(251, 113, 133, 0.15);
+  --radius: 1rem; /* Softer radius 16px */
 }
 
 * {
@@ -36,36 +36,37 @@ body {
 
 /* ============ GLASS CARD ============ */
 .glass {
-  background: rgba(15, 23, 42, 0.7);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  background: rgba(17, 24, 39, 0.6);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
   border: 1px solid var(--border);
 }
 
 .glass-card {
-  background: rgba(15, 23, 42, 0.8);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(17, 24, 39, 0.75);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid var(--border);
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.05), 0 4px 20px -2px rgba(0, 0, 0, 0.3);
   border-radius: var(--radius);
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  transition: all 0.3s ease-out;
 }
 
 .glass-card:hover {
-  border-color: rgba(255, 255, 255, 0.12);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.08), 0 12px 32px -4px rgba(0, 0, 0, 0.4);
 }
 
 /* ============ STAT CARD ============ */
 .stat-card {
   background: var(--surface);
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-solid);
   border-radius: var(--radius);
   padding: 1.5rem;
   position: relative;
   overflow: hidden;
-  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
-  cursor: default;
+  transition: all 0.3s ease-out;
+  cursor: pointer;
 }
 
 .stat-card::before {
@@ -82,8 +83,8 @@ body {
 
 .stat-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
-  border-color: rgba(34, 197, 94, 0.2);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
+  border-color: rgba(16, 185, 129, 0.3);
 }
 
 .stat-card:hover::before {

@@ -29,9 +29,9 @@ export default function Sidebar() {
     const pathname = usePathname();
 
     return (
-        <aside className="w-60 bg-[#020617] border-r border-[#0F172A] hidden md:flex flex-col h-full shrink-0">
+        <aside className="w-60 bg-background border-r border-border hidden md:flex flex-col h-full shrink-0">
             {/* Logo */}
-            <div className="h-16 flex items-center px-5 border-b border-[#0F172A]">
+            <div className="h-16 flex items-center px-5 border-b border-border">
                 <div className="flex items-center gap-2.5">
                     <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center shadow-lg shadow-green-500/25">
                         <BoxIcon size={16} className="text-white" />
@@ -65,8 +65,8 @@ export default function Sidebar() {
             </nav>
 
             {/* Footer */}
-            <div className="p-4 border-t border-[#0F172A]">
-                <div className="flex items-center gap-2.5 px-2 py-2 rounded-lg bg-[#0F172A]">
+            <div className="p-4 border-t border-border">
+                <div className="flex items-center gap-2.5 px-2 py-2 rounded-lg bg-surface">
                     <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center text-white text-xs font-bold shrink-0">
                         H
                     </div>
