@@ -43,10 +43,11 @@ Sistem manajemen gudang dan aset terpadu untuk operasional multi-lokasi. Dibangu
 
 ```bash
 # Menggunakan curl:
-bash <(curl -fsSL https://raw.githubusercontent.com/USERNAME/REPO/main/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/hendrax5/wms/refs/heads/main/install.sh)
+
 
 # Menggunakan wget:
-bash <(wget -qO- https://raw.githubusercontent.com/USERNAME/REPO/main/install.sh)
+bash <(wget -qO- https://raw.githubusercontent.com/hendrax5/wms/refs/heads/main/install.sh)
 ```
 
 Script otomatis:
@@ -65,7 +66,7 @@ Script otomatis:
 
 **1. Clone repository**
 ```bash
-git clone https://github.com/USERNAME/REPO.git /opt/wms
+git clone https://github.com/hendrax5/wms.git /opt/wms
 cd /opt/wms
 ```
 
