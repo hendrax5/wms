@@ -1,0 +1,85 @@
+node.exe : warn The 
+configuration property 
+`package.json#prisma` 
+is deprecated and will 
+be removed in Prisma 
+7. Please migrate to a 
+Prisma config file 
+(e.g., 
+`prisma.config.ts`).
+At line:1 char:1
++ & "C:\Program 
+Files\nodejs/node.exe" 
+"C:\Program 
+Files\nodejs/node_mo 
+...
++ ~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~
+~~
+    + CategoryInfo     
+         : NotSpecifi  
+  ed: (warn The conf   
+ ig...ma.config.ts`    
+).:String) [], Rem    
+oteException
+    + FullyQualifiedEr 
+   rorId : NativeComm  
+  andError
+ 
+For more information, 
+see: https://pris.ly/pr
+isma-config
+
+Loaded Prisma config 
+from prisma.config.ts.
+
+warn The Prisma config 
+file in 
+prisma.config.ts 
+overrides the 
+deprecated 
+`package.json#prisma` 
+property in 
+package.json.
+  For more 
+information, see: https
+://pris.ly/prisma-confi
+g
+
+Prisma config 
+detected, skipping 
+environment variable 
+loading.
+Prisma schema loaded from prisma\schema.prisma
+Datasource "db": MySQL database "wms_2026" at "localhost:3306"
+Error: Incorrect 
+datetime value: 
+'0000-00-00 
+00:00:00.000' for 
+column 'updatedAt' at 
+row 180147
+   0: sql_schema_connec
+tor::apply_migration::m
+igration_step
+           with 
+step=AddForeignKey { 
+foreign_key_id: 
+ForeignKeyId(19) }
+             at schema-
+engine\connectors\sql-s
+chema-connector\src\app
+ly_migration.rs:28
+   1: sql_schema_connec
+tor::apply_migration::a
+pply_migration
+             at schema-
+engine\connectors\sql-s
+chema-connector\src\app
+ly_migration.rs:11
+   2: schema_core::stat
+e::SchemaPush
+             at schema-
+engine\core\src\state.r
+s:545
+

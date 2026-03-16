@@ -2,7 +2,7 @@
 
 import {
     Package, ArrowDownLeft, ArrowUpRight, AlertTriangle,
-    Building2, Activity, Hash, Boxes, TrendingUp, ArrowRight
+    Building2, Activity, Hash, Boxes, TrendingUp, ArrowRight, Cpu, Wrench
 } from "lucide-react";
 import { Prisma } from "@prisma/client";
 import Link from "next/link";
@@ -81,11 +81,13 @@ const statCards = (stats: DashboardStats | null) => [
 export default function DashboardClient({
     initialStats,
     initialAlerts,
-    initialTrx
+    initialTrx,
+    assetStats
 }: {
     initialStats: DashboardStats | null,
     initialAlerts: LowStockProp[],
-    initialTrx: RecentTrx[]
+    initialTrx: RecentTrx[],
+    assetStats?: { active: number; maintenance: number; damaged: number; total: number }
 }) {
     const stats = initialStats;
     const lowStocks = initialAlerts || [];
@@ -121,7 +123,7 @@ export default function DashboardClient({
                 </div>
             </div>
 
-            {/* Stat Cards */}
+            {/* Stat Cards — WMS */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
                 {cards.map((card, i) => (
                     <Link href={card.link} key={i} className={`stat-card group animate-fade-in ${card.delay} ${card.border} cursor-pointer`}>
@@ -141,6 +143,28 @@ export default function DashboardClient({
                     </Link>
                 ))}
             </div>
+
+            {/* Stat Cards — Asset Management */}
+            {assetStats !== undefined && (
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                    <Link href="/assets" className="stat-card group cursor-pointer hover:border-blue-500/30">
+                        <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center mb-3">
+                            <Cpu size={16} className="text-blue-400" />
+                        </div>
+                        <p className="text-xs font-medium text-slate-500 mb-1">Aset Aktif</p>
+                        <p className="text-2xl font-bold text-blue-400">{assetStats.active.toLocaleString('id-ID')}</p>
+                        <p className="text-[11px] text-slate-600 mt-0.5">Ter-deploy di lapangan</p>
+                    </Link>
+                    <Link href="/assets/maintenance" className="stat-card group cursor-pointer hover:border-yellow-500/30">
+                        <div className="w-8 h-8 rounded-lg bg-yellow-500/10 flex items-center justify-center mb-3">
+                            <Wrench size={16} className="text-yellow-400" />
+                        </div>
+                        <p className="text-xs font-medium text-slate-500 mb-1">Maintenance Overdue</p>
+                        <p className="text-2xl font-bold text-yellow-400">{(assetStats.maintenance).toLocaleString('id-ID')}</p>
+                        <p className="text-[11px] text-slate-600 mt-0.5">Perlu perhatian segera</p>
+                    </Link>
+                </div>
+            )}
 
             {/* Main Content Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 lg:gap-6">

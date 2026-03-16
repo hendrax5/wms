@@ -54,16 +54,16 @@ model Company {
 }
 
 model CustomerInstallation {
-  id              Int            @id @default(autoincrement())
+  id              Int           @id @default(autoincrement())
   customerName    String
   customerAddress String?
   itemId          Int
   serialNumberId  Int?
   installedBy     String?
-  installedAt     DateTime       @default(now())
+  installedAt     DateTime      @default(now())
   description     String?
-  item            Item           @relation(fields: [itemId], references: [id], map: "CustomerInstallation_itemId_fkey")
-  serialnumber    SerialNumber?  @relation(fields: [serialNumberId], references: [id], map: "CustomerInstallation_serialNumberId_fkey")
+  item            Item          @relation(fields: [itemId], references: [id], map: "CustomerInstallation_itemId_fkey")
+  serialnumber    SerialNumber? @relation(fields: [serialNumberId], references: [id], map: "CustomerInstallation_serialNumberId_fkey")
 
   @@index([itemId], map: "CustomerInstallation_itemId_idx")
   @@index([serialNumberId], map: "CustomerInstallation_serialNumberId_idx")
@@ -120,29 +120,34 @@ model Distributor {
 }
 
 model Item {
-  id                   Int                    @id @default(autoincrement())
-  code                 String                 @unique(map: "Item_code_key")
-  name                 String
-  hasSN                Boolean                @default(true)
-  minStock             Int                    @default(0)
-  unit                 String                 @default("Pcs")
-  price                Float                  @default(0)
-  companyId            Int?
-  categoryId           Int?
-  createdAt            DateTime               @default(now())
-  updatedAt            DateTime
-  customerinstallation CustomerInstallation[]
-  damageditem          DamagedItem[]
-  category             Category?              @relation(fields: [categoryId], references: [id], map: "Item_categoryId_fkey")
-  company              Company?               @relation(fields: [companyId], references: [id], map: "Item_companyId_fkey")
-  popinstallation      PopInstallation[]
-  purchaseorderitem    PurchaseOrderItem[]
-  serialnumber         SerialNumber[]
-  stockin              StockIn[]
-  stockout             StockOut[]
-  stockrequestdetail   StockRequestDetail[]
-  stocktransfer        StockTransfer[]
-  warehousestock       WarehouseStock[]
+  id                    Int                     @id @default(autoincrement())
+  code                  String                  @unique(map: "Item_code_key")
+  name                  String
+  hasSN                 Boolean                 @default(true)
+  minStock              Int                     @default(0)
+  unit                  String                  @default("Pcs")
+  price                 Float                   @default(0)
+  companyId             Int?
+  categoryId            Int?
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime
+  customerinstallation  CustomerInstallation[]
+  damageditem           DamagedItem[]
+  category              Category?               @relation(fields: [categoryId], references: [id], map: "Item_categoryId_fkey")
+  company               Company?                @relation(fields: [companyId], references: [id], map: "Item_companyId_fkey")
+  popinstallation       PopInstallation[]
+  purchaseorderitem     PurchaseOrderItem[]
+  serialnumber          SerialNumber[]
+  stockin               StockIn[]
+  stockout              StockOut[]
+  stockrequestdetail    StockRequestDetail[]
+  stocktransfer         StockTransfer[]
+  warehousestock        WarehouseStock[]
+  itembatch             ItemBatch[]
+  stockadjustmentdetail StockAdjustmentDetail[]
+  stockopnamedetail     StockOpnameDetail[]
+  inventorylog          InventoryLog[]
+  asset                 Asset[]
 
   @@index([categoryId], map: "Item_categoryId_idx")
   @@index([companyId], map: "Item_companyId_idx")
@@ -246,6 +251,7 @@ model SerialNumber {
   typeId               Int
   statusId             Int
   warehouseId          Int?
+  rackId               Int?
   popId                Int?
   customerId           Int?
   createdAt            DateTime               @default(now())
@@ -258,8 +264,10 @@ model SerialNumber {
   itemstatus           ItemStatus             @relation(fields: [statusId], references: [id], map: "SerialNumber_statusId_fkey")
   itemtype             ItemType               @relation(fields: [typeId], references: [id], map: "SerialNumber_typeId_fkey")
   warehouse            Warehouse?             @relation(fields: [warehouseId], references: [id], map: "SerialNumber_warehouseId_fkey")
+  rack                 Rack?                  @relation(fields: [rackId], references: [id])
   stockinserial        StockInSerial[]
   stockoutserial       StockOutSerial[]
+  asset                Asset?
 
   @@index([itemId], map: "SerialNumber_itemId_idx")
   @@index([popId], map: "SerialNumber_popId_idx")
@@ -315,7 +323,7 @@ model StockInSerial {
 }
 
 model StockOut {
-  id                                              Int              @id @default(autoincrement())
+  id                                              Int               @id @default(autoincrement())
   outType                                         stockout_outType
   warehouseId                                     Int
   itemId                                          Int
@@ -330,15 +338,16 @@ model StockOut {
   techName2                                       String?
   description                                     String?
   location                                        String?
-  createdAt                                       DateTime         @default(now())
-  category                                        Category?        @relation(fields: [categoryId], references: [id], map: "StockOut_categoryId_fkey")
-  company                                         Company?         @relation(fields: [companyId], references: [id], map: "StockOut_companyId_fkey")
-  item                                            Item             @relation(fields: [itemId], references: [id], map: "StockOut_itemId_fkey")
-  pop                                             Pop?             @relation(fields: [popId], references: [id], map: "StockOut_popId_fkey")
-  warehouse_stockout_targetWarehouseIdTowarehouse Warehouse?       @relation("stockout_targetWarehouseIdTowarehouse", fields: [targetWarehouseId], references: [id], map: "StockOut_targetWarehouseId_fkey")
-  itemtype                                        ItemType?        @relation(fields: [typeId], references: [id], map: "StockOut_typeId_fkey")
-  warehouse_stockout_warehouseIdTowarehouse       Warehouse        @relation("stockout_warehouseIdTowarehouse", fields: [warehouseId], references: [id], map: "StockOut_warehouseId_fkey")
+  createdAt                                       DateTime          @default(now())
+  category                                        Category?         @relation(fields: [categoryId], references: [id], map: "StockOut_categoryId_fkey")
+  company                                         Company?          @relation(fields: [companyId], references: [id], map: "StockOut_companyId_fkey")
+  item                                            Item              @relation(fields: [itemId], references: [id], map: "StockOut_itemId_fkey")
+  pop                                             Pop?              @relation(fields: [popId], references: [id], map: "StockOut_popId_fkey")
+  warehouse_stockout_targetWarehouseIdTowarehouse Warehouse?        @relation("stockout_targetWarehouseIdTowarehouse", fields: [targetWarehouseId], references: [id], map: "StockOut_targetWarehouseId_fkey")
+  itemtype                                        ItemType?         @relation(fields: [typeId], references: [id], map: "StockOut_typeId_fkey")
+  warehouse_stockout_warehouseIdTowarehouse       Warehouse         @relation("stockout_warehouseIdTowarehouse", fields: [warehouseId], references: [id], map: "StockOut_warehouseId_fkey")
   stockoutserial                                  StockOutSerial[]
+  deliverymanifest                                DeliveryManifest?
 
   @@index([categoryId], map: "StockOut_categoryId_fkey")
   @@index([companyId], map: "StockOut_companyId_fkey")
@@ -408,6 +417,7 @@ model StockTransfer {
   warehouse_stocktransfer_fromWarehouseIdTowarehouse Warehouse            @relation("stocktransfer_fromWarehouseIdTowarehouse", fields: [fromWarehouseId], references: [id], map: "StockTransfer_fromWarehouseId_fkey")
   item                                               Item                 @relation(fields: [itemId], references: [id], map: "StockTransfer_itemId_fkey")
   warehouse_stocktransfer_toWarehouseIdTowarehouse   Warehouse            @relation("stocktransfer_toWarehouseIdTowarehouse", fields: [toWarehouseId], references: [id], map: "StockTransfer_toWarehouseId_fkey")
+  deliverymanifest                                   DeliveryManifest?
 
   @@index([fromWarehouseId], map: "StockTransfer_fromWarehouseId_idx")
   @@index([itemId], map: "StockTransfer_itemId_idx")
@@ -416,44 +426,54 @@ model StockTransfer {
 }
 
 model User {
-  id          Int        @id @default(autoincrement())
-  username    String     @unique(map: "User_username_key")
-  password    String
-  name        String
-  phone       String?
-  level       user_level @default(STAFF)
-  jabatan     String?
-  isActive    Boolean    @default(true)
-  warehouseId Int?
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime
-  area        Area[]
-  warehouse   Warehouse? @relation(fields: [warehouseId], references: [id], map: "User_warehouseId_fkey")
+  id                       Int                   @id @default(autoincrement())
+  username                 String                @unique(map: "User_username_key")
+  password                 String
+  name                     String
+  phone                    String?
+  level                    user_level            @default(STAFF)
+  jabatan                  String?
+  isActive                 Boolean               @default(true)
+  warehouseId              Int?
+  createdAt                DateTime              @default(now())
+  updatedAt                DateTime
+  area                     Area[]
+  warehouse                Warehouse?            @relation(fields: [warehouseId], references: [id], map: "User_warehouseId_fkey")
+  stockadjustment_created  StockAdjustment[]     @relation("adjustment_createdBy")
+  stockadjustment_approved StockAdjustment[]     @relation("adjustment_approvedBy")
+  stockopname              StockOpname[]         @relation("opname_pic")
+  inventorylog             InventoryLog[]
+  asset                    Asset[]
+  assetmaintenancelog      AssetMaintenanceLog[]
 
   @@index([warehouseId], map: "User_warehouseId_idx")
   @@map("user")
 }
 
 model Warehouse {
-  id                                                     Int              @id @default(autoincrement())
+  id                                                     Int               @id @default(autoincrement())
   name                                                   String
   location                                               String?
-  type                                                   warehouse_type   @default(CABANG)
+  type                                                   warehouse_type    @default(CABANG)
   areaId                                                 Int?
-  createdAt                                              DateTime         @default(now())
+  createdAt                                              DateTime          @default(now())
   updatedAt                                              DateTime
   damageditem                                            DamagedItem[]
   pop                                                    Pop[]
   serialnumber                                           SerialNumber[]
   stockin                                                StockIn[]
-  stockout_stockout_targetWarehouseIdTowarehouse         StockOut[]       @relation("stockout_targetWarehouseIdTowarehouse")
-  stockout_stockout_warehouseIdTowarehouse               StockOut[]       @relation("stockout_warehouseIdTowarehouse")
+  stockout_stockout_targetWarehouseIdTowarehouse         StockOut[]        @relation("stockout_targetWarehouseIdTowarehouse")
+  stockout_stockout_warehouseIdTowarehouse               StockOut[]        @relation("stockout_warehouseIdTowarehouse")
   stockrequest                                           StockRequest[]
-  stocktransfer_stocktransfer_fromWarehouseIdTowarehouse StockTransfer[]  @relation("stocktransfer_fromWarehouseIdTowarehouse")
-  stocktransfer_stocktransfer_toWarehouseIdTowarehouse   StockTransfer[]  @relation("stocktransfer_toWarehouseIdTowarehouse")
+  stocktransfer_stocktransfer_fromWarehouseIdTowarehouse StockTransfer[]   @relation("stocktransfer_fromWarehouseIdTowarehouse")
+  stocktransfer_stocktransfer_toWarehouseIdTowarehouse   StockTransfer[]   @relation("stocktransfer_toWarehouseIdTowarehouse")
   user                                                   User[]
-  area                                                   Area?            @relation(fields: [areaId], references: [id], map: "Warehouse_areaId_fkey")
+  area                                                   Area?             @relation(fields: [areaId], references: [id], map: "Warehouse_areaId_fkey")
   warehousestock                                         WarehouseStock[]
+  rack                                                   Rack[]
+  stockadjustment                                        StockAdjustment[]
+  stockopname                                            StockOpname[]
+  inventorylog                                           InventoryLog[]
 
   @@index([areaId], map: "Warehouse_areaId_idx")
   @@map("warehouse")
@@ -463,6 +483,7 @@ model WarehouseStock {
   id             Int       @id @default(autoincrement())
   itemId         Int
   warehouseId    Int
+  rackId         Int?
   stockNew       Int       @default(0)
   stockDismantle Int       @default(0)
   stockDamaged   Int       @default(0)
@@ -470,6 +491,7 @@ model WarehouseStock {
   updatedAt      DateTime
   item           Item      @relation(fields: [itemId], references: [id], map: "WarehouseStock_itemId_fkey")
   warehouse      Warehouse @relation(fields: [warehouseId], references: [id], map: "WarehouseStock_warehouseId_fkey")
+  rack           Rack?     @relation(fields: [rackId], references: [id])
 
   @@unique([itemId, warehouseId], map: "WarehouseStock_itemId_warehouseId_key")
   @@index([warehouseId], map: "WarehouseStock_warehouseId_idx")
@@ -505,4 +527,235 @@ enum purchaseorderitem_currency {
   IDR
   USD
   EUR
+}
+
+enum stockadjustment_type {
+  PLUS
+  MINUS
+}
+
+enum stockopname_status {
+  DRAFT
+  FROZEN
+  COMPLETED
+}
+
+enum deliverymanifest_status {
+  PREPARING
+  IN_TRANSIT
+  DELIVERED
+  FAILED
+}
+
+enum inventorylog_type {
+  INBOUND
+  OUTBOUND
+  TRANSFER
+  ADJUSTMENT
+  OPNAME
+}
+
+model Rack {
+  id             Int              @id @default(autoincrement())
+  warehouseId    Int
+  code           String
+  description    String?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  warehouse      Warehouse        @relation(fields: [warehouseId], references: [id])
+  warehousestock WarehouseStock[]
+  serialnumber   SerialNumber[]
+
+  @@unique([warehouseId, code])
+  @@index([warehouseId])
+  @@map("rack")
+}
+
+model ItemBatch {
+  id                    Int                     @id @default(autoincrement())
+  batchNumber           String
+  itemId                Int
+  qty                   Int                     @default(0)
+  productionDate        DateTime?
+  expiryDate            DateTime?
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @updatedAt
+  item                  Item                    @relation(fields: [itemId], references: [id])
+  stockadjustmentdetail StockAdjustmentDetail[]
+
+  @@unique([itemId, batchNumber])
+  @@index([itemId])
+  @@map("itembatch")
+}
+
+model StockAdjustment {
+  id           Int                     @id @default(autoincrement())
+  warehouseId  Int
+  date         DateTime                @default(now())
+  type         stockadjustment_type
+  reason       String?
+  status       String                  @default("PENDING")
+  createdBy    Int?
+  approvedBy   Int?
+  createdAt    DateTime                @default(now())
+  updatedAt    DateTime                @updatedAt
+  warehouse    Warehouse               @relation(fields: [warehouseId], references: [id])
+  userCreated  User?                   @relation("adjustment_createdBy", fields: [createdBy], references: [id])
+  userApproved User?                   @relation("adjustment_approvedBy", fields: [approvedBy], references: [id])
+  details      StockAdjustmentDetail[]
+
+  @@index([warehouseId])
+  @@map("stockadjustment")
+}
+
+model StockAdjustmentDetail {
+  id              Int             @id @default(autoincrement())
+  adjustmentId    Int
+  itemId          Int
+  batchId         Int?
+  qty             Int
+  stockadjustment StockAdjustment @relation(fields: [adjustmentId], references: [id], onDelete: Cascade)
+  item            Item            @relation(fields: [itemId], references: [id])
+  itembatch       ItemBatch?      @relation(fields: [batchId], references: [id])
+
+  @@index([adjustmentId])
+  @@index([itemId])
+  @@map("stockadjustmentdetail")
+}
+
+model StockOpname {
+  id          Int                 @id @default(autoincrement())
+  warehouseId Int
+  startDate   DateTime            @default(now())
+  endDate     DateTime?
+  status      stockopname_status  @default(DRAFT)
+  picId       Int?
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  warehouse   Warehouse           @relation(fields: [warehouseId], references: [id])
+  pic         User?               @relation("opname_pic", fields: [picId], references: [id])
+  details     StockOpnameDetail[]
+
+  @@index([warehouseId])
+  @@map("stockopname")
+}
+
+model StockOpnameDetail {
+  id          Int         @id @default(autoincrement())
+  opnameId    Int
+  itemId      Int
+  systemQty   Int
+  actualQty   Int
+  difference  Int
+  reason      String?
+  stockopname StockOpname @relation(fields: [opnameId], references: [id], onDelete: Cascade)
+  item        Item        @relation(fields: [itemId], references: [id])
+
+  @@index([opnameId])
+  @@index([itemId])
+  @@map("stockopnamedetail")
+}
+
+model DeliveryManifest {
+  id            Int                     @id @default(autoincrement())
+  code          String                  @unique
+  transferId    Int?                    @unique
+  outId         Int?                    @unique
+  courier       String?
+  driver        String?
+  vehiclePlate  String?
+  status        deliverymanifest_status @default(PREPARING)
+  dispatchedAt  DateTime?
+  deliveredAt   DateTime?
+  createdAt     DateTime                @default(now())
+  updatedAt     DateTime                @updatedAt
+  stocktransfer StockTransfer?          @relation(fields: [transferId], references: [id])
+  stockout      StockOut?               @relation(fields: [outId], references: [id])
+
+  @@map("deliverymanifest")
+}
+
+model InventoryLog {
+  id          Int               @id @default(autoincrement())
+  warehouseId Int
+  itemId      Int
+  type        inventorylog_type
+  referenceId Int?
+  qtyChange   Int
+  finalQty    Int
+  userId      Int?
+  createdAt   DateTime          @default(now())
+  warehouse   Warehouse         @relation(fields: [warehouseId], references: [id])
+  item        Item              @relation(fields: [itemId], references: [id])
+  user        User?             @relation(fields: [userId], references: [id])
+
+  @@index([warehouseId])
+  @@index([itemId])
+  @@index([createdAt])
+  @@map("inventorylog")
+}
+
+enum asset_status {
+  ACTIVE
+  MAINTENANCE
+  DAMAGED
+  DECOMMISSIONED
+}
+
+model Asset {
+  id             Int          @id @default(autoincrement())
+  serialNumberId Int          @unique
+  itemId         Int
+  siteId         Int?
+  assignedToUser Int?
+  purchasePrice  Float        @default(0)
+  status         asset_status @default(ACTIVE)
+  installedAt    DateTime     @default(now())
+  warrantyExpiry DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  serialnumber    SerialNumber          @relation(fields: [serialNumberId], references: [id])
+  item            Item                  @relation(fields: [itemId], references: [id])
+  user            User?                 @relation(fields: [assignedToUser], references: [id])
+  depreciations   AssetDepreciation[]
+  maintenancelogs AssetMaintenanceLog[]
+
+  @@index([itemId])
+  @@index([assignedToUser])
+  @@map("asset")
+}
+
+model AssetDepreciation {
+  id                Int      @id @default(autoincrement())
+  assetId           Int
+  periodDate        DateTime
+  depreciationValue Float
+  bookValue         Float
+  createdAt         DateTime @default(now())
+
+  asset Asset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@index([assetId])
+  @@map("assetdepreciation")
+}
+
+model AssetMaintenanceLog {
+  id            Int       @id @default(autoincrement())
+  assetId       Int
+  technicianId  Int
+  scheduledDate DateTime
+  completedDate DateTime?
+  findings      String?
+  actionTaken   String?
+  status        String    @default("SCHEDULED")
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  asset      Asset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  technician User  @relation(fields: [technicianId], references: [id])
+
+  @@index([assetId])
+  @@index([technicianId])
+  @@map("assetmaintenancelog")
 }

@@ -11,7 +11,11 @@ import {
     Package,
     FileBarChart,
     Database,
-    BoxIcon
+    BoxIcon,
+    Cpu,
+    Wrench,
+    ScanLine,
+    RotateCcw
 } from "lucide-react";
 
 const links = [
@@ -23,6 +27,13 @@ const links = [
     { href: "/stock", label: "Stok Gudang", icon: Package },
     { href: "/reports", label: "Laporan", icon: FileBarChart },
     { href: "/master", label: "Master Data", icon: Database },
+];
+
+const assetLinks = [
+    { href: "/assets", label: "Daftar Aset", icon: Cpu },
+    { href: "/assets/maintenance", label: "Maintenance", icon: Wrench },
+    { href: "/dashboard/technician/deploy", label: "Scan & Deploy", icon: ScanLine },
+    { href: "/dashboard/technician/return", label: "Return Aset", icon: RotateCcw },
 ];
 
 export default function Sidebar() {
@@ -58,6 +69,24 @@ export default function Sidebar() {
                             <span>{link.label}</span>
                             {isActive && (
                                 <span className="ml-auto w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse-glow" />
+                            )}
+                        </Link>
+                    );
+                })}
+
+                <p className="text-[10px] font-semibold text-slate-600 uppercase tracking-widest px-3 mb-2 mt-4">Asset Management</p>
+                {assetLinks.map((link) => {
+                    const isActive = pathname === link.href || (link.href !== "/" && pathname.startsWith(link.href));
+                    return (
+                        <Link
+                            key={link.href}
+                            href={link.href}
+                            className={`nav-link ${isActive ? "active" : ""}`}
+                        >
+                            <link.icon size={17} className="shrink-0" />
+                            <span>{link.label}</span>
+                            {isActive && (
+                                <span className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse-glow" />
                             )}
                         </Link>
                     );

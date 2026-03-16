@@ -1,59 +1,61 @@
 FROM node:20-alpine AS base
 
-# Install dependencies only when needed
+# ─── Stage 1: Install dependencies ───────────────────────────────────────────
 FROM base AS deps
-# Check https://github.com/nodejs/docker-node/tree/b4117f9333da4138b03a546ec926ef50a31506c3#nodealpine to understand why libc6-compat might be needed.
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
-# Install dependencies based on the preferred package manager
 COPY package.json package-lock.json* ./
 RUN npm ci
 
-# Rebuild the source code only when needed
+# ─── Stage 2: Build the Next.js app ──────────────────────────────────────────
 FROM base AS builder
 WORKDIR /app
+
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Generate prisma client before build
+# Generate Prisma client before build
 RUN npx prisma generate
 
-# Next.js disables telemetry during the build.
-ENV NEXT_TELEMETRY_DISABLED 1
+# Disable Next.js telemetry
+ENV NEXT_TELEMETRY_DISABLED=1
 
-# If using npm comment out above and use below instead
+# Build the app (standalone output configured in next.config.ts)
 RUN npm run build
 
-# Production image, copy all the files and run next
+# ─── Stage 3: Production runner ──────────────────────────────────────────────
 FROM base AS runner
 WORKDIR /app
 
-ENV NODE_ENV production
-# Uncomment the following line in case you want to disable telemetry during runtime.
-ENV NEXT_TELEMETRY_DISABLED 1
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
 
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nextjs
+# Create non-root user for security
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser  --system --uid 1001 nextjs
 
+# Copy public assets
 COPY --from=builder /app/public ./public
 
-# Set the correct permission for prerender cache
-RUN mkdir .next
-RUN chown nextjs:nodejs .next
+# Create .next dir with correct permissions
+RUN mkdir .next && chown nextjs:nodejs .next
 
-# Automatically leverage output traces to reduce image size
-# https://nextjs.org/docs/advanced-features/output-file-tracing
+# Copy standalone build artifacts
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
-COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static    ./.next/static
+
+# Copy Prisma schema + generated client (needed at runtime for DB migrations)
+COPY --from=builder --chown=nextjs:nodejs /app/prisma                ./prisma
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.prisma  ./node_modules/.prisma
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma  ./node_modules/@prisma
 
 USER nextjs
 
 EXPOSE 3000
+ENV PORT=3000
+ENV HOSTNAME="0.0.0.0"
 
-ENV PORT 3000
+# Run the standalone Next.js server
+CMD ["node", "server.js"]
 
-# Next.js standalone server
-CMD HOSTNAME="0.0.0.0" node server.js

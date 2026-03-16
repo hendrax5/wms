@@ -1,0 +1,88 @@
+Starting DB Seed...
+node.exe : PrismaClient
+ValidationError: 
+At line:1 char:1
++ & "C:\Program 
+Files\nodejs/node.exe" 
+"C:\Program 
+Files\nodejs/node_mo 
+...
++ ~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~
+~~
+    + CategoryInfo     
+         : NotSpecifi  
+  ed: (PrismaClientV   
+ alidationError: :S    
+tring) [], RemoteE    
+xception
+    + FullyQualifiedEr 
+   rorId : NativeComm  
+  andError
+ 
+Invalid 
+`prisma.area.upsert()` 
+invocation in
+D:\github-desktop\wms\p
+risma\seed.ts:10:41
+
+   7 
+console.log('Starting 
+DB Seed...')
+   8 
+   9 // 1. Setup Admin 
+Area
+??? 10 const areaPusat 
+= await 
+prisma.area.upsert({
+       where: {
+         name: 
+"JABODETABEK"
+       },
+       update: {},
+       create: {
+         name: 
+"JABODETABEK",
+     +   updatedAt: 
+DateTime
+       }
+     })
+
+Argument `updatedAt` 
+is missing.
+    at throwValidationE
+xception (D:\github-des
+ktop\wms\node_modules\@
+prisma\client\src\runti
+me\core\errorRendering\
+throwValidationExceptio
+n.ts:45:9)
+    at 
+ei.handleRequestError (
+D:\github-desktop\wms\n
+ode_modules\@prisma\cli
+ent\src\runtime\Request
+Handler.ts:202:7)
+    at ei.handleAndLogR
+equestError (D:\github-
+desktop\wms\node_module
+s\@prisma\client\src\ru
+ntime\RequestHandler.ts
+:174:12)
+    at ei.request (D:\g
+ithub-desktop\wms\node_
+modules\@prisma\client\
+src\runtime\RequestHand
+ler.ts:143:12)
+    at async a (D:\gith
+ub-desktop\wms\node_mod
+ules\@prisma\client\src
+\runtime\getPrismaClien
+t.ts:833:24)
+    at async main (D:\g
+ithub-desktop\wms\prism
+a\seed.ts:10:23) {
+  clientVersion: 
+'6.19.2'
+}

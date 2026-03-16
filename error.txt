@@ -1,0 +1,543 @@
+node.exe : warn The 
+configuration property 
+`package.json#prisma` 
+is deprecated and will 
+be removed in Prisma 
+7. Please migrate to a 
+Prisma config file 
+(e.g., 
+`prisma.config.ts`).
+At line:1 char:1
++ & "C:\Program 
+Files\nodejs/node.exe" 
+"C:\Program 
+Files\nodejs/node_mo 
+...
++ ~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~
+~~
+    + CategoryInfo     
+         : NotSpecifi  
+  ed: (warn The conf   
+ ig...ma.config.ts`    
+).:String) [], Rem    
+oteException
+    + FullyQualifiedEr 
+   rorId : NativeComm  
+  andError
+ 
+For more information, 
+see: https://pris.ly/pr
+isma-config
+
+Loaded Prisma config 
+from prisma.config.ts.
+
+warn The Prisma config 
+file in 
+prisma.config.ts 
+overrides the 
+deprecated 
+`package.json#prisma` 
+property in 
+package.json.
+  For more 
+information, see: https
+://pris.ly/prisma-confi
+g
+
+Prisma config 
+detected, skipping 
+environment variable 
+loading.
+Prisma schema loaded from prisma\schema.prisma
+
+Error: Prisma schema 
+validation - (validate 
+wasm)
+Error code: P1012
+[1;91merror[0m: 
+[1mError validating 
+field `warehouse` in 
+model `Rack`: The 
+relation field 
+`warehouse` on model 
+`Rack` is missing an 
+opposite relation 
+field on the model 
+`Warehouse`. Either 
+run `prisma format` or 
+add it manually.[0m
+  [1;94m-->[0m  [4mp
+risma\schema.prisma:547
+[0m
+[1;94m   | [0m
+[1;94m546 | [0m  
+updatedAt      
+DateTime         
+@updatedAt
+[1;94m547 | [0m  
+[1;91mwarehouse      
+Warehouse        
+@relation(fields: 
+[warehouseId], 
+references: [id])
+[0m
+[1;94m548 | [0m  
+warehousestock 
+WarehouseStock[]
+[1;94m   | [0m
+[1;91merror[0m: 
+[1mError validating 
+field `item` in model 
+`ItemBatch`: The 
+relation field `item` 
+on model `ItemBatch` 
+is missing an opposite 
+relation field on the 
+model `Item`. Either 
+run `prisma format` or 
+add it manually.[0m
+  [1;94m-->[0m  [4mp
+risma\schema.prisma:565
+[0m
+[1;94m   | [0m
+[1;94m564 | [0m  
+updatedAt             
+DateTime               
+ @updatedAt
+[1;94m565 | [0m  
+[1;91mitem            
+      Item             
+       
+@relation(fields: 
+[itemId], references: 
+[id])
+[0m
+[1;94m566 | [0m  
+stockadjustmentdetail 
+StockAdjustmentDetail[]
+[1;94m   | [0m
+[1;91merror[0m: 
+[1mError validating 
+field `warehouse` in 
+model 
+`StockAdjustment`: The 
+relation field 
+`warehouse` on model 
+`StockAdjustment` is 
+missing an opposite 
+relation field on the 
+model `Warehouse`. 
+Either run `prisma 
+format` or add it 
+manually.[0m
+  [1;94m-->[0m  [4mp
+risma\schema.prisma:584
+[0m
+[1;94m   | [0m
+[1;94m583 | [0m  
+updatedAt   DateTime   
+             @updatedAt
+[1;94m584 | [0m  
+[1;91mwarehouse   
+Warehouse              
+ @relation(fields: 
+[warehouseId], 
+references: [id])
+[0m
+[1;94m585 | [0m  
+userCreated User?      
+             @relation(
+"adjustment_createdBy",
+ fields: [createdBy], 
+references: [id])
+[1;94m   | [0m
+[1;91merror[0m: 
+[1mError validating 
+field `userCreated` in 
+model 
+`StockAdjustment`: The 
+relation field 
+`userCreated` on model 
+`StockAdjustment` is 
+missing an opposite 
+relation field on the 
+model `User`. Either 
+run `prisma format` or 
+add it manually.[0m
+  [1;94m-->[0m  [4mp
+risma\schema.prisma:585
+[0m
+[1;94m   | [0m
+[1;94m584 | [0m  
+warehouse   Warehouse  
+             
+@relation(fields: 
+[warehouseId], 
+references: [id])
+[1;94m585 | [0m  
+[1;91muserCreated 
+User?                  
+ @relation("adjustment_
+createdBy", fields: 
+[createdBy], 
+references: [id])
+[0m
+[1;94m586 | [0m  
+userApproved User?     
+             @relation(
+"adjustment_approvedBy"
+, fields: 
+[approvedBy], 
+references: [id])
+[1;94m   | [0m
+[1;91merror[0m: 
+[1mError validating 
+field `userApproved` 
+in model 
+`StockAdjustment`: The 
+relation field 
+`userApproved` on 
+model 
+`StockAdjustment` is 
+missing an opposite 
+relation field on the 
+model `User`. Either 
+run `prisma format` or 
+add it manually.[0m
+  [1;94m-->[0m  [4mp
+risma\schema.prisma:586
+[0m
+[1;94m   | [0m
+[1;94m585 | [0m  
+userCreated User?      
+             @relation(
+"adjustment_createdBy",
+ fields: [createdBy], 
+references: [id])
+[1;94m586 | [0m  
+[1;91muserApproved 
+User?                  
+@relation("adjustment_a
+pprovedBy", fields: 
+[approvedBy], 
+references: [id])
+[0m
+[1;94m587 | [0m  
+details     
+StockAdjustmentDetail[]
+[1;94m   | [0m
+[1;91merror[0m: 
+[1mError validating 
+field `item` in model `
+StockAdjustmentDetail`:
+ The relation field 
+`item` on model `StockA
+djustmentDetail` is 
+missing an opposite 
+relation field on the 
+model `Item`. Either 
+run `prisma format` or 
+add it manually.[0m
+  [1;94m-->[0m  [4mp
+risma\schema.prisma:600
+[0m
+[1;94m   | [0m
+[1;94m599 | [0m  
+stockadjustment   
+StockAdjustment 
+@relation(fields: 
+[adjustmentId], 
+references: [id], 
+onDelete: Cascade)
+[1;94m600 | [0m  
+[1;91mitem            
+  Item            
+@relation(fields: 
+[itemId], references: 
+[id])
+[0m
+[1;94m601 | [0m  
+itembatch         
+ItemBatch?      
+@relation(fields: 
+[batchId], references: 
+[id])
+[1;94m   | [0m
+[1;91merror[0m: 
+[1mError validating 
+field `warehouse` in 
+model `StockOpname`: 
+The relation field 
+`warehouse` on model 
+`StockOpname` is 
+missing an opposite 
+relation field on the 
+model `Warehouse`. 
+Either run `prisma 
+format` or add it 
+manually.[0m
+  [1;94m-->[0m  [4mp
+risma\schema.prisma:617
+[0m
+[1;94m   | [0m
+[1;94m616 | [0m  
+updatedAt   DateTime   
+         @updatedAt
+[1;94m617 | [0m  
+[1;91mwarehouse   
+Warehouse           
+@relation(fields: 
+[warehouseId], 
+references: [id])
+[0m
+[1;94m618 | [0m  pic 
+        User?          
+     @relation("opname_
+pic", fields: [picId], 
+references: [id])
+[1;94m   | [0m
+[1;91merror[0m: 
+[1mError validating 
+field `pic` in model 
+`StockOpname`: The 
+relation field `pic` 
+on model `StockOpname` 
+is missing an opposite 
+relation field on the 
+model `User`. Either 
+run `prisma format` or 
+add it manually.[0m
+  [1;94m-->[0m  [4mp
+risma\schema.prisma:618
+[0m
+[1;94m   | [0m
+[1;94m617 | [0m  
+warehouse   Warehouse  
+         
+@relation(fields: 
+[warehouseId], 
+references: [id])
+[1;94m618 | [0m  
+[1;91mpic         
+User?               @re
+lation("opname_pic", 
+fields: [picId], 
+references: [id])
+[0m
+[1;94m619 | [0m  
+details     
+StockOpnameDetail[]
+[1;94m   | [0m
+[1;91merror[0m: 
+[1mError validating 
+field `item` in model 
+`StockOpnameDetail`: 
+The relation field 
+`item` on model 
+`StockOpnameDetail` is 
+missing an opposite 
+relation field on the 
+model `Item`. Either 
+run `prisma format` or 
+add it manually.[0m
+  [1;94m-->[0m  [4mp
+risma\schema.prisma:634
+[0m
+[1;94m   | [0m
+[1;94m633 | [0m  
+stockopname 
+StockOpname 
+@relation(fields: 
+[opnameId], 
+references: [id], 
+onDelete: Cascade)
+[1;94m634 | [0m  
+[1;91mitem        
+Item        
+@relation(fields: 
+[itemId], references: 
+[id])
+[0m
+[1;94m635 | [0m  
+[1;94m   | [0m
+[1;91merror[0m: 
+[1mError validating 
+field `stocktransfer` 
+in model 
+`DeliveryManifest`: 
+The relation field 
+`stocktransfer` on 
+model 
+`DeliveryManifest` is 
+missing an opposite 
+relation field on the 
+model `StockTransfer`. 
+Either run `prisma 
+format` or add it 
+manually.[0m
+  [1;94m-->[0m  [4mp
+risma\schema.prisma:654
+[0m
+[1;94m   | [0m
+[1;94m653 | [0m  
+updatedAt       
+DateTime               
+ @updatedAt
+[1;94m654 | [0m  
+[1;91mstocktransfer   
+StockTransfer?         
+ @relation(fields: 
+[transferId], 
+references: [id])
+[0m
+[1;94m655 | [0m  
+stockout        
+StockOut?              
+ @relation(fields: 
+[outId], references: 
+[id])
+[1;94m   | [0m
+[1;91merror[0m: 
+[1mError validating 
+field `stockout` in 
+model 
+`DeliveryManifest`: 
+The relation field 
+`stockout` on model 
+`DeliveryManifest` is 
+missing an opposite 
+relation field on the 
+model `StockOut`. 
+Either run `prisma 
+format` or add it 
+manually.[0m
+  [1;94m-->[0m  [4mp
+risma\schema.prisma:655
+[0m
+[1;94m   | [0m
+[1;94m654 | [0m  
+stocktransfer   
+StockTransfer?         
+ @relation(fields: 
+[transferId], 
+references: [id])
+[1;94m655 | [0m  
+[1;91mstockout        
+StockOut?              
+ @relation(fields: 
+[outId], references: 
+[id])
+[0m
+[1;94m656 | [0m  
+[1;94m   | [0m
+[1;91merror[0m: 
+[1mError validating 
+field `warehouse` in 
+model `InventoryLog`: 
+The relation field 
+`warehouse` on model 
+`InventoryLog` is 
+missing an opposite 
+relation field on the 
+model `Warehouse`. 
+Either run `prisma 
+format` or add it 
+manually.[0m
+  [1;94m-->[0m  [4mp
+risma\schema.prisma:670
+[0m
+[1;94m   | [0m
+[1;94m669 | [0m  
+createdAt   DateTime   
+       @default(now())
+[1;94m670 | [0m  
+[1;91mwarehouse   
+Warehouse         
+@relation(fields: 
+[warehouseId], 
+references: [id])
+[0m
+[1;94m671 | [0m  
+item        Item       
+       
+@relation(fields: 
+[itemId], references: 
+[id])
+[1;94m   | [0m
+[1;91merror[0m: 
+[1mError validating 
+field `item` in model 
+`InventoryLog`: The 
+relation field `item` 
+on model 
+`InventoryLog` is 
+missing an opposite 
+relation field on the 
+model `Item`. Either 
+run `prisma format` or 
+add it manually.[0m
+  [1;94m-->[0m  [4mp
+risma\schema.prisma:671
+[0m
+[1;94m   | [0m
+[1;94m670 | [0m  
+warehouse   Warehouse  
+       
+@relation(fields: 
+[warehouseId], 
+references: [id])
+[1;94m671 | [0m  
+[1;91mitem        
+Item              
+@relation(fields: 
+[itemId], references: 
+[id])
+[0m
+[1;94m672 | [0m  
+user        User?      
+       
+@relation(fields: 
+[userId], references: 
+[id])
+[1;94m   | [0m
+[1;91merror[0m: 
+[1mError validating 
+field `user` in model 
+`InventoryLog`: The 
+relation field `user` 
+on model 
+`InventoryLog` is 
+missing an opposite 
+relation field on the 
+model `User`. Either 
+run `prisma format` or 
+add it manually.[0m
+  [1;94m-->[0m  [4mp
+risma\schema.prisma:672
+[0m
+[1;94m   | [0m
+[1;94m671 | [0m  
+item        Item       
+       
+@relation(fields: 
+[itemId], references: 
+[id])
+[1;94m672 | [0m  
+[1;91muser        
+User?             
+@relation(fields: 
+[userId], references: 
+[id])
+[0m
+[1;94m673 | [0m  
+[1;94m   | [0m
+
+Validation Error 
+Count: 14
+[Context: validate]
+
+Prisma CLI Version : 
+6.19.2

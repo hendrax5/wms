@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { BarChart3, History, ShieldAlert, Loader2, Download, Package, Search, X, Tags, Building2, Activity } from "lucide-react";
-import { getStockSummaryReport, getTransactionHistoryReport, getDamagedItemsReport } from "@/app/actions/reports";
+import { BarChart3, History, ShieldAlert, Loader2, Download, Package, Search, X, Tags, Building2, Activity, Cpu } from "lucide-react";
+import { getStockSummaryReport, getTransactionHistoryReport, getDamagedItemsReport, getAssetMutationReport } from "@/app/actions/reports";
 
-type TabType = "STOCK" | "HISTORY" | "DAMAGED";
+type TabType = "STOCK" | "HISTORY" | "DAMAGED" | "ASSET";
 
 export default function ReportsClient() {
     const [activeTab, setActiveTab] = useState<TabType>("STOCK");
@@ -13,6 +13,7 @@ export default function ReportsClient() {
     const [stockData, setStockData] = useState<any[]>([]);
     const [historyData, setHistoryData] = useState<any[]>([]);
     const [damagedData, setDamagedData] = useState<any[]>([]);
+    const [assetData, setAssetData] = useState<any[]>([]);
 
     const [loading, setLoading] = useState(true);
 
@@ -41,15 +42,17 @@ export default function ReportsClient() {
 
     const loadData = async () => {
         setLoading(true);
-        const [stockRes, histRes, dmgRes] = await Promise.all([
+        const [stockRes, histRes, dmgRes, assetRes] = await Promise.all([
             getStockSummaryReport(),
             getTransactionHistoryReport(100),
-            getDamagedItemsReport()
+            getDamagedItemsReport(),
+            getAssetMutationReport(),
         ]);
 
         if (stockRes.success) setStockData(stockRes.data || []);
         if (histRes.success) setHistoryData(histRes.data || []);
         if (dmgRes.success) setDamagedData(dmgRes.data || []);
+        if (assetRes.success) setAssetData(assetRes.data || []);
 
         setLoading(false);
     };
@@ -283,6 +286,68 @@ export default function ReportsClient() {
         </div>
     );
 
+    const STATUS_BADGE: Record<string, string> = {
+        ACTIVE: 'bg-green-500/10 text-green-400 border-green-500/20',
+        MAINTENANCE: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20',
+        DAMAGED: 'bg-red-500/10 text-red-400 border-red-500/20',
+        DECOMMISSIONED: 'bg-slate-500/10 text-slate-400 border-slate-500/20',
+    };
+    const STATUS_LABEL: Record<string, string> = {
+        ACTIVE: 'Aktif', MAINTENANCE: 'Maintenance', DAMAGED: 'Rusak', DECOMMISSIONED: 'Non-Aktif'
+    };
+    const fmtIDR = (n: number) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n);
+
+    const filteredAssets = assetData.filter(a => {
+        return searchInput === '' ||
+            a.itemName.toLowerCase().includes(searchInput.toLowerCase()) ||
+            a.serialCode.toLowerCase().includes(searchInput.toLowerCase()) ||
+            a.technicianName.toLowerCase().includes(searchInput.toLowerCase());
+    });
+
+    const renderAssetTab = () => (
+        <div className="glass rounded-xl border border-[#334155] overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-300 shadow-xl">
+            <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm whitespace-nowrap">
+                    <thead className="bg-[#020617] text-slate-300 border-b border-[#334155]">
+                        <tr>
+                            <th className="px-6 py-4 font-semibold uppercase tracking-wider text-[11px]">Tgl Deploy</th>
+                            <th className="px-6 py-4 font-semibold uppercase tracking-wider text-[11px]">Barang</th>
+                            <th className="px-6 py-4 font-semibold uppercase tracking-wider text-[11px]">Serial Number</th>
+                            <th className="px-6 py-4 font-semibold uppercase tracking-wider text-[11px]">Teknisi</th>
+                            <th className="px-6 py-4 font-semibold uppercase tracking-wider text-[11px]">Status</th>
+                            <th className="px-6 py-4 font-semibold uppercase tracking-wider text-[11px] text-blue-400">Nilai Buku</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#334155] text-slate-200">
+                        {filteredAssets.length === 0 ? (
+                            <tr><td colSpan={6} className="px-6 py-16 text-center text-slate-500">Belum ada aset ter-deploy</td></tr>
+                        ) : filteredAssets.map((a: any) => (
+                            <tr key={a.id} className="hover:bg-blue-500/[0.02] transition-colors border-b border-[#334155]/30">
+                                <td className="px-6 py-4 text-slate-500 font-mono text-xs">
+                                    {new Date(a.installedAt).toLocaleDateString('id-ID', { dateStyle: 'short' })}
+                                </td>
+                                <td className="px-6 py-4">
+                                    <p className="font-semibold text-slate-200">{a.itemName}</p>
+                                    <p className="text-[10px] text-slate-500 font-mono uppercase">{a.category}</p>
+                                </td>
+                                <td className="px-6 py-4">
+                                    <span className="font-mono text-xs bg-slate-800 border border-slate-700 px-2 py-0.5 rounded">{a.serialCode}</span>
+                                </td>
+                                <td className="px-6 py-4 text-slate-400">{a.technicianName}</td>
+                                <td className="px-6 py-4">
+                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${STATUS_BADGE[a.status] ?? STATUS_BADGE.DECOMMISSIONED}`}>
+                                        {STATUS_LABEL[a.status] ?? a.status}
+                                    </span>
+                                </td>
+                                <td className="px-6 py-4 text-blue-400 font-mono font-bold">{fmtIDR(a.bookValue)}</td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    );
+
     if (loading) return <div className="p-8 flex justify-center"><Loader2 className="animate-spin text-blue-500" /></div>;
 
     return (
@@ -307,6 +372,12 @@ export default function ReportsClient() {
                     className={`flex items-center gap-2 pb-4 px-2 font-medium transition-colors whitespace-nowrap border-b-2 ${activeTab === "DAMAGED" ? "text-red-400 border-red-400" : "text-slate-400 border-transparent hover:text-slate-200"}`}
                 >
                     <ShieldAlert size={18} /> Laporan Barang Rusak
+                </button>
+                <button
+                    onClick={() => setActiveTab("ASSET")}
+                    className={`flex items-center gap-2 pb-4 px-2 font-medium transition-colors whitespace-nowrap border-b-2 ${activeTab === "ASSET" ? "text-blue-400 border-blue-400" : "text-slate-400 border-transparent hover:text-slate-200"}`}
+                >
+                    <Cpu size={18} /> Mutasi Aset
                 </button>
             </div>
 
@@ -377,11 +448,13 @@ export default function ReportsClient() {
                         {activeTab === "STOCK" && renderStockTab()}
                         {activeTab === "HISTORY" && renderHistoryTab()}
                         {activeTab === "DAMAGED" && renderDamagedTab()}
+                        {activeTab === "ASSET" && renderAssetTab()}
 
                         {/* EMPTY STATE FOR FILTER */}
                         {((activeTab === "STOCK" && filteredStock.length === 0) ||
                             (activeTab === "HISTORY" && filteredHistory.length === 0) ||
-                            (activeTab === "DAMAGED" && filteredDamaged.length === 0)) && (
+                            (activeTab === "DAMAGED" && filteredDamaged.length === 0) ||
+                            (activeTab === "ASSET" && filteredAssets.length === 0)) && (
                                 <div className="glass rounded-xl border border-dashed border-[#334155] p-20 flex flex-col items-center text-center animate-in fade-in zoom-in-95">
                                     <Search size={40} className="text-slate-700 mb-4" />
                                     <h4 className="text-lg font-bold text-slate-300">Hasil Tidak Ditemukan</h4>

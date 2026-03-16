@@ -1,0 +1,98 @@
+Generating dummy Serial Number for testing Scan-to-Deploy...
+node.exe : PrismaClient
+ValidationError: 
+At line:1 char:1
++ & "C:\Program 
+Files\nodejs/node.exe" 
+"C:\Program 
+Files\nodejs/node_mo 
+...
++ ~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~
+~~
+    + CategoryInfo     
+         : NotSpecifi  
+  ed: (PrismaClientV   
+ alidationError: :S    
+tring) [], RemoteE    
+xception
+    + FullyQualifiedEr 
+   rorId : NativeComm  
+  andError
+ 
+Invalid `prisma.serialN
+umber.upsert()` 
+invocation in
+D:\github-desktop\wms\t
+est-seed-sn.ts:19:31
+
+  16 // Generate 3 SNs
+  17 for (let i = 1; i 
+<= 3; i++) {
+  18   const code = 
+`SN-TEST-2026-${i}`;
+??? 19   await prisma.s
+erialNumber.upsert({
+         where: {
+           code: 
+"SN-TEST-2026-1"
+         },
+         update: {
+           
+warehouseId: 1,
+           statusId: 6
+         },
+         create: {
+           code: 
+"SN-TEST-2026-1",
+           itemId: 1,
+           typeId: 1,
+           statusId: 6,
+           
+warehouseId: 1,
+           price: 
+1500000,
+       +   updatedAt: 
+DateTime
+         }
+       })
+
+Argument `updatedAt` 
+is missing.
+    at throwValidationE
+xception (D:\github-des
+ktop\wms\node_modules\@
+prisma\client\src\runti
+me\core\errorRendering\
+throwValidationExceptio
+n.ts:45:9)
+    at 
+ei.handleRequestError (
+D:\github-desktop\wms\n
+ode_modules\@prisma\cli
+ent\src\runtime\Request
+Handler.ts:202:7)
+    at ei.handleAndLogR
+equestError (D:\github-
+desktop\wms\node_module
+s\@prisma\client\src\ru
+ntime\RequestHandler.ts
+:174:12)
+    at ei.request (D:\g
+ithub-desktop\wms\node_
+modules\@prisma\client\
+src\runtime\RequestHand
+ler.ts:143:12)
+    at async a (D:\gith
+ub-desktop\wms\node_mod
+ules\@prisma\client\src
+\runtime\getPrismaClien
+t.ts:833:24)
+    at async 
+seedTestData (D:\github
+-desktop\wms\test-seed-
+sn.ts:19:5) {
+  clientVersion: 
+'6.19.2'
+}

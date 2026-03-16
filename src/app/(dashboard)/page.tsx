@@ -1,11 +1,13 @@
 import DashboardClient from "./DashboardClient";
 import { getDashboardStats, getLowStockAlerts, getRecentTransactions } from "@/app/actions/dashboard";
+import { getAssetStats } from "@/app/actions/assets";
 
 export default async function DashboardPage() {
-    const [statsRes, alertsRes, trxRes] = await Promise.all([
+    const [statsRes, alertsRes, trxRes, assetStats] = await Promise.all([
         getDashboardStats(),
         getLowStockAlerts(),
-        getRecentTransactions()
+        getRecentTransactions(),
+        getAssetStats(),
     ]);
 
     return (
@@ -14,6 +16,7 @@ export default async function DashboardPage() {
                 initialStats={statsRes.success ? (statsRes.data as any) : null}
                 initialAlerts={alertsRes.success ? (alertsRes.data as any) : []}
                 initialTrx={trxRes.success ? (trxRes.data as any) : []}
+                assetStats={assetStats}
             />
         </div>
     );

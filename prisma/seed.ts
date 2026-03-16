@@ -12,6 +12,7 @@ async function main() {
         update: {},
         create: {
             name: 'JABODETABEK',
+            updatedAt: new Date(),
         },
     })
 
@@ -22,6 +23,7 @@ async function main() {
             type: 'PUSAT',
             areaId: areaPusat.id,
             location: 'Jakarta',
+            updatedAt: new Date(),
         },
     })
 
@@ -39,6 +41,7 @@ async function main() {
             isActive: true,
             warehouseId: warehousePusat.id,
             jabatan: 'System Administrator',
+            updatedAt: new Date(),
         },
     })
 
@@ -48,6 +51,7 @@ async function main() {
         await prisma.category.create({
             data: {
                 name: cat,
+                updatedAt: new Date(),
             }
         })
     }
@@ -84,6 +88,7 @@ async function main() {
                 hasSN: true,
                 minStock: 5,
                 categoryId: switchCat.id,
+                updatedAt: new Date(),
             }
         })
     }

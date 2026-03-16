@@ -116,6 +116,8 @@ export const authOptions = {
     session: {
         strategy: "jwt" as const,
     },
+    // Allow HTTP (non-HTTPS) — required for plain HTTP Docker deployments
+    trustHost: true,
 };
 
 export const { handlers, auth, signIn, signOut } = NextAuth(authOptions);

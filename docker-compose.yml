@@ -1,6 +1,16 @@
 version: '3.8'
 
+# ─────────────────────────────────────────────────────────────────────────────
+# WMS — Docker Compose
+# Jalankan: docker compose up -d --build
+#
+# ⚠️  Sebelum deploy ke server:
+#     Ganti nilai NEXTAUTH_URL di bawah dengan IP/domain server kamu.
+#     Contoh: http://192.168.1.100:3000  atau  http://wms.yourdomain.com
+# ─────────────────────────────────────────────────────────────────────────────
+
 services:
+  # ─── Next.js App ────────────────────────────────────────────────────────────
   wms-app:
     build:
       context: .
@@ -10,14 +20,17 @@ services:
     ports:
       - "3000:3000"
     environment:
-      # Koneksi internal antar container di Docker Compose
       - DATABASE_URL=mysql://root:wmspassword@wms-db:3306/wms_2026
       - NODE_ENV=production
-      # NEXTAUTH_URL & NEXTAUTH_SECRET sebaiknya diset via Coolify Dashboard
+      # Ganti dengan IP/domain server kamu jika deploy di VPS/server lain
+      - NEXTAUTH_URL=http://localhost:3000
+      - NEXTAUTH_SECRET=wms2026-super-secret-key-changeme
+      - AUTH_SECRET=wms2026-super-secret-key-changeme
     depends_on:
       wms-db:
         condition: service_healthy
 
+  # ─── MySQL Database ──────────────────────────────────────────────────────────
   wms-db:
     image: mysql:8.0
     container_name: wms-db
@@ -25,17 +38,15 @@ services:
     environment:
       - MYSQL_ROOT_PASSWORD=wmspassword
       - MYSQL_DATABASE=wms_2026
-    ports:
-      - "3306:3306"
     volumes:
       - wms_db_data:/var/lib/mysql
-      # File SQL akan otomatis diunggah dan dijalankan saat container DB pertama kali dibuat
-      - ./wms_2026.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-pwmspassword"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 20s
 
 volumes:
   wms_db_data:
+    driver: local

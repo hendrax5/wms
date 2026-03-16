@@ -152,3 +152,42 @@ export async function getDamagedItemsReport() {
         return { success: false, error: "Gagal memuat laporan barang rusak" };
     }
 }
+
+export async function getAssetMutationReport() {
+    noStore();
+    try {
+        const assets = await (prisma as any).asset.findMany({
+            orderBy: { installedAt: 'desc' },
+            include: {
+                item: { include: { category: true } },
+                serialnumber: true,
+                user: true,
+            }
+        });
+
+        const USEFUL_LIFE_YEARS = 5;
+        const data = assets.map((a: any) => {
+            const ageMs = Date.now() - new Date(a.installedAt).getTime();
+            const ageYears = ageMs / (1000 * 60 * 60 * 24 * 365.25);
+            const annual = (a.purchasePrice || 0) / USEFUL_LIFE_YEARS;
+            const accumulated = Math.min(annual * ageYears, a.purchasePrice || 0);
+            const bookValue = Math.max((a.purchasePrice || 0) - accumulated, 0);
+            return {
+                id: a.id,
+                installedAt: a.installedAt,
+                itemName: a.item?.name || '-',
+                category: a.item?.category?.name || '-',
+                serialCode: a.serialnumber?.code || '-',
+                technicianName: a.user?.name || 'Tidak Ditugaskan',
+                status: a.status,
+                purchasePrice: a.purchasePrice || 0,
+                bookValue: Math.round(bookValue),
+            };
+        });
+
+        return { success: true, data };
+    } catch (error) {
+        console.error("Asset Mutation Report Error:", error);
+        return { success: false, error: "Gagal memuat laporan mutasi aset" };
+    }
+}
