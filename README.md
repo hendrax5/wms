@@ -39,22 +39,41 @@ Sistem manajemen gudang dan aset terpadu untuk operasional multi-lokasi. Dibangu
 
 ## Deployment (Docker Compose)
 
-### Prasyarat
-- Docker & Docker Compose terinstall
+### ⚡ Quick Deploy — 1 Perintah
 
-### Langkah
+```bash
+# Menggunakan curl:
+bash <(curl -fsSL https://raw.githubusercontent.com/USERNAME/REPO/main/install.sh)
+
+# Menggunakan wget:
+bash <(wget -qO- https://raw.githubusercontent.com/USERNAME/REPO/main/install.sh)
+```
+
+Script otomatis:
+- ✅ Cek Docker & Git terinstall
+- ✅ Clone repository ke `/opt/wms`
+- ✅ Set `NEXTAUTH_URL` ke IP server secara otomatis
+- ✅ Generate `NEXTAUTH_SECRET` yang aman
+- ✅ Build & jalankan via Docker Compose
+- ✅ Tunggu sampai app siap dan tampilkan URL akses
+
+> **Ganti `USERNAME/REPO`** dengan path repository kamu di GitHub sebelum menggunakan perintah di atas.
+
+---
+
+### Manual Deploy
 
 **1. Clone repository**
 ```bash
-git clone <repo-url>
-cd wms
+git clone https://github.com/USERNAME/REPO.git /opt/wms
+cd /opt/wms
 ```
 
-**2. (Opsional) Sesuaikan URL**
+**2. (Opsional) Sesuaikan URL server**
 
-Jika deploy di server/VPS, buka `docker-compose.yml` dan ganti 1 baris berikut:
+Jika deploy di VPS, buka `docker-compose.yml` dan ganti:
 ```yaml
-- NEXTAUTH_URL=http://IP_ATAU_DOMAIN_SERVER:3000
+- NEXTAUTH_URL=http://IP_SERVER:3000
 ```
 
 **3. Build & jalankan**
@@ -67,14 +86,6 @@ docker compose up -d --build
 curl http://localhost:3000/api/health
 # → {"status":"ok"}
 ```
-
-**5. Cek log**
-```bash
-docker compose logs wms-app -f
-```
-
-### Akses
-Buka browser: `http://localhost:3000`
 
 ---
 
