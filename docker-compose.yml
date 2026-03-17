@@ -15,10 +15,10 @@ services:
     environment:
       - DATABASE_URL=mysql://root:wmspassword@wms-db:3306/wms_2026
       - NODE_ENV=production
-      # trustHost=true di auth.ts memungkinkan NEXTAUTH_URL bebas di HTTP
-      - NEXTAUTH_URL=http://localhost:3000
-      - NEXTAUTH_SECRET=wms2026-default-secret-changeme
+      # AUTH_SECRET wajib diisi — generate: openssl rand -base64 32
       - AUTH_SECRET=wms2026-default-secret-changeme
+      # trustHost=true di auth.ts → URL auto-detect dari request header
+      # Tidak perlu set NEXTAUTH_URL / AUTH_URL
     depends_on:
       wms-db:
         condition: service_healthy
