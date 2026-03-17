@@ -31,8 +31,8 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
-# Install openssl for prisma at runtime
-RUN apk add --no-cache openssl
+# Install openssl for prisma at runtime and global prisma CLI
+RUN apk add --no-cache openssl && npm install -g prisma@6.19.2
 
 # Create non-root user for security
 RUN addgroup --system --gid 1001 nodejs && \
@@ -52,12 +52,11 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static    ./.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/prisma                ./prisma
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.prisma  ./node_modules/.prisma
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma  ./node_modules/@prisma
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/prisma   ./node_modules/prisma
 
-# Copy entrypoint script
+# Copy entrypoint script and fix Windows CRLF line endings
 COPY --chown=nextjs:nodejs entrypoint.sh ./entrypoint.sh
+USER root
 RUN chmod +x ./entrypoint.sh
-
 USER nextjs
 
 EXPOSE 3000

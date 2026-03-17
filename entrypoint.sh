@@ -4,7 +4,7 @@ set -e
 echo "==> Syncing database schema..."
 # Gunakan prisma db push karena tidak ada migration files
 # Ini akan membuat semua tabel sesuai schema.prisma langsung ke DB
-node node_modules/prisma/build/index.js db push \
+prisma db push \
     --schema=./prisma/schema.prisma \
     --accept-data-loss \
     --skip-generate
