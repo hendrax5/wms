@@ -1,5 +1,3 @@
-version: '3.8'
-
 # ─────────────────────────────────────────────────────────────────────────────
 # WMS-2026 — Docker Compose
 # Deploy: git clone <repo> && cd wms && docker compose up -d --build
