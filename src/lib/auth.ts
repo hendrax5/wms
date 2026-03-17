@@ -116,8 +116,38 @@ export const authOptions = {
     session: {
         strategy: "jwt" as const,
     },
-    // Allow HTTP (non-HTTPS) — required for plain HTTP Docker deployments
+    // Required for HTTP deployments — NextAuth v5 sets secure:true in production
+    // which blocks cookies over plain HTTP. Override all cookies to secure:false.
     trustHost: true,
+    cookies: {
+        sessionToken: {
+            name: "next-auth.session-token",
+            options: {
+                httpOnly: true,
+                sameSite: "lax" as const,
+                path: "/",
+                secure: false,
+            },
+        },
+        callbackUrl: {
+            name: "next-auth.callback-url",
+            options: {
+                httpOnly: true,
+                sameSite: "lax" as const,
+                path: "/",
+                secure: false,
+            },
+        },
+        csrfToken: {
+            name: "next-auth.csrf-token",
+            options: {
+                httpOnly: true,
+                sameSite: "lax" as const,
+                path: "/",
+                secure: false,
+            },
+        },
+    },
 };
 
 export const { handlers, auth, signIn, signOut } = NextAuth(authOptions);
