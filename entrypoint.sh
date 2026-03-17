@@ -1,8 +1,13 @@
 #!/bin/sh
 set -e
 
-echo "==> Running DB migrations..."
-node_modules/.bin/prisma migrate deploy --schema=./prisma/schema.prisma
+echo "==> Syncing database schema..."
+# Gunakan prisma db push karena tidak ada migration files
+# Ini akan membuat semua tabel sesuai schema.prisma langsung ke DB
+node node_modules/prisma/build/index.js db push \
+    --schema=./prisma/schema.prisma \
+    --accept-data-loss \
+    --skip-generate
 
-echo "==> Starting Next.js..."
+echo "==> Schema sync selesai. Starting Next.js..."
 exec node server.js
