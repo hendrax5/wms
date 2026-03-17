@@ -39,52 +39,55 @@ Sistem manajemen gudang dan aset terpadu untuk operasional multi-lokasi. Dibangu
 
 ## Deployment (Docker Compose)
 
-### ⚡ Quick Deploy — 1 Perintah
+### ⚡ Zero Config — Deploy Langsung
 
 ```bash
-# Menggunakan curl:
-bash <(curl -fsSL https://raw.githubusercontent.com/USERNAME/REPO/main/install.sh)
-
-# Menggunakan wget:
-bash <(wget -qO- https://raw.githubusercontent.com/USERNAME/REPO/main/install.sh)
-```
-
-Script otomatis:
-- ✅ Cek Docker & Git terinstall
-- ✅ Clone repository ke `/opt/wms`
-- ✅ Set `NEXTAUTH_URL` ke IP server secara otomatis
-- ✅ Generate `NEXTAUTH_SECRET` yang aman
-- ✅ Build & jalankan via Docker Compose
-- ✅ Tunggu sampai app siap dan tampilkan URL akses
-
-> **Ganti `USERNAME/REPO`** dengan path repository kamu di GitHub sebelum menggunakan perintah di atas.
-
----
-
-### Manual Deploy
-
-**1. Clone repository**
-```bash
-git clone https://github.com/USERNAME/REPO.git /opt/wms
-cd /opt/wms
-```
-
-**2. (Opsional) Sesuaikan URL server**
-
-Jika deploy di VPS, buka `docker-compose.yml` dan ganti:
-```yaml
-- NEXTAUTH_URL=http://IP_SERVER:3000
-```
-
-**3. Build & jalankan**
-```bash
+git clone https://github.com/USERNAME/REPO.git wms
+cd wms
 docker compose up -d --build
 ```
 
-**4. Verifikasi**
+Selesai. Tidak ada konfigurasi tambahan.
+
+> **Prasyarat:** Docker & Git terinstall. Pastikan menggunakan `docker compose` (v2), bukan `docker-compose` (v1).
+
+---
+
+### Auto Install via curl/wget
+
 ```bash
-curl http://localhost:3000/api/health
-# → {"status":"ok"}
+# curl:
+bash <(curl -fsSL https://raw.githubusercontent.com/USERNAME/REPO/main/install.sh)
+
+# wget:
+bash <(wget -qO- https://raw.githubusercontent.com/USERNAME/REPO/main/install.sh)
+```
+
+Script `install.sh` otomatis menangani:
+- ✅ Deteksi & upgrade `docker-compose` v1 → v2 (fix error `ContainerConfig`)
+- ✅ Clone repo & build
+- ✅ Tunggu app siap, tampilkan URL akses
+
+---
+
+### Fix Error `ContainerConfig` (docker-compose v1 lama)
+
+Jika muncul error `KeyError: 'ContainerConfig'`, artinya server menggunakan `docker-compose` versi lama (v1.29.x). Solusi:
+
+```bash
+# Hapus container lama
+docker rm -f wms-app wms-db
+
+# Gunakan docker compose v2 (bukan docker-compose)
+docker compose up -d --build
+```
+
+Atau upgrade ke Docker Compose v2:
+```bash
+mkdir -p /usr/local/lib/docker/cli-plugins
+curl -fsSL "https://github.com/docker/compose/releases/download/v2.24.5/docker-compose-$(uname -s)-$(uname -m)" \
+    -o /usr/local/lib/docker/cli-plugins/docker-compose
+chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
 ```
 
 ---

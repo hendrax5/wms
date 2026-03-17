@@ -1,16 +1,11 @@
 version: '3.8'
 
 # ─────────────────────────────────────────────────────────────────────────────
-# WMS — Docker Compose
-# Jalankan: docker compose up -d --build
-#
-# ⚠️  Sebelum deploy ke server:
-#     Ganti nilai NEXTAUTH_URL di bawah dengan IP/domain server kamu.
-#     Contoh: http://192.168.1.100:3000  atau  http://wms.yourdomain.com
+# WMS-2026 — Docker Compose
+# Deploy: git clone <repo> && cd wms && docker compose up -d --build
 # ─────────────────────────────────────────────────────────────────────────────
 
 services:
-  # ─── Next.js App ────────────────────────────────────────────────────────────
   wms-app:
     build:
       context: .
@@ -22,15 +17,14 @@ services:
     environment:
       - DATABASE_URL=mysql://root:wmspassword@wms-db:3306/wms_2026
       - NODE_ENV=production
-      # Ganti dengan IP/domain server kamu jika deploy di VPS/server lain
+      # trustHost=true di auth.ts memungkinkan NEXTAUTH_URL bebas di HTTP
       - NEXTAUTH_URL=http://localhost:3000
-      - NEXTAUTH_SECRET=wms2026-super-secret-key-changeme
-      - AUTH_SECRET=wms2026-super-secret-key-changeme
+      - NEXTAUTH_SECRET=wms2026-default-secret-changeme
+      - AUTH_SECRET=wms2026-default-secret-changeme
     depends_on:
       wms-db:
         condition: service_healthy
 
-  # ─── MySQL Database ──────────────────────────────────────────────────────────
   wms-db:
     image: mysql:8.0
     container_name: wms-db
