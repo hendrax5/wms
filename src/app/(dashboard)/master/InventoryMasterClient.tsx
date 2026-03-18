@@ -112,7 +112,7 @@ export default function InventoryMasterClient() {
     // Item Modal
     const [isItemModalOpen, setIsItemModalOpen] = useState(false);
     const [editingItem, setEditingItem] = useState<ItemData | null>(null);
-    const [itemForm, setItemForm] = useState({ code: "", name: "", categoryId: "", hasSN: true, price: 0 });
+    const [itemForm, setItemForm] = useState({ code: "", name: "", categoryId: "", hasSN: true, price: 0, unit: "Pcs" });
 
     // Category Modal
     const [isCatModalOpen, setIsCatModalOpen] = useState(false);
@@ -204,12 +204,12 @@ export default function InventoryMasterClient() {
         setErrorMsg("");
         if (item) {
             setEditingItem(item);
-            setItemForm({ code: item.code, name: item.name, categoryId: item.categoryId?.toString() || "", hasSN: item.hasSN, price: item.price || 0 });
+            setItemForm({ code: item.code, name: item.name, categoryId: item.categoryId?.toString() || "", hasSN: item.hasSN, price: item.price || 0, unit: item.unit || "Pcs" });
         } else {
             setEditingItem(null);
             const preselectedCat = selectedCatId?.toString() || "";
             const cat = catOptions.find(c => c.id === selectedCatId);
-            setItemForm({ code: "", name: "", categoryId: preselectedCat, hasSN: cat?.hasSN ?? true, price: 0 });
+            setItemForm({ code: "", name: "", categoryId: preselectedCat, hasSN: cat?.hasSN ?? true, price: 0, unit: "Pcs" });
         }
         setIsItemModalOpen(true);
     };
@@ -225,7 +225,7 @@ export default function InventoryMasterClient() {
         setSubmitLoading(true);
         setErrorMsg("");
         try {
-            const payload = { code: itemForm.code, name: itemForm.name, categoryId: Number(itemForm.categoryId), hasSN: itemForm.hasSN, price: itemForm.price || 0 };
+            const payload = { code: itemForm.code, name: itemForm.name, categoryId: Number(itemForm.categoryId), hasSN: itemForm.hasSN, price: itemForm.price || 0, unit: itemForm.unit || "Pcs" };
             const res = editingItem ? await updateItem(editingItem.id, payload) : await createItem(payload);
             if (res.success) { setIsItemModalOpen(false); setEditingItem(null); loadData(); }
             else { setErrorMsg(res.error || "Gagal menyimpan."); }
@@ -638,10 +638,27 @@ export default function InventoryMasterClient() {
                                 <input type="text" required value={itemForm.code} onChange={(e) => setItemForm({ ...itemForm, code: e.target.value.toUpperCase() })}
                                     className="w-full bg-[#020617] border border-[#1E293B] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-green-500/50 font-mono" placeholder="Contoh: RT-001" />
                             </div>
-                            <div>
-                                <label className="block text-xs font-semibold text-slate-400 mb-1.5">Nama Barang <span className="text-red-500">*</span></label>
-                                <input type="text" required value={itemForm.name} onChange={(e) => setItemForm({ ...itemForm, name: e.target.value })}
-                                    className="w-full bg-[#020617] border border-[#1E293B] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-green-500/50" placeholder="Contoh: Mikrotik RB750" />
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-xs font-semibold text-slate-400 mb-1.5">Nama Barang <span className="text-red-500">*</span></label>
+                                    <input type="text" required value={itemForm.name} onChange={(e) => setItemForm({ ...itemForm, name: e.target.value })}
+                                        className="w-full bg-[#020617] border border-[#1E293B] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-green-500/50" placeholder="Contoh: Mikrotik RB750" />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-semibold text-slate-400 mb-1.5">Satuan Barang <span className="text-red-500">*</span></label>
+                                    <select required value={itemForm.unit} onChange={(e) => setItemForm({ ...itemForm, unit: e.target.value })}
+                                        className="w-full bg-[#020617] border border-[#1E293B] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-green-500/50">
+                                        <option value="Pcs">Pcs</option>
+                                        <option value="Unit">Unit</option>
+                                        <option value="Set">Set</option>
+                                        <option value="Roll">Roll</option>
+                                        <option value="Box">Box</option>
+                                        <option value="Pack">Pack</option>
+                                        <option value="Meter">Meter</option>
+                                        <option value="Lbr">Lbr</option>
+                                        <option value="Lusin">Lusin</option>
+                                    </select>
+                                </div>
                             </div>
                             <div>
                                 <label className="block text-xs font-semibold text-slate-400 mb-1.5">Kategori <span className="text-red-500">*</span></label>
