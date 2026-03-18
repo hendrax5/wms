@@ -206,32 +206,39 @@ export async function getAllSerialNumbers() {
 
 export async function getSerialNumberHistory(id: number) {
     try {
-        const sn = await prisma.serialNumber.findUnique({
+        const snRaw = await prisma.serialNumber.findUnique({
             where: { id },
             include: {
                 item: { include: { category: true } },
-                status: true,
-                type: true,
+                itemstatus: true,
+                itemtype: true,
                 warehouse: true,
                 pop: true
             }
         });
 
-        if (!sn) throw new Error("Serial Number not found");
+        if (!snRaw) throw new Error("Serial Number not found");
+
+        // Normalize for client
+        const sn = {
+            ...snRaw,
+            status: (snRaw as any).itemstatus,
+            type: (snRaw as any).itemtype,
+        };
 
         // Fetch all related transactions for the timeline
         const [inLogs, outLogs, damagedLogs, popInstalls, custInstalls] = await Promise.all([
             prisma.stockInSerial.findMany({
                 where: { serialNumberId: id },
-                include: { stockIn: { include: { warehouse: true, distributor: true } } }
+                include: { stockin: { include: { warehouse: true, distributor: true } } }
             }),
             prisma.stockOutSerial.findMany({
                 where: { serialNumberId: id },
-                include: { stockOut: { include: { warehouse: true, targetWarehouse: true, pop: true } } }
+                include: { stockout: { include: { warehouse_stockout_warehouseIdTowarehouse: true, warehouse_stockout_targetWarehouseIdTowarehouse: true, pop: true } } }
             }),
             prisma.damagedSerial.findMany({
                 where: { serialNumberId: id },
-                include: { damagedItem: { include: { warehouse: true } } }
+                include: { damageditem: { include: { warehouse: true } } }
             }),
             prisma.popInstallation.findMany({
                 where: { serialNumberId: id },
@@ -255,19 +262,22 @@ export async function getSerialNumberHistory(id: number) {
 
         const timeline: TimelineEvent[] = [];
 
-        inLogs.forEach(log => {
+        inLogs.forEach((log: any) => {
+            const si = log.stockin || log.stockIn;
             timeline.push({
                 id: `in-${log.id}`,
-                date: log.stockIn.createdAt,
+                date: si.createdAt,
                 type: 'INBOUND',
                 title: 'Barang Masuk (Inbound)',
-                description: `Diterima dari ${log.stockIn.distributor?.vendorName || 'Vendor'}. Keterangan: ${log.stockIn.description || '-'}`,
-                location: `Gudang: ${log.stockIn.warehouse.name}`,
+                description: `Diterima dari ${si.distributor?.vendorName || 'Vendor'}. Keterangan: ${si.description || '-'}`,
+                location: `Gudang: ${si.warehouse.name}`,
             });
         });
 
-        outLogs.forEach(log => {
-            const out = log.stockOut;
+        outLogs.forEach((log: any) => {
+            const out = log.stockout || log.stockOut;
+            const srcWarehouse = out.warehouse_stockout_warehouseIdTowarehouse || out.warehouse;
+            const tgtWarehouse = out.warehouse_stockout_targetWarehouseIdTowarehouse || out.targetWarehouse;
             if (out.outType === 'TRANSFER') {
                 timeline.push({
                     id: `out-${log.id}`,
@@ -275,7 +285,7 @@ export async function getSerialNumberHistory(id: number) {
                     type: 'TRANSFER',
                     title: 'Transfer Antar Gudang',
                     description: `Dikirim via ${out.techName1 || 'Teknisi'}. Keterangan: ${out.description || '-'}`,
-                    location: `Dari ${out.warehouse.name} ke ${out.targetWarehouse?.name}`,
+                    location: `Dari ${srcWarehouse?.name || '?'} ke ${tgtWarehouse?.name || '?'}`,
                     actor: out.techName1 || undefined
                 });
             } else if (out.outType === 'POP_INSTALL') {
@@ -301,14 +311,15 @@ export async function getSerialNumberHistory(id: number) {
             }
         });
 
-        damagedLogs.forEach(log => {
+        damagedLogs.forEach((log: any) => {
+            const dmg = log.damageditem || log.damagedItem;
             timeline.push({
                 id: `dmg-${log.id}`,
-                date: log.damagedItem.createdAt,
+                date: dmg.createdAt,
                 type: 'DAMAGED',
                 title: 'Dilaporkan Rusak',
-                description: `Keterangan kerusakan: ${log.damagedItem.description || '-'}`,
-                location: `Gudang: ${log.damagedItem.warehouse.name}`
+                description: `Keterangan kerusakan: ${dmg.description || '-'}`,
+                location: `Gudang: ${dmg.warehouse.name}`
             });
         });
 

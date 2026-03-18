@@ -70,6 +70,7 @@ export async function createStockIn(data: StockInPayload) {
                             typeId: typeBaru.id,
                             statusId: statusInStock.id,
                             warehouseId: data.warehouseId,
+                            updatedAt: new Date(),
                         }
                     });
 
@@ -107,6 +108,7 @@ export async function createStockIn(data: StockInPayload) {
                         itemId: data.itemId,
                         warehouseId: data.warehouseId,
                         stockNew: data.qty,
+                        updatedAt: new Date(),
                     }
                 });
             }
