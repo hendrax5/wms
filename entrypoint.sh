@@ -1,13 +1,12 @@
 #!/bin/sh
-set -e
 
 echo "==> Syncing database schema..."
-# Gunakan prisma db push karena tidak ada migration files
-# Ini akan membuat semua tabel sesuai schema.prisma langsung ke DB
+# prisma db push dibuat non-fatal: jika gagal (misal tabel sudah ada dari SQL import),
+# app tetap jalan. Ini mencegah crash-loop saat DB sudah diisi manual.
 prisma db push \
     --schema=./prisma/schema.prisma \
     --accept-data-loss \
-    --skip-generate
+    --skip-generate 2>&1 || echo "==> [WARN] prisma db push failed (tables may already exist), continuing..."
 
-echo "==> Schema sync selesai. Starting Next.js..."
+echo "==> Starting Next.js..."
 exec node server.js
