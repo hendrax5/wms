@@ -60,15 +60,16 @@ export async function getTransactionHistoryReport(limit = 50) {
     noStore();
     try {
         const [inbounds, outbounds] = await Promise.all([
-            prisma.stockIn.findMany({
+            (prisma as any).stockIn.findMany({
                 take: limit,
                 orderBy: { createdAt: "desc" },
                 include: {
                     item: true,
                     warehouse: true,
+                    stockinserial: true,
                 }
             }),
-            prisma.stockOut.findMany({
+            (prisma as any).stockOut.findMany({
                 take: limit,
                 orderBy: { createdAt: "desc" },
                 include: {
@@ -76,22 +77,29 @@ export async function getTransactionHistoryReport(limit = 50) {
                     warehouse_stockout_warehouseIdTowarehouse: true,
                     warehouse_stockout_targetWarehouseIdTowarehouse: true,
                     pop: true,
+                    stockoutserial: true,
                 }
             })
         ]);
 
         const history: any[] = [];
 
-        inbounds.forEach(i => {
+        inbounds.forEach((i: any) => {
+            const serials = (i.stockinserial || []).map((s: any) => s.serialCode);
             history.push({
                 id: `in-${i.id}`,
+                rawId: i.id,
                 date: i.createdAt,
                 type: "INBOUND",
                 item: i.item.name,
+                itemCode: i.item.code,
                 qty: i.qty,
                 location: i.warehouse.name,
                 target: "-",
-                description: i.description || "Penerimaan Barang"
+                description: i.description || "Penerimaan Barang",
+                serialNumbers: serials,
+                techName1: null,
+                techName2: null,
             });
         });
 
@@ -103,20 +111,26 @@ export async function getTransactionHistoryReport(limit = 50) {
             if (o.outType === "POP_INSTALL") target = o.pop?.name || "-";
             if (o.outType === "CUSTOMER_INSTALL") target = o.customerName || "-";
 
+            const serials = (o.stockoutserial || []).map((s: any) => s.serialCode);
             history.push({
                 id: `out-${o.id}`,
+                rawId: o.id,
                 date: o.createdAt,
                 type: o.outType,
                 item: o.item.name,
+                itemCode: o.item.code,
                 qty: o.qty,
                 location: srcWarehouse?.name || '-',
                 target: target,
-                description: o.description || "Barang Keluar"
+                description: o.description || "Barang Keluar",
+                serialNumbers: serials,
+                techName1: o.techName1 || null,
+                techName2: o.techName2 || null,
             });
         });
 
         // Sort combined descending
-        history.sort((a, b) => b.date.getTime() - a.date.getTime());
+        history.sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
         return { success: true, data: history.slice(0, limit) };
     } catch (error) {

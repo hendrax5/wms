@@ -245,37 +245,98 @@ export default function ReportsClient() {
                                     </tr>
                                     {isExpanded && (
                                         <tr key={`${h.id}-detail`} className="bg-[#020617]/60">
-                                            <td colSpan={7} className="px-6 py-4">
-                                                <div className="flex flex-wrap gap-6 text-xs">
-                                                    <div className="space-y-1">
-                                                        <p className="text-slate-500 uppercase text-[10px] font-semibold tracking-wider">Keterangan</p>
-                                                        <p className="text-slate-300">{h.description || '-'}</p>
-                                                    </div>
-                                                    <div className="space-y-1">
-                                                        <p className="text-slate-500 uppercase text-[10px] font-semibold tracking-wider">Barang</p>
-                                                        <p className="text-slate-300 font-medium">{h.item}</p>
-                                                    </div>
-                                                    <div className="space-y-1">
-                                                        <p className="text-slate-500 uppercase text-[10px] font-semibold tracking-wider">Gudang Asal</p>
-                                                        <p className="text-slate-300">{h.location}</p>
-                                                    </div>
-                                                    {h.target && h.target !== '-' && (
+                                            <td colSpan={7} className="px-6 py-5">
+                                                <div className="space-y-4">
+                                                    <div className="flex flex-wrap gap-6 text-xs">
                                                         <div className="space-y-1">
-                                                            <p className="text-slate-500 uppercase text-[10px] font-semibold tracking-wider">Tujuan</p>
-                                                            <p className="text-slate-300">{h.target}</p>
+                                                            <p className="text-slate-500 uppercase text-[10px] font-semibold tracking-wider">Keterangan</p>
+                                                            <p className="text-slate-300">{h.description || '-'}</p>
+                                                        </div>
+                                                        <div className="space-y-1">
+                                                            <p className="text-slate-500 uppercase text-[10px] font-semibold tracking-wider">Barang</p>
+                                                            <p className="text-slate-300 font-medium">{h.itemCode ? `[${h.itemCode}] ` : ''}{h.item}</p>
+                                                        </div>
+                                                        <div className="space-y-1">
+                                                            <p className="text-slate-500 uppercase text-[10px] font-semibold tracking-wider">Gudang Asal</p>
+                                                            <p className="text-slate-300">{h.location}</p>
+                                                        </div>
+                                                        {h.target && h.target !== '-' && (
+                                                            <div className="space-y-1">
+                                                                <p className="text-slate-500 uppercase text-[10px] font-semibold tracking-wider">Tujuan</p>
+                                                                <p className="text-slate-300">{h.target}</p>
+                                                            </div>
+                                                        )}
+                                                        <div className="space-y-1">
+                                                            <p className="text-slate-500 uppercase text-[10px] font-semibold tracking-wider">Jumlah</p>
+                                                            <p className={`font-mono font-bold ${h.type === 'INBOUND' ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                                                {h.type === 'INBOUND' ? '+' : '-'}{h.qty} unit
+                                                            </p>
+                                                        </div>
+                                                        <div className="space-y-1">
+                                                            <p className="text-slate-500 uppercase text-[10px] font-semibold tracking-wider">Waktu Transaksi</p>
+                                                            <p className="text-slate-300 font-mono">
+                                                                {new Date(h.date).toLocaleString('id-ID', { dateStyle: 'full', timeStyle: 'short' })}
+                                                            </p>
+                                                        </div>
+                                                        {(h.techName1 || h.techName2) && (
+                                                            <div className="space-y-1">
+                                                                <p className="text-slate-500 uppercase text-[10px] font-semibold tracking-wider">Teknisi</p>
+                                                                <p className="text-slate-300">{[h.techName1, h.techName2].filter(Boolean).join(' & ')}</p>
+                                                            </div>
+                                                        )}
+                                                    </div>
+
+                                                    {/* Serial Numbers */}
+                                                    {h.serialNumbers && h.serialNumbers.length > 0 && (
+                                                        <div className="space-y-2">
+                                                            <p className="text-slate-500 uppercase text-[10px] font-semibold tracking-wider">Serial Numbers ({h.serialNumbers.length})</p>
+                                                            <div className="flex flex-wrap gap-1.5">
+                                                                {h.serialNumbers.map((sn: string, snIdx: number) => (
+                                                                    <span key={snIdx} className="font-mono text-[10px] bg-slate-800 border border-slate-700 text-slate-300 px-2 py-0.5 rounded">
+                                                                        {sn}
+                                                                    </span>
+                                                                ))}
+                                                            </div>
                                                         </div>
                                                     )}
-                                                    <div className="space-y-1">
-                                                        <p className="text-slate-500 uppercase text-[10px] font-semibold tracking-wider">Jumlah</p>
-                                                        <p className={`font-mono font-bold ${h.type === 'INBOUND' ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                                            {h.type === 'INBOUND' ? '+' : '-'}{h.qty} unit
-                                                        </p>
-                                                    </div>
-                                                    <div className="space-y-1">
-                                                        <p className="text-slate-500 uppercase text-[10px] font-semibold tracking-wider">Waktu Transaksi</p>
-                                                        <p className="text-slate-300 font-mono">
-                                                            {new Date(h.date).toLocaleString('id-ID', { dateStyle: 'full', timeStyle: 'short' })}
-                                                        </p>
+
+                                                    {/* Print Button */}
+                                                    <div className="pt-2 border-t border-[#334155]/50">
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                const typeLabel = h.type === 'INBOUND' ? 'Barang Masuk' : h.type === 'TRANSFER' ? 'Transfer Stok' : h.type === 'POP_INSTALL' ? 'Instalasi POP' : 'Instalasi Customer';
+                                                                const printWindow = window.open('', '_blank', 'width=800,height=600');
+                                                                if (printWindow) {
+                                                                    const snRows = (h.serialNumbers || []).map((sn: string, i: number) => `<tr><td style="border:1px solid #ddd;padding:6px;text-align:center">${i+1}</td><td style="border:1px solid #ddd;padding:6px;font-family:monospace">${sn}</td></tr>`).join('');
+                                                                    printWindow.document.write(`
+                                                                        <html><head><title>Laporan Transaksi - ${h.id}</title>
+                                                                        <style>body{font-family:Arial,sans-serif;padding:30px;color:#333}h1{font-size:18px;margin:0}h2{font-size:14px;color:#666;margin:4px 0 20px}.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px}.info-item{padding:8px;background:#f8f9fa;border-radius:4px}.info-label{font-size:10px;color:#999;text-transform:uppercase;letter-spacing:1px;font-weight:700}.info-value{font-size:13px;margin-top:2px}table{width:100%;border-collapse:collapse;margin-top:10px}th{background:#f1f5f9;border:1px solid #ddd;padding:6px;font-size:11px;text-transform:uppercase;text-align:left}td{font-size:12px}.footer{margin-top:40px;display:grid;grid-template-columns:1fr 1fr 1fr;text-align:center;font-size:12px}.footer div{padding-top:60px;border-top:1px solid #ccc;margin-top:10px}@media print{body{padding:20px}}</style>
+                                                                        </head><body>
+                                                                        <div style="text-align:center;margin-bottom:20px;border-bottom:2px solid #333;padding-bottom:10px">
+                                                                            <h1>WMS-2026 — ${typeLabel}</h1>
+                                                                            <h2>No: ${h.id.toUpperCase()} | ${new Date(h.date).toLocaleString('id-ID', { dateStyle: 'long', timeStyle: 'short' })}</h2>
+                                                                        </div>
+                                                                        <div class="info-grid">
+                                                                            <div class="info-item"><div class="info-label">Barang</div><div class="info-value">${h.itemCode ? '[' + h.itemCode + '] ' : ''}${h.item}</div></div>
+                                                                            <div class="info-item"><div class="info-label">Jumlah</div><div class="info-value">${h.qty} unit</div></div>
+                                                                            <div class="info-item"><div class="info-label">Gudang Asal</div><div class="info-value">${h.location}</div></div>
+                                                                            <div class="info-item"><div class="info-label">Tujuan</div><div class="info-value">${h.target || '-'}</div></div>
+                                                                            <div class="info-item"><div class="info-label">Keterangan</div><div class="info-value">${h.description || '-'}</div></div>
+                                                                            ${(h.techName1 || h.techName2) ? `<div class="info-item"><div class="info-label">Teknisi</div><div class="info-value">${[h.techName1, h.techName2].filter(Boolean).join(' & ')}</div></div>` : ''}
+                                                                        </div>
+                                                                        ${snRows.length > 0 ? `<h3 style="font-size:13px;margin-bottom:4px">Daftar Serial Number (${h.serialNumbers.length})</h3><table><thead><tr><th style="width:40px">No</th><th>Serial Number</th></tr></thead><tbody>${snRows}</tbody></table>` : '<p style="color:#999;font-size:12px">Barang tanpa Serial Number</p>'}
+                                                                        <div class="footer"><div>Pengirim</div><div>Penerima</div><div>Mengetahui</div></div>
+                                                                        <script>setTimeout(()=>window.print(),300)</script>
+                                                                        </body></html>
+                                                                    `);
+                                                                    printWindow.document.close();
+                                                                }
+                                                            }}
+                                                            className="flex items-center gap-2 text-[11px] font-semibold text-blue-400 hover:text-blue-300 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 px-3 py-1.5 rounded-lg transition-colors"
+                                                        >
+                                                            <Download size={12} /> Print / Cetak Laporan
+                                                        </button>
                                                     </div>
                                                 </div>
                                             </td>
