@@ -39,7 +39,7 @@ export async function getCategoriesForSelect() {
     }
 }
 
-export async function createItem(data: { code: string; name: string; categoryId: number; minStock?: number; hasSN?: boolean }) {
+export async function createItem(data: { code: string; name: string; categoryId: number; minStock?: number; hasSN?: boolean; price?: number }) {
     if (!data.code || !data.name || !data.categoryId) {
         return { success: false, error: "Kode, Nama, dan Kategori wajib diisi" };
     }
@@ -57,6 +57,7 @@ export async function createItem(data: { code: string; name: string; categoryId:
                 categoryId: data.categoryId,
                 minStock: data.minStock || 0,
                 hasSN: data.hasSN ?? true,
+                price: data.price || 0,
                 updatedAt: new Date(),
             },
         });
@@ -68,7 +69,7 @@ export async function createItem(data: { code: string; name: string; categoryId:
     }
 }
 
-export async function updateItem(id: number, data: { code: string; name: string; categoryId: number; minStock?: number; hasSN?: boolean }) {
+export async function updateItem(id: number, data: { code: string; name: string; categoryId: number; minStock?: number; hasSN?: boolean; price?: number }) {
     if (!data.code || !data.name || !data.categoryId) {
         return { success: false, error: "Kode, Nama, dan Kategori wajib diisi" };
     }
@@ -87,6 +88,7 @@ export async function updateItem(id: number, data: { code: string; name: string;
                 categoryId: data.categoryId,
                 minStock: data.minStock || 0,
                 hasSN: data.hasSN ?? true,
+                price: data.price || 0,
                 updatedAt: new Date(),
             },
         });
