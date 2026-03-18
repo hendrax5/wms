@@ -1,11 +1,12 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { ArrowRightLeft, ScanLine, X, Loader2, Save, AlertCircle, Building2 } from "lucide-react";
+import { ArrowRightLeft, ScanLine, X, Loader2, Save, AlertCircle, Building2, Package } from "lucide-react";
 import { createTransfer, checkSerialInWarehouse } from "@/app/actions/transfer";
 import { getItems } from "@/app/actions/item";
 import { getWarehousesForSelect } from "@/app/actions/pop";
 import { useRouter } from "next/navigation";
+import SearchableSelect from "@/components/SearchableSelect";
 
 export default function TransferClient() {
     const router = useRouter();
@@ -189,20 +190,15 @@ export default function TransferClient() {
                             {/* Source */}
                             <div className="space-y-2">
                                 <label className="text-sm font-medium text-slate-300">Gudang Asal <span className="text-red-400">*</span></label>
-                                <select
+                                <SearchableSelect
+                                    options={warehouses.map(w => ({ value: w.id.toString(), label: w.name, subLabel: w.type }))}
                                     value={sourceId}
-                                    onChange={(e) => {
-                                        setSourceId(e.target.value);
-                                        setSerialNumbers([]); // Reset SN list if warehouse changes
-                                    }}
-                                    className="w-full bg-[#0f172a] border border-[#334155] text-white rounded-lg px-4 py-2.5 focus:ring-1 focus:ring-amber-500 focus:border-amber-500"
+                                    onChange={(val) => { setSourceId(val); setSerialNumbers([]); }}
+                                    placeholder="Ketik nama gudang asal..."
                                     required
-                                >
-                                    <option value="" disabled>Pilih Asal...</option>
-                                    {warehouses.map(w => (
-                                        <option key={w.id} value={w.id.toString()}>{w.name} ({w.type})</option>
-                                    ))}
-                                </select>
+                                    accentColor="amber"
+                                    icon={<Building2 size={14} />}
+                                />
                             </div>
 
                             <div className="hidden sm:flex pb-3 justify-center text-slate-500">
@@ -212,37 +208,30 @@ export default function TransferClient() {
                             {/* Target */}
                             <div className="space-y-2">
                                 <label className="text-sm font-medium text-slate-300">Gudang Tujuan <span className="text-red-400">*</span></label>
-                                <select
+                                <SearchableSelect
+                                    options={warehouses.map(w => ({ value: w.id.toString(), label: w.name, subLabel: w.type }))}
                                     value={targetId}
-                                    onChange={(e) => setTargetId(e.target.value)}
-                                    className="w-full bg-[#0f172a] border border-[#334155] text-white rounded-lg px-4 py-2.5 focus:ring-1 focus:ring-amber-500 focus:border-amber-500"
+                                    onChange={setTargetId}
+                                    placeholder="Ketik nama gudang tujuan..."
                                     required
-                                >
-                                    <option value="" disabled>Pilih Tujuan...</option>
-                                    {warehouses.map(w => (
-                                        <option key={w.id} value={w.id.toString()}>{w.name} ({w.type})</option>
-                                    ))}
-                                </select>
+                                    accentColor="amber"
+                                    icon={<Building2 size={14} />}
+                                />
                             </div>
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mt-4">
                             <div className="space-y-2">
                                 <label className="text-sm font-medium text-slate-300">Pilih Barang yang Dikirim <span className="text-red-400">*</span></label>
-                                <select
+                                <SearchableSelect
+                                    options={items.map(i => ({ value: i.id.toString(), label: `${i.code} - ${i.name}` }))}
                                     value={selectedItemId}
-                                    onChange={(e) => {
-                                        setSelectedItemId(e.target.value);
-                                        setSerialNumbers([]); // Reset scan list on item change
-                                    }}
-                                    className="w-full bg-[#0f172a] border border-[#334155] text-white rounded-lg px-4 py-2.5 focus:ring-1 focus:ring-amber-500 focus:border-amber-500"
+                                    onChange={(val) => { setSelectedItemId(val); setSerialNumbers([]); }}
+                                    placeholder="Ketik kode atau nama barang..."
                                     required
-                                >
-                                    <option value="" disabled>Pilih Barang...</option>
-                                    {items.map(i => (
-                                        <option key={i.id} value={i.id.toString()}>{i.code} - {i.name}</option>
-                                    ))}
-                                </select>
+                                    accentColor="amber"
+                                    icon={<Package size={14} />}
+                                />
                                 {selectedItem && (
                                     <p className="text-xs text-amber-400">
                                         Stok akan dikurangi dari {warehouses.find(w => w.id.toString() === sourceId)?.name || 'Gudang Asal'}.
