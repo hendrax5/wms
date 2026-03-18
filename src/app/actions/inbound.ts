@@ -3,23 +3,33 @@
 import { prisma } from "@/lib/db";
 import { revalidatePath, unstable_noStore as noStore } from "next/cache";
 
-type StockInPayload = {
-    warehouseId: number;
+type InboundItemPayload = {
     itemId: number;
-    categoryId?: number;
-    distributorId?: number;
     qty: number;
     price: number;
-    totalPrice: number;
-    clientName?: string;
-    description?: string;
     serialNumbers: string[];
+};
+
+type StockInPayload = {
+    warehouseId: number;
+    items: InboundItemPayload[];
+    description?: string;
+    clientName?: string;
 };
 
 export async function createStockIn(data: StockInPayload) {
     try {
-        if (data.serialNumbers.length > 0 && data.serialNumbers.length !== data.qty) {
-            return { success: false, error: "Jumlah Serial Number tidak sesuai dengan Qty Barang Masuk." };
+        if (!data.items || data.items.length === 0) {
+            return { success: false, error: "Minimal 1 barang harus ditambahkan." };
+        }
+
+        for (const item of data.items) {
+            if (item.qty <= 0) {
+                return { success: false, error: "Quantity setiap barang harus lebih dari 0." };
+            }
+            if (item.serialNumbers.length > 0 && item.serialNumbers.length !== item.qty) {
+                return { success: false, error: "Jumlah Serial Number tidak sesuai dengan Qty untuk salah satu barang." };
+            }
         }
 
         // Determine IDs for ItemType (Baru) and ItemStatus (In Stock)
@@ -35,88 +45,86 @@ export async function createStockIn(data: StockInPayload) {
             create: { name: "In Stock" }
         });
 
-        const result = await prisma.$transaction(async (tx) => {
-            // 1. Create StockIn record
-            const stockIn = await tx.stockIn.create({
-                data: {
-                    warehouseId: data.warehouseId,
-                    itemId: data.itemId,
-                    categoryId: data.categoryId,
-                    distributorId: data.distributorId,
-                    qty: data.qty,
-                    price: data.price,
-                    totalPrice: data.totalPrice,
-                    clientName: data.clientName,
-                    description: data.description,
-                }
-            });
+        const results = await prisma.$transaction(async (tx) => {
+            const stockIns = [];
 
-            // 2. Process Serial Numbers if present
-            if (data.serialNumbers.length > 0) {
-                const snRecords = [];
-                for (const snCode of data.serialNumbers) {
-                    // Check if SN already exists everywhere to avoid unique constraint throws
-                    const existingSn = await tx.serialNumber.findUnique({ where: { code: snCode } });
-                    if (existingSn) {
-                        throw new Error(`Serial Number ${snCode} sudah terdaftar di sistem!`);
+            for (const itemPayload of data.items) {
+                // 1. Create StockIn record
+                const stockIn = await tx.stockIn.create({
+                    data: {
+                        warehouseId: data.warehouseId,
+                        itemId: itemPayload.itemId,
+                        qty: itemPayload.qty,
+                        price: itemPayload.price,
+                        totalPrice: itemPayload.price * itemPayload.qty,
+                        clientName: data.clientName,
+                        description: data.description,
                     }
+                });
 
-                    // Create SerialNumber
-                    const sn = await tx.serialNumber.create({
+                // 2. Process Serial Numbers if present
+                if (itemPayload.serialNumbers.length > 0) {
+                    for (const snCode of itemPayload.serialNumbers) {
+                        const existingSn = await tx.serialNumber.findUnique({ where: { code: snCode } });
+                        if (existingSn) {
+                            throw new Error(`Serial Number ${snCode} sudah terdaftar di sistem!`);
+                        }
+
+                        const sn = await tx.serialNumber.create({
+                            data: {
+                                code: snCode,
+                                price: itemPayload.price,
+                                itemId: itemPayload.itemId,
+                                typeId: typeBaru.id,
+                                statusId: statusInStock.id,
+                                warehouseId: data.warehouseId,
+                                updatedAt: new Date(),
+                            }
+                        });
+
+                        await tx.stockInSerial.create({
+                            data: {
+                                stockInId: stockIn.id,
+                                serialNumberId: sn.id,
+                                serialCode: sn.code
+                            }
+                        });
+                    }
+                }
+
+                // 3. Upsert WarehouseStock
+                const currentStock = await tx.warehouseStock.findUnique({
+                    where: {
+                        itemId_warehouseId: {
+                            itemId: itemPayload.itemId,
+                            warehouseId: data.warehouseId
+                        }
+                    }
+                });
+
+                if (currentStock) {
+                    await tx.warehouseStock.update({
+                        where: { id: currentStock.id },
                         data: {
-                            code: snCode,
-                            price: data.price,
-                            itemId: data.itemId,
-                            typeId: typeBaru.id,
-                            statusId: statusInStock.id,
-                            warehouseId: data.warehouseId,
+                            stockNew: { increment: itemPayload.qty },
                             updatedAt: new Date(),
                         }
                     });
-
-                    // Link to StockIn via StockInSerial
-                    await tx.stockInSerial.create({
+                } else {
+                    await tx.warehouseStock.create({
                         data: {
-                            stockInId: stockIn.id,
-                            serialNumberId: sn.id,
-                            serialCode: sn.code
+                            itemId: itemPayload.itemId,
+                            warehouseId: data.warehouseId,
+                            stockNew: itemPayload.qty,
+                            updatedAt: new Date(),
                         }
                     });
-
-                    snRecords.push(sn);
                 }
+
+                stockIns.push(stockIn);
             }
 
-            // 3. Upsert WarehouseStock
-            const currentStock = await tx.warehouseStock.findUnique({
-                where: {
-                    itemId_warehouseId: {
-                        itemId: data.itemId,
-                        warehouseId: data.warehouseId
-                    }
-                }
-            });
-
-            if (currentStock) {
-                await tx.warehouseStock.update({
-                    where: { id: currentStock.id },
-                    data: { 
-                        stockNew: { increment: data.qty },
-                        updatedAt: new Date(),
-                    }
-                });
-            } else {
-                await tx.warehouseStock.create({
-                    data: {
-                        itemId: data.itemId,
-                        warehouseId: data.warehouseId,
-                        stockNew: data.qty,
-                        updatedAt: new Date(),
-                    }
-                });
-            }
-
-            return stockIn;
+            return stockIns;
         });
 
         revalidatePath("/inbound");
@@ -124,7 +132,7 @@ export async function createStockIn(data: StockInPayload) {
         revalidatePath("/dashboard");
         revalidatePath("/master");
         revalidatePath("/master/items");
-        return { success: true, data: result };
+        return { success: true, data: results };
 
     } catch (error: any) {
         console.error("StockIn Error:", error);
