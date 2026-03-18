@@ -145,7 +145,7 @@ export async function getItemDetails(id: number) {
                         itemtype: true
                     },
                     orderBy: { updatedAt: 'desc' } as any,
-                    take: 200
+                    take: 500
                 } as any
             }
         } as any);
@@ -173,6 +173,39 @@ export async function getItemDetails(id: number) {
             }
         };
     } catch (e: any) {
+        console.error("GET ITEM DETAILS ERROR for id:", id, e?.message);
+        
+        // Fallback: try to get the item without serial numbers
+        try {
+            const itemBasic = await prisma.item.findUnique({
+                where: { id },
+                include: {
+                    category: true,
+                }
+            });
+            if (itemBasic) {
+                // Get warehouse stocks separately
+                const stocks = await (prisma as any).warehouseStock.findMany({
+                    where: { itemId: id },
+                    include: { warehouse: true }
+                });
+                const totalFisik = stocks.reduce((acc: number, curr: any) => acc + (curr.stockNew || 0) + (curr.stockDismantle || 0) + (curr.stockDamaged || 0), 0);
+
+                return {
+                    success: true,
+                    data: {
+                        ...itemBasic,
+                        stocks,
+                        serialNumbers: [],
+                        totalFisik,
+                        _snError: e.message
+                    }
+                };
+            }
+        } catch (fallbackErr: any) {
+            console.error("FALLBACK ALSO FAILED:", fallbackErr?.message);
+        }
+        
         return { success: false, error: e.message };
     }
 }

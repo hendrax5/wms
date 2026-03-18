@@ -100,7 +100,10 @@ export async function createStockIn(data: StockInPayload) {
             if (currentStock) {
                 await tx.warehouseStock.update({
                     where: { id: currentStock.id },
-                    data: { stockNew: { increment: data.qty } }
+                    data: { 
+                        stockNew: { increment: data.qty },
+                        updatedAt: new Date(),
+                    }
                 });
             } else {
                 await tx.warehouseStock.create({
@@ -119,6 +122,8 @@ export async function createStockIn(data: StockInPayload) {
         revalidatePath("/inbound");
         revalidatePath("/stock");
         revalidatePath("/dashboard");
+        revalidatePath("/master");
+        revalidatePath("/master/items");
         return { success: true, data: result };
 
     } catch (error: any) {
