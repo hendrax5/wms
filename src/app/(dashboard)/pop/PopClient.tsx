@@ -6,6 +6,8 @@ import PopForm from "@/components/PopForm";
 import { getPops, getWarehousesForSelect, createPop, updatePop, deletePop } from "@/app/actions/pop";
 import { getAreasForSelect } from "@/app/actions/warehouse";
 import { Prisma } from "@prisma/client";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 type PopProps = {
     id: number;
@@ -65,6 +67,7 @@ export default function PopClient() {
     const [pops, setPops] = useState<PopProps[]>([]);
     const [areas, setAreas] = useState<{ id: number; name: string }[]>([]);
     const [warehouses, setWarehouses] = useState<{ id: number; name: string; type: string }[]>([]);
+    const router = useRouter();
 
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
@@ -290,7 +293,7 @@ export default function PopClient() {
                     </div>
                 ) : (
                     popPag.paged.map((pop) => (
-                        <div key={pop.id} className="glass rounded-xl p-4 sm:p-5 border border-[#334155] hover:border-slate-500 transition-colors flex flex-col h-full relative overflow-hidden group">
+                        <div key={pop.id} onClick={() => router.push(`/pop/${pop.id}`)} className="glass rounded-xl p-4 sm:p-5 border border-[#334155] hover:border-purple-500/40 transition-colors flex flex-col h-full relative overflow-hidden group cursor-pointer">
 
                             <div className="absolute -right-6 -top-6 w-24 h-24 bg-purple-500/10 rounded-full blur-2xl group-hover:bg-purple-500/20 transition-colors" />
 
@@ -334,8 +337,8 @@ export default function PopClient() {
                                     </div>
                                 </div>
                                 <div className="flex gap-1">
-                                    <button type="button" onClick={() => openEdit(pop)} className="p-1.5 text-slate-400 hover:text-purple-400 hover:bg-purple-400/10 rounded-lg transition-colors" title="Edit"><Edit2 size={14} /></button>
-                                    <button type="button" onClick={() => handleDelete(pop.id)} disabled={pop._count.serialnumber > 0 || pop._count.popinstallation > 0 || pop._count.stockout > 0}
+                                <button type="button" onClick={(e) => { e.stopPropagation(); openEdit(pop); }} className="p-1.5 text-slate-400 hover:text-purple-400 hover:bg-purple-400/10 rounded-lg transition-colors" title="Edit"><Edit2 size={14} /></button>
+                                    <button type="button" onClick={(e) => { e.stopPropagation(); handleDelete(pop.id); }} disabled={pop._count.serialnumber > 0 || pop._count.popinstallation > 0 || pop._count.stockout > 0}
                                         className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-colors disabled:opacity-30" title="Hapus"><Trash2 size={14} /></button>
                                 </div>
                             </div>

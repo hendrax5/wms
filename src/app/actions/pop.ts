@@ -119,3 +119,69 @@ export async function deletePop(id: number) {
         return { success: false, error: "Gagal menghapus POP. Pastikan tidak ada stok atau transaksi terkait." };
     }
 }
+
+export async function getPopDetails(id: number) {
+    noStore();
+    try {
+        if (process.env.NEXT_PHASE === 'phase-production-build') {
+            return { success: true, data: null };
+        }
+
+        const pop = await prisma.pop.findUnique({
+            where: { id },
+            include: {
+                area: true,
+                warehouse: true,
+                _count: { select: { stockout: true, popinstallation: true, serialnumber: true } },
+            },
+        });
+
+        if (!pop) return { success: false, error: "POP tidak ditemukan" };
+
+        // Installations (history of items installed here)
+        const installations = await (prisma as any).popInstallation.findMany({
+            where: { popId: id },
+            orderBy: { installedAt: "desc" },
+            include: {
+                item: { select: { id: true, name: true, code: true, unit: true } },
+                serialnumber: { select: { id: true, code: true } },
+            },
+        });
+
+        // Serial numbers currently at this POP
+        const serialNumbers = await (prisma as any).serialNumber.findMany({
+            where: { popId: id },
+            orderBy: { updatedAt: "desc" },
+            include: {
+                item: { select: { id: true, name: true, code: true, unit: true } },
+                status: { select: { name: true } },
+            },
+        });
+
+        // StockOut records targeting this POP
+        const stockOuts = await (prisma as any).stockOut.findMany({
+            where: { popId: id },
+            orderBy: { createdAt: "desc" },
+            include: {
+                item: { select: { id: true, name: true, code: true } },
+                warehouse_stockout_warehouseIdTowarehouse: { select: { name: true } },
+                stockoutserial: {
+                    include: { serialnumber: { select: { code: true } } },
+                },
+            },
+        });
+
+        return {
+            success: true,
+            data: {
+                pop,
+                installations,
+                serialNumbers,
+                stockOuts,
+            },
+        };
+    } catch (error) {
+        console.error("getPopDetails error:", error);
+        return { success: false, error: "Gagal mengambil detail POP" };
+    }
+}

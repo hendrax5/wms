@@ -171,6 +171,7 @@ export default function InventoryMasterClient() {
     const TABLE_PP = 10;
     const perPage = viewMode === "card" ? CARDS_PP : TABLE_PP;
     const pag = usePagination(filteredItems, perPage);
+    const catPag = usePagination(categories, TABLE_PP);
 
     // Reset page on filter/search/view change
     useEffect(() => { pag.reset(); }, [searchInput, selectedCatId, filterSN, filterLow, viewMode]);
@@ -428,7 +429,7 @@ export default function InventoryMasterClient() {
                                                 </tr>
                                             </thead>
                                             <tbody className="text-sm">
-                                                {categories.map(cat => {
+                                                {catPag.paged.map(cat => {
                                                     const count = cat._count?.item || 0;
                                                     return (
                                                         <tr key={cat.id} className="border-b border-[#1E293B]/50 hover:bg-white/[0.02] transition-colors group">
@@ -458,7 +459,7 @@ export default function InventoryMasterClient() {
                                     </div>
                                     {/* Mobile cards */}
                                     <div className="sm:hidden space-y-2">
-                                        {categories.map(cat => {
+                                        {catPag.paged.map(cat => {
                                             const count = cat._count?.item || 0;
                                             return (
                                                 <div key={cat.id} className="bg-[#020617] border border-[#1E293B] rounded-xl p-3">
@@ -480,6 +481,7 @@ export default function InventoryMasterClient() {
                                     </div>
                                 </>
                             )}
+                            <PaginationBar page={catPag.page} totalPages={catPag.totalPages} setPage={catPag.setPage} total={catPag.total} perPage={TABLE_PP} label="kategori" />
                         </>
                     ) : filteredItems.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-16 gap-3">
