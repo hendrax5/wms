@@ -2,7 +2,6 @@
 
 import { prisma } from "@/lib/db";
 import { revalidatePath, unstable_noStore as noStore } from "next/cache";
-import { auth } from "@/lib/auth";
 
 export async function getItems() {
     noStore();
@@ -40,31 +39,24 @@ export async function getCategoriesForSelect() {
     }
 }
 
-export async function createItem(formData: FormData) {
-    const code = formData.get("code") as string;
-    const name = formData.get("name") as string;
-    const categoryId = Number(formData.get("categoryId"));
-    const minStock = Number(formData.get("minStock")) || 0;
-    const hasSN = formData.get("hasSN") === "on";
-
-    if (!code || !name || !categoryId) {
+export async function createItem(data: { code: string; name: string; categoryId: number; minStock?: number; hasSN?: boolean }) {
+    if (!data.code || !data.name || !data.categoryId) {
         return { success: false, error: "Kode, Nama, dan Kategori wajib diisi" };
     }
 
     try {
-        // Check if code exists
-        const existing = await prisma.item.findUnique({ where: { code } });
+        const existing = await prisma.item.findUnique({ where: { code: data.code } });
         if (existing) {
-            return { success: false, error: `Kode barang ${code} sudah digunakan` };
+            return { success: false, error: `Kode barang ${data.code} sudah digunakan` };
         }
 
         await prisma.item.create({
             data: {
-                code,
-                name,
-                categoryId,
-                minStock,
-                hasSN,
+                code: data.code,
+                name: data.name,
+                categoryId: data.categoryId,
+                minStock: data.minStock || 0,
+                hasSN: data.hasSN ?? true,
             },
         });
 
@@ -75,32 +67,25 @@ export async function createItem(formData: FormData) {
     }
 }
 
-export async function updateItem(id: number, formData: FormData) {
-    const code = formData.get("code") as string;
-    const name = formData.get("name") as string;
-    const categoryId = Number(formData.get("categoryId"));
-    const minStock = Number(formData.get("minStock")) || 0;
-    const hasSN = formData.get("hasSN") === "on";
-
-    if (!code || !name || !categoryId) {
+export async function updateItem(id: number, data: { code: string; name: string; categoryId: number; minStock?: number; hasSN?: boolean }) {
+    if (!data.code || !data.name || !data.categoryId) {
         return { success: false, error: "Kode, Nama, dan Kategori wajib diisi" };
     }
 
     try {
-        // Check code collision
-        const existing = await prisma.item.findUnique({ where: { code } });
+        const existing = await prisma.item.findUnique({ where: { code: data.code } });
         if (existing && existing.id !== id) {
-            return { success: false, error: `Kode barang ${code} sudah digunakan` };
+            return { success: false, error: `Kode barang ${data.code} sudah digunakan` };
         }
 
         await prisma.item.update({
             where: { id },
             data: {
-                code,
-                name,
-                categoryId,
-                minStock,
-                hasSN,
+                code: data.code,
+                name: data.name,
+                categoryId: data.categoryId,
+                minStock: data.minStock || 0,
+                hasSN: data.hasSN ?? true,
             },
         });
 

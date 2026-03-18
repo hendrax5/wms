@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useRef } from "react";
 import { getItems, searchBySerialNumber } from "@/app/actions/master";
-import { Package, Search, Loader2, ArrowLeft, ArrowRight, X, Tags, Hash } from "lucide-react";
+import { createItem, updateItem, deleteItem, getCategoriesForSelect } from "@/app/actions/item";
+import { Package, Search, Loader2, ArrowLeft, ArrowRight, X, Tags, Hash, Plus, Pencil, Trash2, AlertTriangle } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 
@@ -11,10 +12,14 @@ type ItemProp = {
     code: string;
     name: string;
     unit: string;
+    hasSN: boolean;
+    categoryId: number | null;
     category: { name: string } | null;
     totalFisik: number;
     snCount: number;
 };
+
+type CategoryOption = { id: number; name: string; code: string | null; hasSN: boolean };
 
 type ActiveFilter = { type: 'kategori' | 'barang'; value: string; label: string };
 
@@ -22,6 +27,7 @@ export default function ItemsClient() {
     const searchParams = useSearchParams();
     const router = useRouter();
     const [items, setItems] = useState<ItemProp[]>([]);
+    const [categories, setCategories] = useState<CategoryOption[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchInput, setSearchInput] = useState("");
     const [isSuggestionsOpen, setIsSuggestionsOpen] = useState(false);
@@ -31,6 +37,17 @@ export default function ItemsClient() {
     const [activeFilters, setActiveFilters] = useState<ActiveFilter[]>(
         searchParams.get('search') ? [{ type: 'kategori', value: searchParams.get('search')!, label: searchParams.get('search')! }] : []
     );
+
+    // Modal State
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [editingItem, setEditingItem] = useState<ItemProp | null>(null);
+    const [formData, setFormData] = useState({ code: "", name: "", categoryId: "", minStock: 0, hasSN: true });
+    const [submitLoading, setSubmitLoading] = useState(false);
+    const [errorMsg, setErrorMsg] = useState("");
+
+    // Delete Modal
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [deletingItem, setDeletingItem] = useState<ItemProp | null>(null);
 
     const addFilter = (filter: ActiveFilter) => {
         if (!activeFilters.some(f => f.type === filter.type && f.value === filter.value)) {
@@ -46,8 +63,12 @@ export default function ItemsClient() {
 
     const loadData = async () => {
         setLoading(true);
-        const res = await getItems();
-        if (res.success) setItems(res.data as ItemProp[]);
+        const [itemRes, catRes] = await Promise.all([
+            getItems(),
+            getCategoriesForSelect()
+        ]);
+        if (itemRes.success) setItems(itemRes.data as ItemProp[]);
+        if (catRes.success) setCategories(catRes.data as CategoryOption[]);
         setLoading(false);
     };
 
@@ -55,13 +76,84 @@ export default function ItemsClient() {
         loadData();
     }, []);
 
+    // Auto-set hasSN from category when category changes
+    const handleCategoryChange = (catId: string) => {
+        const cat = categories.find(c => c.id.toString() === catId);
+        setFormData(prev => ({
+            ...prev,
+            categoryId: catId,
+            hasSN: cat ? cat.hasSN : true,
+        }));
+    };
+
+    const handleOpenModal = (item?: ItemProp) => {
+        setErrorMsg("");
+        if (item) {
+            setEditingItem(item);
+            setFormData({
+                code: item.code,
+                name: item.name,
+                categoryId: item.categoryId?.toString() || "",
+                minStock: 0,
+                hasSN: item.hasSN,
+            });
+        } else {
+            setEditingItem(null);
+            setFormData({ code: "", name: "", categoryId: "", minStock: 0, hasSN: true });
+        }
+        setIsModalOpen(true);
+    };
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setSubmitLoading(true);
+        setErrorMsg("");
+
+        const payload = {
+            code: formData.code,
+            name: formData.name,
+            categoryId: Number(formData.categoryId),
+            minStock: formData.minStock,
+            hasSN: formData.hasSN,
+        };
+
+        let res;
+        if (editingItem) {
+            res = await updateItem(editingItem.id, payload);
+        } else {
+            res = await createItem(payload);
+        }
+
+        if (res.success) {
+            setIsModalOpen(false);
+            loadData();
+        } else {
+            setErrorMsg(res.error || "Terjadi kesalahan.");
+        }
+        setSubmitLoading(false);
+    };
+
+    const handleDelete = async () => {
+        if (!deletingItem) return;
+        setSubmitLoading(true);
+        setErrorMsg("");
+
+        const res = await deleteItem(deletingItem.id);
+        if (res.success) {
+            setIsDeleteModalOpen(false);
+            setDeletingItem(null);
+            loadData();
+        } else {
+            setErrorMsg(res.error || "Gagal menghapus.");
+        }
+        setSubmitLoading(false);
+    };
+
     // Debounced SN search
     const handleSearchChange = (val: string) => {
         setSearchInput(val);
         setIsSuggestionsOpen(true);
-        // Clear previous timer
         if (snSearchTimer.current) clearTimeout(snSearchTimer.current);
-        // If input >= 3 chars, search SN after 400ms debounce
         if (val.trim().length >= 3) {
             setSnSearching(true);
             snSearchTimer.current = setTimeout(async () => {
@@ -80,10 +172,8 @@ export default function ItemsClient() {
     };
 
     const uniqueCategories = Array.from(new Set(items.map(i => i.category?.name || "Tanpa Kategori")));
-
     const uniqueItemNames = Array.from(new Set(items.map(i => i.name)));
 
-    // Generate suggestions based on current search input
     const suggestions = searchInput.trim().length > 0 ? [
         ...uniqueCategories
             .filter(c => c.toLowerCase().includes(searchInput.toLowerCase()))
@@ -95,7 +185,6 @@ export default function ItemsClient() {
             .map(n => ({ type: 'barang' as const, value: n, label: n }))
     ] : [];
 
-    // Apply filters
     const activeCategories = activeFilters.filter(f => f.type === 'kategori').map(f => f.value);
     const activeItems = activeFilters.filter(f => f.type === 'barang').map(f => f.value);
 
@@ -122,9 +211,15 @@ export default function ItemsClient() {
                             <Package size={20} className="text-green-400" />
                             Data Barang Utama
                         </h2>
-                        <p className="text-[13px] text-slate-400 mt-0.5">Pantau ringkasan item dan masuk ke detail untuk cek Serial Number.</p>
+                        <p className="text-[13px] text-slate-400 mt-0.5">Kelola master barang, kategori, dan cek Serial Number.</p>
                     </div>
                 </div>
+                <button
+                    onClick={() => handleOpenModal()}
+                    className="btn btn-primary text-sm px-4 h-9 flex items-center gap-2"
+                >
+                    <Plus size={16} /> Tambah Barang
+                </button>
             </div>
 
             {/* Content Card */}
@@ -255,17 +350,17 @@ export default function ItemsClient() {
                                 <tr className="border-b border-[#1E293B] bg-[#020617]/50 text-[11px] uppercase tracking-wider text-slate-500 font-semibold">
                                     <th className="px-5 py-3.5">Kode Barang</th>
                                     <th className="px-5 py-3.5">Nama & Kategori</th>
+                                    <th className="px-5 py-3.5 text-center w-16">SN</th>
                                     <th className="px-5 py-3.5 text-right w-28">Stok Fisik</th>
                                     <th className="px-5 py-3.5 text-right w-28">Total SN</th>
-                                    <th className="px-5 py-3.5 text-center w-24">Aksi</th>
+                                    <th className="px-5 py-3.5 text-center w-32">Aksi</th>
                                 </tr>
                             </thead>
                             <tbody className="text-sm">
                                 {filtered.map((item) => (
                                     <tr
                                         key={item.id}
-                                        onClick={() => router.push(`/master/items/${item.id}`)}
-                                        className="border-b border-[#1E293B]/50 hover:bg-white/[0.02] transition-colors group cursor-pointer"
+                                        className="border-b border-[#1E293B]/50 hover:bg-white/[0.02] transition-colors group"
                                     >
                                         <td className="px-5 py-4">
                                             <span className="font-mono text-xs text-slate-400 bg-slate-800/50 px-2.5 py-1 rounded border border-slate-700/50">
@@ -278,6 +373,13 @@ export default function ItemsClient() {
                                                 <span className="w-1.5 h-1.5 rounded-full bg-blue-500/50"></span>
                                                 {item.category?.name || "Tanpa Kategori"}
                                             </p>
+                                        </td>
+                                        <td className="px-5 py-4 text-center">
+                                            {item.hasSN ? (
+                                                <span className="bg-blue-500/10 text-blue-400 border border-blue-500/20 px-2 py-0.5 rounded text-[10px] font-semibold">SN</span>
+                                            ) : (
+                                                <span className="bg-amber-500/10 text-amber-400 border border-amber-500/20 px-2 py-0.5 rounded text-[10px] font-semibold">Non</span>
+                                            )}
                                         </td>
                                         <td className="px-5 py-4 text-right">
                                             <div className="flex flex-col items-end">
@@ -296,9 +398,25 @@ export default function ItemsClient() {
                                             </div>
                                         </td>
                                         <td className="px-5 py-4 text-center">
-                                            <Link href={`/master/items/${item.id}`} className="inline-flex items-center justify-center p-2 rounded-lg bg-[#020617] border border-[#1E293B] text-slate-400 hover:text-green-400 hover:border-green-500/30 transition-all group-hover:bg-white/5">
-                                                <ArrowRight size={16} />
-                                            </Link>
+                                            <div className="flex justify-center gap-1.5">
+                                                <Link href={`/master/items/${item.id}`} className="p-1.5 text-slate-400 hover:text-green-400 hover:bg-green-400/10 rounded transition-colors" title="Detail & SN">
+                                                    <ArrowRight size={15} />
+                                                </Link>
+                                                <button
+                                                    onClick={() => handleOpenModal(item)}
+                                                    className="p-1.5 text-slate-400 hover:text-blue-400 hover:bg-blue-400/10 rounded transition-colors"
+                                                    title="Edit"
+                                                >
+                                                    <Pencil size={15} />
+                                                </button>
+                                                <button
+                                                    onClick={() => { setDeletingItem(item); setIsDeleteModalOpen(true); setErrorMsg(""); }}
+                                                    className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-red-400/10 rounded transition-colors"
+                                                    title="Hapus"
+                                                >
+                                                    <Trash2 size={15} />
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
                                 ))}
@@ -307,6 +425,119 @@ export default function ItemsClient() {
                     )}
                 </div>
             </div>
+
+            {/* Add/Edit Modal */}
+            {isModalOpen && (
+                <div className="fixed inset-0 z-[100] bg-[#020617]/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+                    <div className="bg-[#0F172A] border border-[#1E293B] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
+                        <div className="p-5 border-b border-[#1E293B] flex items-center justify-between bg-[#020617]/50">
+                            <h3 className="font-bold text-white text-lg">
+                                {editingItem ? "Edit Barang" : "Tambah Barang"}
+                            </h3>
+                            <button onClick={() => setIsModalOpen(false)} className="text-slate-500 hover:text-white transition-colors">
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+                            {errorMsg && !isDeleteModalOpen && (
+                                <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg flex items-start gap-2.5">
+                                    <AlertTriangle size={16} className="text-red-400 shrink-0 mt-0.5" />
+                                    <p className="text-sm text-red-400">{errorMsg}</p>
+                                </div>
+                            )}
+
+                            <div>
+                                <label className="block text-xs font-semibold text-slate-400 mb-1.5">Kode Barang <span className="text-red-500">*</span></label>
+                                <input
+                                    type="text"
+                                    required
+                                    value={formData.code}
+                                    onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
+                                    className="w-full bg-[#020617] border border-[#1E293B] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-green-500/50 font-mono"
+                                    placeholder="Contoh: BK-001"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-semibold text-slate-400 mb-1.5">Nama Barang <span className="text-red-500">*</span></label>
+                                <input
+                                    type="text"
+                                    required
+                                    value={formData.name}
+                                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                    className="w-full bg-[#020617] border border-[#1E293B] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-green-500/50"
+                                    placeholder="Contoh: BUKU A"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-semibold text-slate-400 mb-1.5">Kategori <span className="text-red-500">*</span></label>
+                                <select
+                                    required
+                                    value={formData.categoryId}
+                                    onChange={(e) => handleCategoryChange(e.target.value)}
+                                    className="w-full bg-[#020617] border border-[#1E293B] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-green-500/50"
+                                >
+                                    <option value="">Pilih Kategori</option>
+                                    {categories.map(c => (
+                                        <option key={c.id} value={c.id}>{c.name} {c.hasSN ? '(SN)' : '(Non-SN)'}</option>
+                                    ))}
+                                </select>
+                                {formData.categoryId && (
+                                    <p className="text-[11px] mt-1.5">
+                                        {formData.hasSN ? (
+                                            <span className="text-blue-400">✓ Kategori ini wajib Serial Number</span>
+                                        ) : (
+                                            <span className="text-amber-400">✓ Kategori ini tanpa Serial Number (cukup Qty)</span>
+                                        )}
+                                    </p>
+                                )}
+                            </div>
+
+                            <div className="pt-4 flex gap-3">
+                                <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 px-4 py-2 rounded-lg bg-slate-800 text-white hover:bg-slate-700 transition-colors text-sm font-medium">
+                                    Batal
+                                </button>
+                                <button type="submit" disabled={submitLoading} className="flex-1 btn btn-primary py-2 text-sm">
+                                    {submitLoading ? <Loader2 size={16} className="animate-spin mx-auto" /> : "Simpan"}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Delete Confirm Modal */}
+            {isDeleteModalOpen && deletingItem && (
+                <div className="fixed inset-0 z-[100] bg-[#020617]/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+                    <div className="bg-[#0F172A] border border-[#1E293B] rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden p-6 text-center">
+                        <div className="w-16 h-16 rounded-full bg-red-500/10 text-red-500 flex items-center justify-center mx-auto mb-4">
+                            <Trash2 size={32} />
+                        </div>
+                        <h3 className="font-bold text-white text-lg mb-2">Hapus Barang?</h3>
+                        <p className="text-sm text-slate-400 mb-6">
+                            Anda yakin ingin menghapus barang <span className="font-semibold text-white">"{deletingItem.name}"</span> ({deletingItem.code})? Tindakan ini tidak dapat dibatalkan.
+                        </p>
+
+                        {errorMsg && (
+                            <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-left mb-4 flex items-start gap-2">
+                                <AlertTriangle size={16} className="text-red-400 shrink-0 mt-0.5" />
+                                <p className="text-xs text-red-400">{errorMsg}</p>
+                            </div>
+                        )}
+
+                        <div className="flex gap-3">
+                            <button onClick={() => { setIsDeleteModalOpen(false); setDeletingItem(null); setErrorMsg(""); }} className="flex-1 px-4 py-2 rounded-lg bg-slate-800 text-white hover:bg-slate-700 transition-colors text-sm font-medium">
+                                Batal
+                            </button>
+                            <button onClick={handleDelete} disabled={submitLoading} className="flex-1 px-4 py-2 rounded-lg bg-red-500 text-white hover:bg-red-600 shadow-lg shadow-red-500/25 transition-all text-sm font-medium">
+                                {submitLoading ? <Loader2 size={16} className="animate-spin mx-auto" /> : "Ya, Hapus"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
