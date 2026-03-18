@@ -422,7 +422,11 @@ export async function getSerialNumberHistory(id: number) {
 // ------------------------------------------------------------------
 
 export async function getWarehouseList() {
+    noStore();
     try {
+        if (process.env.NEXT_PHASE === 'phase-production-build') {
+            return { success: true, data: [] };
+        }
         const warehouseId = await getBranchScope();
 
         const warehouses = await prisma.warehouse.findMany({
@@ -433,17 +437,23 @@ export async function getWarehouseList() {
         // Count total stock (new + dismantle + damaged) per warehouse
         const rawStocks = await (prisma as any).warehouseStock.findMany({
             where: warehouseId ? { warehouseId } : undefined,
-            select: { warehouseId: true, stockNew: true, stockDamaged: true, stockDismantle: true }
+            select: { warehouseId: true, stockNew: true, stockDamaged: true, stockDismantle: true, minStock: true, itemId: true }
         });
 
-        const stockMap = rawStocks.reduce((acc: Record<number, number>, curr: any) => {
-            acc[curr.warehouseId] = (acc[curr.warehouseId] || 0) + curr.stockNew + curr.stockDismantle + curr.stockDamaged;
-            return acc;
-        }, {} as Record<number, number>);
+        const stockMap: Record<number, number> = {};
+        const lowStockMap: Record<number, number> = {};
+        for (const s of rawStocks) {
+            const total = (s.stockNew || 0) + (s.stockDismantle || 0) + (s.stockDamaged || 0);
+            stockMap[s.warehouseId] = (stockMap[s.warehouseId] || 0) + total;
+            if (total <= 0) {
+                lowStockMap[s.warehouseId] = (lowStockMap[s.warehouseId] || 0) + 1;
+            }
+        }
 
         const fullList = warehouses.map(w => ({
             ...w,
-            totalFisik: stockMap[w.id] || 0
+            totalFisik: stockMap[w.id] || 0,
+            lowStockCount: lowStockMap[w.id] || 0,
         }));
 
         return { success: true, data: fullList };
@@ -451,6 +461,55 @@ export async function getWarehouseList() {
         return { success: false, error: e.message };
     }
 }
+
+export async function createWarehouse(data: { name: string; location?: string; type?: string }) {
+    try {
+        await prisma.warehouse.create({
+            data: {
+                name: data.name,
+                location: data.location || null,
+                type: (data.type as any) || 'CABANG',
+                updatedAt: new Date(),
+            },
+        });
+        revalidatePath("/stock");
+        return { success: true };
+    } catch (e: any) {
+        return { success: false, error: e.message || "Gagal membuat gudang" };
+    }
+}
+
+export async function updateWarehouse(id: number, data: { name: string; location?: string; type?: string }) {
+    try {
+        await prisma.warehouse.update({
+            where: { id },
+            data: {
+                name: data.name,
+                location: data.location || null,
+                type: (data.type as any) || 'CABANG',
+                updatedAt: new Date(),
+            },
+        });
+        revalidatePath("/stock");
+        return { success: true };
+    } catch (e: any) {
+        return { success: false, error: e.message || "Gagal memperbarui gudang" };
+    }
+}
+
+export async function deleteWarehouse(id: number) {
+    try {
+        await prisma.warehouse.delete({ where: { id } });
+        revalidatePath("/stock");
+        return { success: true };
+    } catch (e: any) {
+        if (e.code === 'P2003') {
+            return { success: false, error: "Gudang tidak dapat dihapus karena masih memiliki stok atau data terkait." };
+        }
+        return { success: false, error: e.message || "Gagal menghapus gudang" };
+    }
+}
+
 
 
 export async function getWarehouseDetails(id: number) {

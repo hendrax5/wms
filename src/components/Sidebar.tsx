@@ -15,7 +15,8 @@ import {
     Cpu,
     Wrench,
     ScanLine,
-    RotateCcw
+    RotateCcw,
+    Building2
 } from "lucide-react";
 
 const links = [
@@ -24,7 +25,7 @@ const links = [
     { href: "/outbound", label: "Barang Keluar", icon: Upload },
     { href: "/transfer", label: "Transfer Stok", icon: ArrowRightLeft },
     { href: "/pop", label: "Data POP", icon: Server },
-    { href: "/stock", label: "Stok Gudang", icon: Package },
+    { href: "/stock", label: "Direktori Gudang", icon: Building2 },
     { href: "/reports", label: "Laporan", icon: FileBarChart },
     { href: "/master", label: "Inventory Master", icon: Package },
 ];

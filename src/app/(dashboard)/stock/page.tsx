@@ -1,21 +1,16 @@
-import { auth } from "@/lib/auth";
-import { redirect } from "next/navigation";
-import { getWarehouseList } from "@/app/actions/master";
+import { Suspense } from "react";
 import StockIndexClient from "./StockIndexClient";
+import { Loader2 } from "lucide-react";
 
-export default async function StockIndexPage() {
-    const session = await auth();
-    const level = session?.user?.level;
-    const warehouseId = session?.user?.warehouseId;
-
-    // CABANG users only have 1 warehouse — go directly to it
-    if (level === "CABANG" && warehouseId) {
-        redirect(`/stock/warehouse/${warehouseId}`);
-    }
-
-    // MASTER/SPV/STAFF see all warehouses
-    const res = await getWarehouseList();
-    const warehouses = res.success && res.data ? res.data : [];
-
-    return <StockIndexClient warehouses={warehouses} />;
+export default function StockIndexPage() {
+    return (
+        <Suspense fallback={
+            <div className="p-8 flex justify-center flex-col items-center gap-4 py-20">
+                <Loader2 className="animate-spin text-amber-500" size={32} />
+                <p className="text-slate-500 text-sm">Memuat Direktori Gudang...</p>
+            </div>
+        }>
+            <StockIndexClient />
+        </Suspense>
+    );
 }
