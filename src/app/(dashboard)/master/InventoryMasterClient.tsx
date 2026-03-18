@@ -103,7 +103,7 @@ export default function InventoryMasterClient() {
     const [searchInput, setSearchInput] = useState("");
     const [filterSN, setFilterSN] = useState(false);
     const [filterLow, setFilterLow] = useState(false);
-    const [sidebarOpen, setSidebarOpen] = useState(true);
+    const [contentTab, setContentTab] = useState<"barang" | "kategori">("barang");
 
     // Item Modal
     const [isItemModalOpen, setIsItemModalOpen] = useState(false);
@@ -359,42 +359,129 @@ export default function InventoryMasterClient() {
             {/* ── MAIN CONTENT ── */}
             <div className="card !p-0 border border-[#1E293B] overflow-hidden flex flex-col">
                 {/* Toolbar */}
-                <div className="p-2.5 sm:p-3 border-b border-[#1E293B] bg-[#020617]/50 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                    <div className="flex items-center gap-2 min-w-0 flex-1">
-                        {/* Category dropdown */}
-                        <div className="relative">
-                            <select
-                                value={selectedCatId ?? ""}
-                                onChange={(e) => setSelectedCatId(e.target.value ? Number(e.target.value) : null)}
-                                className="bg-[#020617] border border-[#1E293B] rounded-lg pl-3 pr-8 py-1.5 text-xs text-white focus:outline-none focus:border-green-500/50 appearance-none cursor-pointer min-w-[120px]"
-                            >
-                                <option value="">Semua ({totalItems})</option>
-                                {categories.map(cat => (
-                                    <option key={cat.id} value={cat.id}>{cat.name} ({cat._count?.item || 0})</option>
-                                ))}
-                            </select>
-                            <Tags size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
+                <div className="p-2.5 sm:p-3 border-b border-[#1E293B] bg-[#020617]/50 flex flex-col gap-2">
+                    {/* Tab buttons + view toggle */}
+                    <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1 bg-[#020617] rounded-lg p-0.5 border border-[#1E293B]">
+                            <button type="button" onClick={() => setContentTab("barang")} className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${contentTab === "barang" ? "bg-green-500/20 text-green-400" : "text-slate-500 hover:text-white"}`}>
+                                <Package size={12} className="inline mr-1" />Barang <span className="text-[10px] opacity-70">({totalItems})</span>
+                            </button>
+                            <button type="button" onClick={() => setContentTab("kategori")} className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${contentTab === "kategori" ? "bg-blue-500/20 text-blue-400" : "text-slate-500 hover:text-white"}`}>
+                                <Tags size={12} className="inline mr-1" />Kategori <span className="text-[10px] opacity-70">({categories.length})</span>
+                            </button>
                         </div>
-                        {selectedCat && (
-                            <>
+                        {contentTab === "barang" && (
+                            <div className="flex items-center gap-1 shrink-0">
+                                <button type="button" onClick={() => setViewMode("card")} className={`p-1.5 rounded transition-colors ${viewMode === "card" ? "bg-green-500/20 text-green-400" : "text-slate-500 hover:text-white"}`} title="Card View"><LayoutGrid size={14} /></button>
+                                <button type="button" onClick={() => setViewMode("table")} className={`p-1.5 rounded transition-colors ${viewMode === "table" ? "bg-green-500/20 text-green-400" : "text-slate-500 hover:text-white"}`} title="Table View"><List size={14} /></button>
+                            </div>
+                        )}
+                    </div>
+                    {/* Category filter (only in barang tab) */}
+                    {contentTab === "barang" && (
+                        <div className="flex items-center gap-2 min-w-0">
+                            <div className="relative">
+                                <select
+                                    value={selectedCatId ?? ""}
+                                    onChange={(e) => setSelectedCatId(e.target.value ? Number(e.target.value) : null)}
+                                    className="bg-[#020617] border border-[#1E293B] rounded-lg pl-3 pr-8 py-1.5 text-xs text-white focus:outline-none focus:border-green-500/50 appearance-none cursor-pointer min-w-[120px]"
+                                >
+                                    <option value="">Semua Kategori</option>
+                                    {categories.map(cat => (
+                                        <option key={cat.id} value={cat.id}>{cat.name} ({cat._count?.item || 0})</option>
+                                    ))}
+                                </select>
+                                <FolderOpen size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
+                            </div>
+                            {selectedCat && (
                                 <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded border shrink-0 ${selectedCat.hasSN ? "bg-blue-500/10 text-blue-400 border-blue-500/20" : "bg-amber-500/10 text-amber-400 border-amber-500/20"}`}>
                                     {selectedCat.hasSN ? "SN" : "Non-SN"}
                                 </span>
-                                <button type="button" onClick={() => openCatModal(selectedCat)} className="p-1 text-slate-500 hover:text-blue-400 transition-colors" title="Edit Kategori"><Pencil size={11} /></button>
-                                <button type="button" onClick={() => { setDeleteTarget({ type: "cat", data: selectedCat }); setErrorMsg(""); }} className="p-1 text-slate-500 hover:text-red-400 transition-colors" title="Hapus Kategori"><Trash2 size={11} /></button>
-                            </>
-                        )}
-                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-green-500/20 text-green-400 shrink-0">{filteredItems.length}</span>
-                    </div>
-                    <div className="flex items-center gap-1 shrink-0">
-                        <button type="button" onClick={() => setViewMode("card")} className={`p-1.5 rounded transition-colors ${viewMode === "card" ? "bg-green-500/20 text-green-400" : "text-slate-500 hover:text-white"}`} title="Card View"><LayoutGrid size={14} /></button>
-                        <button type="button" onClick={() => setViewMode("table")} className={`p-1.5 rounded transition-colors ${viewMode === "table" ? "bg-green-500/20 text-green-400" : "text-slate-500 hover:text-white"}`} title="Table View"><List size={14} /></button>
-                    </div>
+                            )}
+                            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-green-500/20 text-green-400 shrink-0">{filteredItems.length}</span>
+                        </div>
+                    )}
                 </div>
 
                 {/* Content */}
                 <div className="flex-1 p-3 sm:p-4">
-                    {filteredItems.length === 0 ? (
+                    {contentTab === "kategori" ? (
+                        /* ── KATEGORI VIEW ── */
+                        <>
+                            {categories.length === 0 ? (
+                                <div className="flex flex-col items-center justify-center py-16 gap-3">
+                                    <div className="w-12 h-12 rounded-xl bg-slate-800 flex items-center justify-center"><Tags size={20} className="text-slate-500" /></div>
+                                    <p className="text-sm text-slate-500">Belum ada kategori.</p>
+                                    <button type="button" onClick={() => openCatModal()} className="text-xs text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-1"><Plus size={14} /> Tambah Kategori</button>
+                                </div>
+                            ) : (
+                                <>
+                                    {/* Desktop table */}
+                                    <div className="hidden sm:block">
+                                        <table className="w-full text-left border-collapse">
+                                            <thead>
+                                                <tr className="border-b border-[#1E293B] bg-[#020617]/50 text-[10px] uppercase tracking-wider text-slate-500 font-semibold">
+                                                    <th className="px-4 py-2.5">Kategori</th>
+                                                    <th className="px-4 py-2.5 text-center w-16">Tipe</th>
+                                                    <th className="px-4 py-2.5 text-right w-20">Jumlah</th>
+                                                    <th className="px-4 py-2.5 text-center w-20">Aksi</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="text-sm">
+                                                {categories.map(cat => {
+                                                    const count = cat._count?.item || 0;
+                                                    return (
+                                                        <tr key={cat.id} className="border-b border-[#1E293B]/50 hover:bg-white/[0.02] transition-colors group">
+                                                            <td className="px-4 py-3">
+                                                                <p className="font-semibold text-white text-sm group-hover:text-blue-400 transition-colors">{cat.name}</p>
+                                                                {cat.code && <p className="text-[10px] text-slate-500 font-mono mt-0.5">Prefix: {cat.code}</p>}
+                                                            </td>
+                                                            <td className="px-4 py-3 text-center">
+                                                                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${cat.hasSN ? "bg-blue-500/10 text-blue-400 border-blue-500/20" : "bg-amber-500/10 text-amber-400 border-amber-500/20"}`}>{cat.hasSN ? "SN" : "Non-SN"}</span>
+                                                            </td>
+                                                            <td className="px-4 py-3 text-right">
+                                                                <span className={`font-mono font-bold ${count === 0 ? "text-slate-600" : "text-white"}`}>{count}</span>
+                                                                <span className="text-[10px] text-slate-500 ml-1">item</span>
+                                                            </td>
+                                                            <td className="px-4 py-3 text-center">
+                                                                <div className="flex justify-center gap-1">
+                                                                    <button type="button" onClick={() => { setSelectedCatId(cat.id); setContentTab("barang"); }} className="p-1.5 text-slate-400 hover:text-green-400 hover:bg-green-400/10 rounded transition-colors" title="Lihat Barang"><ChevronRight size={14} /></button>
+                                                                    <button type="button" onClick={() => openCatModal(cat)} className="p-1.5 text-slate-400 hover:text-blue-400 hover:bg-blue-400/10 rounded transition-colors" title="Edit"><Pencil size={14} /></button>
+                                                                    <button type="button" onClick={() => { setDeleteTarget({ type: "cat", data: cat }); setErrorMsg(""); }} className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-red-400/10 rounded transition-colors" title="Hapus"><Trash2 size={14} /></button>
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    {/* Mobile cards */}
+                                    <div className="sm:hidden space-y-2">
+                                        {categories.map(cat => {
+                                            const count = cat._count?.item || 0;
+                                            return (
+                                                <div key={cat.id} className="bg-[#020617] border border-[#1E293B] rounded-xl p-3">
+                                                    <div className="flex items-center justify-between mb-2">
+                                                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                                                            <p className="font-medium text-white text-sm truncate">{cat.name}</p>
+                                                            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border shrink-0 ${cat.hasSN ? "bg-blue-500/10 text-blue-400 border-blue-500/20" : "bg-amber-500/10 text-amber-400 border-amber-500/20"}`}>{cat.hasSN ? "SN" : "Non-SN"}</span>
+                                                        </div>
+                                                        <span className="text-xs text-slate-500 font-mono shrink-0 ml-2">{count} item</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <button type="button" onClick={() => { setSelectedCatId(cat.id); setContentTab("barang"); }} className="flex-1 text-center py-1.5 rounded-lg bg-[#0F172A] border border-[#1E293B] text-[11px] font-medium text-slate-400 hover:text-green-400 transition-all">Lihat Barang</button>
+                                                        <button type="button" onClick={() => openCatModal(cat)} className="p-1.5 text-slate-500 hover:text-blue-400 transition-colors"><Pencil size={13} /></button>
+                                                        <button type="button" onClick={() => { setDeleteTarget({ type: "cat", data: cat }); setErrorMsg(""); }} className="p-1.5 text-slate-500 hover:text-red-400 transition-colors"><Trash2 size={13} /></button>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </>
+                            )}
+                        </>
+                    ) : filteredItems.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-16 gap-3">
                             <div className="w-12 h-12 rounded-xl bg-slate-800 flex items-center justify-center"><Package size={20} className="text-slate-500" /></div>
                             <p className="text-sm text-slate-500">Tidak ada barang ditemukan.</p>
