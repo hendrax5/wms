@@ -199,9 +199,9 @@ export default function ReportsClient() {
                     <thead className="bg-[#020617] text-slate-300 border-b border-[#334155]">
                         <tr>
                             <th className="px-4 py-3 font-semibold uppercase tracking-wider text-[10px]">Gudang</th>
-                            <th className="px-4 py-3 font-semibold uppercase tracking-wider text-[10px] text-center">Tipe</th>
-                            <th className="px-4 py-3 font-semibold uppercase tracking-wider text-[10px] text-right text-blue-400">Aktif</th>
-                            <th className="px-4 py-3 font-semibold uppercase tracking-wider text-[10px] text-right text-red-400">Rusak</th>
+                            <th className="px-4 py-3 font-semibold uppercase tracking-wider text-[10px] text-center w-20">Tipe</th>
+                            <th className="px-4 py-3 font-semibold uppercase tracking-wider text-[10px] text-right text-blue-400 w-24">Aktif</th>
+                            <th className="px-4 py-3 font-semibold uppercase tracking-wider text-[10px] text-right text-red-400 w-24">Rusak</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-[#334155] text-slate-200">
