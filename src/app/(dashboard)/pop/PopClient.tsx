@@ -7,15 +7,16 @@ import { getPops, getWarehousesForSelect, createPop, updatePop, deletePop } from
 import { getAreasForSelect } from "@/app/actions/warehouse";
 import { Prisma } from "@prisma/client";
 
-type PopProps = Prisma.PopGetPayload<{
-    include: {
-        area: true;
-        managingWarehouse: true;
-        _count: {
-            select: { stockOuts: true; installations: true; serialNumbers: true };
-        };
-    };
-}>;
+type PopProps = {
+    id: number;
+    name: string;
+    location: string | null;
+    areaId: number | null;
+    warehouseId: number | null;
+    area: { id: number; name: string } | null;
+    warehouse: { id: number; name: string } | null;
+    _count: { stockout: number; popinstallation: number; serialnumber: number };
+};
 
 type ActiveFilter = { type: 'area' | 'gudang'; value: string; label: string };
 
@@ -77,7 +78,7 @@ export default function PopClient() {
 
     // Build suggestions
     const uniqueAreas = Array.from(new Set(pops.map(p => p.area?.name).filter(Boolean))) as string[];
-    const uniqueManagingWh = Array.from(new Set(pops.map(p => p.managingWarehouse?.name).filter(Boolean))) as string[];
+    const uniqueManagingWh = Array.from(new Set(pops.map(p => p.warehouse?.name).filter(Boolean))) as string[];
 
     const suggestions: ActiveFilter[] = searchInput.trim().length > 0 ? [
         ...uniqueAreas
@@ -96,10 +97,10 @@ export default function PopClient() {
     const filteredPops = useMemo(() => {
         return pops.filter(p => {
             const matchesArea = activeAreaFilters.length === 0 || activeAreaFilters.includes(p.area?.name || '');
-            const matchesWh = activeWhFilters.length === 0 || activeWhFilters.includes(p.managingWarehouse?.name || '');
+            const matchesWh = activeWhFilters.length === 0 || activeWhFilters.includes(p.warehouse?.name || '');
             const matchesFreeText = searchInput.trim() === '' ||
                 p.name.toLowerCase().includes(searchInput.toLowerCase()) ||
-                (p.managingWarehouse?.name || '').toLowerCase().includes(searchInput.toLowerCase()) ||
+                (p.warehouse?.name || '').toLowerCase().includes(searchInput.toLowerCase()) ||
                 (p.area?.name || '').toLowerCase().includes(searchInput.toLowerCase());
             return matchesArea && matchesWh && matchesFreeText;
         });
@@ -274,7 +275,7 @@ export default function PopClient() {
                                 <div className="flex items-center gap-2 text-xs text-slate-400 bg-slate-800/50 p-2 rounded-lg border border-slate-700/50">
                                     <span className="font-medium">Gudang Pengelola:</span>
                                     <span className="text-white bg-slate-700 px-2 py-0.5 rounded ml-auto">
-                                        {pop.managingWarehouse?.name || <span className="text-slate-500 italic">Belum Diatur</span>}
+                                        {pop.warehouse?.name || <span className="text-slate-500 italic">Belum Diatur</span>}
                                     </span>
                                 </div>
                             </div>
@@ -283,11 +284,11 @@ export default function PopClient() {
                                 <div className="flex gap-4">
                                     <div className="text-center" title="Total Perangkat SN di POP ini">
                                         <p className="text-xs text-slate-500 uppercase tracking-wider">Devices</p>
-                                        <p className="font-mono text-white mt-0.5">{pop._count.serialNumbers}</p>
+                                        <p className="font-mono text-white mt-0.5">{pop._count.serialnumber}</p>
                                     </div>
                                     <div className="text-center" title="Riwayat Instalasi">
                                         <p className="text-xs text-slate-500 uppercase tracking-wider">Installs</p>
-                                        <p className="font-mono text-white mt-0.5">{pop._count.installations}</p>
+                                        <p className="font-mono text-white mt-0.5">{pop._count.popinstallation}</p>
                                     </div>
                                 </div>
                                 <div className="flex gap-2">
@@ -300,9 +301,9 @@ export default function PopClient() {
                                     </button>
                                     <button
                                         onClick={() => handleDelete(pop.id)}
-                                        disabled={pop._count.serialNumbers > 0 || pop._count.installations > 0 || pop._count.stockOuts > 0}
+                                        disabled={pop._count.serialnumber > 0 || pop._count.popinstallation > 0 || pop._count.stockout > 0}
                                         className="p-2 text-slate-400 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-colors disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-slate-400"
-                                        title={(pop._count.serialNumbers > 0 || pop._count.installations > 0 || pop._count.stockOuts > 0) ? "Tidak dapat dihapus: POP memiliki riwayat perangkat" : "Hapus"}
+                                        title={(pop._count.serialnumber > 0 || pop._count.popinstallation > 0 || pop._count.stockout > 0) ? "Tidak dapat dihapus: POP memiliki riwayat perangkat" : "Hapus"}
                                     >
                                         <Trash2 size={16} />
                                     </button>

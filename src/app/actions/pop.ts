@@ -13,14 +13,14 @@ export async function getPops() {
         const session = await auth();
         const warehouseId = session?.user?.level === "CABANG" ? session.user.warehouseId : null;
 
-        const pops = await prisma.pop.findMany({
+        const pops = await (prisma as any).pop.findMany({
             where: warehouseId ? { warehouseId } : undefined,
             orderBy: { name: "asc" },
             include: {
                 area: true,
-                managingWarehouse: true,
+                warehouse: true,
                 _count: {
-                    select: { stockOuts: true, installations: true, serialNumbers: true }
+                    select: { stockout: true, popinstallation: true, serialnumber: true }
                 }
             }
         });
@@ -67,6 +67,7 @@ export async function createPop(formData: FormData) {
                 location: location || null,
                 areaId,
                 warehouseId,
+                updatedAt: new Date(),
             },
         });
 
@@ -95,6 +96,7 @@ export async function updatePop(id: number, formData: FormData) {
                 location: location || null,
                 areaId,
                 warehouseId,
+                updatedAt: new Date(),
             },
         });
 
