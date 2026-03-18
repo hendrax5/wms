@@ -1,11 +1,12 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Package, ScanLine, X, Loader2, Save, AlertCircle } from "lucide-react";
+import { Package, ScanLine, X, Loader2, Save, AlertCircle, Building2 } from "lucide-react";
 import { createStockIn } from "@/app/actions/inbound";
 import { getItems } from "@/app/actions/item";
 import { getWarehousesForSelect } from "@/app/actions/pop";
 import { useRouter } from "next/navigation";
+import SearchableSelect from "@/components/SearchableSelect";
 
 export default function InboundClient() {
     const router = useRouter();
@@ -168,36 +169,28 @@ export default function InboundClient() {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                             <div className="space-y-2">
                                 <label className="text-sm font-medium text-slate-300">Gudang / Cabang Tujuan <span className="text-red-400">*</span></label>
-                                <select
+                                <SearchableSelect
+                                    options={warehouses.map(w => ({ value: w.id.toString(), label: w.name }))}
                                     value={selectedWarehouseId}
-                                    onChange={(e) => setSelectedWarehouseId(e.target.value)}
-                                    className="w-full bg-[#0f172a] border border-[#334155] text-white rounded-lg px-4 py-2.5 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                                    onChange={setSelectedWarehouseId}
+                                    placeholder="Ketik nama gudang..."
                                     required
-                                >
-                                    <option value="" disabled>Pilih Gudang...</option>
-                                    {warehouses.map(w => (
-                                        <option key={w.id} value={w.id.toString()}>{w.name}</option>
-                                    ))}
-                                </select>
+                                    accentColor="blue"
+                                    icon={<Building2 size={14} />}
+                                />
                             </div>
 
                             <div className="space-y-2">
                                 <label className="text-sm font-medium text-slate-300">Pilih Barang <span className="text-red-400">*</span></label>
-                                <select
+                                <SearchableSelect
+                                    options={items.map(i => ({ value: i.id.toString(), label: `${i.code} - ${i.name}`, subLabel: i.category?.name || undefined }))}
                                     value={selectedItemId}
-                                    onChange={(e) => {
-                                        setSelectedItemId(e.target.value);
-                                        // Reset scans if changing items
-                                        setSerialNumbers([]);
-                                    }}
-                                    className="w-full bg-[#0f172a] border border-[#334155] text-white rounded-lg px-4 py-2.5 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                                    onChange={(val) => { setSelectedItemId(val); setSerialNumbers([]); }}
+                                    placeholder="Ketik kode atau nama barang..."
                                     required
-                                >
-                                    <option value="" disabled>Pilih Barang...</option>
-                                    {items.map(i => (
-                                        <option key={i.id} value={i.id.toString()}>{i.code} - {i.name}</option>
-                                    ))}
-                                </select>
+                                    accentColor="blue"
+                                    icon={<Package size={14} />}
+                                />
                                 {selectedItem && (
                                     <p className="text-xs text-blue-400">
                                         Status: {selectedItem.hasSN ? "Wajib Serial Number (SN)" : "Tanpa Serial Number (Non-SN)"}

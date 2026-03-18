@@ -1,0 +1,50 @@
+   1: sql_schema_connector::apply_migration::apply_migration
+             at schema-engine/connectors/sql-schema-connector/src/apply_migration.rs:11
+   2: schema_core::state::SchemaPush
+             at schema-engine/core/src/state.rs:545
+
+==> Syncing database schema...
+warn The configuration property `package.json#prisma` is deprecated and will be removed in Prisma 7. Please migrate to a Prisma config file (e.g., `prisma.config.ts`).
+For more information, see: https://pris.ly/prisma-config
+
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": MySQL database "wms_2026" at "wms-db:3306"
+Error: Incorrect datetime value: '0000-00-00 00:00:00.000' for column 'updatedAt' at row 180147
+   0: sql_schema_connector::apply_migration::migration_step
+           with step=AddForeignKey { foreign_key_id: ForeignKeyId(19) }
+             at schema-engine/connectors/sql-schema-connector/src/apply_migration.rs:28
+   1: sql_schema_connector::apply_migration::apply_migration
+             at schema-engine/connectors/sql-schema-connector/src/apply_migration.rs:11
+   2: schema_core::state::SchemaPush
+             at schema-engine/core/src/state.rs:545
+
+==> Syncing database schema...
+warn The configuration property `package.json#prisma` is deprecated and will be removed in Prisma 7. Please migrate to a Prisma config file (e.g., `prisma.config.ts`).
+For more information, see: https://pris.ly/prisma-config
+
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": MySQL database "wms_2026" at "wms-db:3306"
+Error: Incorrect datetime value: '0000-00-00 00:00:00.000' for column 'updatedAt' at row 180147
+   0: sql_schema_connector::apply_migration::migration_step
+           with step=AddForeignKey { foreign_key_id: ForeignKeyId(19) }
+             at schema-engine/connectors/sql-schema-connector/src/apply_migration.rs:28
+   1: sql_schema_connector::apply_migration::apply_migration
+             at schema-engine/connectors/sql-schema-connector/src/apply_migration.rs:11
+   2: schema_core::state::SchemaPush
+             at schema-engine/core/src/state.rs:545
+
+==> Syncing database schema...
+warn The configuration property `package.json#prisma` is deprecated and will be removed in Prisma 7. Please migrate to a Prisma config file (e.g., `prisma.config.ts`).
+For more information, see: https://pris.ly/prisma-config
+
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": MySQL database "wms_2026" at "wms-db:3306"
+Error: Incorrect datetime value: '0000-00-00 00:00:00.000' for column 'updatedAt' at row 180147
+   0: sql_schema_connector::apply_migration::migration_step
+           with step=AddForeignKey { foreign_key_id: ForeignKeyId(19) }
+             at schema-engine/connectors/sql-schema-connector/src/apply_migration.rs:28
+   1: sql_schema_connector::apply_migration::apply_migration
+             at schema-engine/connectors/sql-schema-connector/src/apply_migration.rs:11
+   2: schema_core::state::SchemaPush
+             at schema-engine/core/src/state.rs:545
+

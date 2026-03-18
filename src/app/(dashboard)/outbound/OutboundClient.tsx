@@ -1,13 +1,14 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Upload, ScanLine, X, Loader2, Save, AlertCircle, MapPin, UserCheck } from "lucide-react";
+import { Upload, ScanLine, X, Loader2, Save, AlertCircle, MapPin, UserCheck, Building2, Package } from "lucide-react";
 import { createInstallation } from "@/app/actions/outbound";
 import { checkSerialInWarehouse } from "@/app/actions/transfer";
 import { getItems } from "@/app/actions/item";
 import { getWarehousesForSelect, getPops } from "@/app/actions/pop";
 import { useRouter } from "next/navigation";
 import { Prisma } from "@prisma/client";
+import SearchableSelect from "@/components/SearchableSelect";
 
 export default function OutboundClient() {
     const router = useRouter();
@@ -217,38 +218,28 @@ export default function OutboundClient() {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                                 <div className="space-y-2">
                                     <label className="text-sm font-medium text-slate-300">Gudang Asal <span className="text-red-400">*</span></label>
-                                    <select
+                                    <SearchableSelect
+                                        options={warehouses.map(w => ({ value: w.id.toString(), label: w.name, subLabel: w.type }))}
                                         value={sourceId}
-                                        onChange={(e) => {
-                                            setSourceId(e.target.value);
-                                            setSerialNumbers([]); // Reset SN list if warehouse changes
-                                        }}
-                                        className="w-full bg-[#0f172a] border border-[#334155] text-white rounded-lg px-4 py-2.5 focus:ring-1 focus:ring-rose-500 focus:border-rose-500"
+                                        onChange={(val) => { setSourceId(val); setSerialNumbers([]); }}
+                                        placeholder="Ketik nama gudang..."
                                         required
-                                    >
-                                        <option value="" disabled>Pilih Asal...</option>
-                                        {warehouses.map(w => (
-                                            <option key={w.id} value={w.id.toString()}>{w.name} ({w.type})</option>
-                                        ))}
-                                    </select>
+                                        accentColor="rose"
+                                        icon={<Building2 size={14} />}
+                                    />
                                 </div>
 
                                 <div className="space-y-2">
                                     <label className="text-sm font-medium text-slate-300">Pilih Barang <span className="text-red-400">*</span></label>
-                                    <select
+                                    <SearchableSelect
+                                        options={items.map(i => ({ value: i.id.toString(), label: `${i.code} - ${i.name}` }))}
                                         value={selectedItemId}
-                                        onChange={(e) => {
-                                            setSelectedItemId(e.target.value);
-                                            setSerialNumbers([]); // Reset scan list on item change
-                                        }}
-                                        className="w-full bg-[#0f172a] border border-[#334155] text-white rounded-lg px-4 py-2.5 focus:ring-1 focus:ring-rose-500 focus:border-rose-500"
+                                        onChange={(val) => { setSelectedItemId(val); setSerialNumbers([]); }}
+                                        placeholder="Ketik kode atau nama barang..."
                                         required
-                                    >
-                                        <option value="" disabled>Pilih Barang...</option>
-                                        {items.map(i => (
-                                            <option key={i.id} value={i.id.toString()}>{i.code} - {i.name}</option>
-                                        ))}
-                                    </select>
+                                        accentColor="rose"
+                                        icon={<Package size={14} />}
+                                    />
                                 </div>
                             </div>
                         </div>
@@ -274,17 +265,15 @@ export default function OutboundClient() {
                             {installType === "POP" && (
                                 <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
                                     <label className="text-sm font-medium text-slate-300">Target POP <span className="text-red-400">*</span></label>
-                                    <select
+                                    <SearchableSelect
+                                        options={pops.map(p => ({ value: p.id.toString(), label: p.name }))}
                                         value={targetPopId}
-                                        onChange={(e) => setTargetPopId(e.target.value)}
-                                        className="w-full bg-[#0f172a] border border-[#334155] text-white rounded-lg px-4 py-2.5 focus:ring-1 focus:ring-rose-500 focus:border-rose-500"
+                                        onChange={setTargetPopId}
+                                        placeholder="Ketik nama POP..."
                                         required={installType === "POP"}
-                                    >
-                                        <option value="" disabled>Pilih POP...</option>
-                                        {pops.map(p => (
-                                            <option key={p.id} value={p.id.toString()}>{p.name}</option>
-                                        ))}
-                                    </select>
+                                        accentColor="rose"
+                                        icon={<MapPin size={14} />}
+                                    />
                                 </div>
                             )}
 
