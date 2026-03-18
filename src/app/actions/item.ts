@@ -57,6 +57,7 @@ export async function createItem(data: { code: string; name: string; categoryId:
                 categoryId: data.categoryId,
                 minStock: data.minStock || 0,
                 hasSN: data.hasSN ?? true,
+                updatedAt: new Date(),
             },
         });
 
@@ -86,6 +87,7 @@ export async function updateItem(id: number, data: { code: string; name: string;
                 categoryId: data.categoryId,
                 minStock: data.minStock || 0,
                 hasSN: data.hasSN ?? true,
+                updatedAt: new Date(),
             },
         });
 
