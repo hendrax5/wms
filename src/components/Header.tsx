@@ -21,6 +21,7 @@ const pathLabels: Record<string, string> = {
     "/damaged": "Barang Rusak",
     "/assets": "Asset Management",
     "/assets/maintenance": "Jadwal Maintenance",
+    "/settings": "Pengaturan Aplikasi",
 };
 
 type Notification = {
@@ -208,6 +209,13 @@ export default function Header() {
                                     <div className="py-1 border-b border-border">
                                         <Link href="/master/users" onClick={() => setShowDropdown(false)} className="flex items-center gap-2 px-3 py-2 text-sm text-slate-300 hover:bg-white/5 hover:text-white transition-colors">
                                             <Users size={14} className="text-slate-500" /> Manage User
+                                        </Link>
+                                    </div>
+                                )}
+                                {(session?.user as any)?.level === "MASTER" && (
+                                    <div className="py-1 border-b border-border">
+                                        <Link href="/settings" onClick={() => setShowDropdown(false)} className="flex items-center gap-2 px-3 py-2 text-sm text-slate-300 hover:bg-white/5 hover:text-white transition-colors">
+                                            <Settings size={14} className="text-slate-500" /> Settings
                                         </Link>
                                     </div>
                                 )}

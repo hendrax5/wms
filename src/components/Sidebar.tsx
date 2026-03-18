@@ -39,7 +39,7 @@ const assetLinks = [
     { href: "/dashboard/technician/return", label: "Return Aset", icon: RotateCcw },
 ];
 
-export default function Sidebar() {
+export default function Sidebar({ appConfig }: { appConfig?: any }) {
     const pathname = usePathname();
     const { collapsed, toggle } = useSidebar();
 
@@ -47,13 +47,17 @@ export default function Sidebar() {
         <aside className={`bg-[#020617] border-r border-[#1E293B] hidden md:flex flex-col h-full shrink-0 transition-all duration-300 ease-in-out ${collapsed ? "w-[68px]" : "w-60"}`}>
             {/* Logo */}
             <div className="h-16 flex items-center px-3 border-b border-[#1E293B] gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center shadow-lg shadow-green-500/20 shrink-0">
-                    <BoxIcon size={16} className="text-white" />
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center shadow-lg shadow-green-500/20 shrink-0 overflow-hidden">
+                    {appConfig?.logo ? (
+                        <img src={appConfig.logo} alt="Logo" className="w-full h-full object-cover" />
+                    ) : (
+                        <BoxIcon size={16} className="text-white" />
+                    )}
                 </div>
                 {!collapsed && (
                     <div className="overflow-hidden">
-                        <h1 className="text-sm font-bold text-white tracking-tight leading-none whitespace-nowrap">WMS-2026</h1>
-                        <p className="text-[10px] text-slate-500 mt-0.5 whitespace-nowrap">ServiceX / HSP</p>
+                        <h1 className="text-sm font-bold text-white tracking-tight leading-none whitespace-nowrap">{appConfig?.appName || "WMS-2026"}</h1>
+                        <p className="text-[10px] text-slate-500 mt-0.5 whitespace-nowrap">{appConfig?.companyName || "ServiceX / HSP"}</p>
                     </div>
                 )}
             </div>

@@ -760,3 +760,14 @@ model AssetMaintenanceLog {
   @@index([technicianId])
   @@map("assetmaintenancelog")
 }
+
+
+model AppConfig {
+  id          Int      @id @default(1)
+  appName     String   @default("WMS")
+  companyName String   @default("PT Gudang Utama")
+  description String?
+  logo        String?
+  updatedAt   DateTime @updatedAt
+  @@map("app_config")
+}

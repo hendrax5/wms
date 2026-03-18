@@ -1,9 +1,11 @@
 import DashboardLayoutClient from "./DashboardLayoutClient";
+import { getAppConfig } from "@/app/actions/settings";
 
-export default function DashboardLayout({
+export default async function DashboardLayout({
     children,
 }: {
     children: React.ReactNode;
 }) {
-    return <DashboardLayoutClient>{children}</DashboardLayoutClient>;
+    const { data: config } = await getAppConfig();
+    return <DashboardLayoutClient appConfig={config}>{children}</DashboardLayoutClient>;
 }
