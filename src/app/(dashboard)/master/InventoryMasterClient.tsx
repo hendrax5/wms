@@ -299,10 +299,10 @@ export default function InventoryMasterClient() {
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                     <button type="button" onClick={() => openItemModal()} className="btn btn-primary text-xs sm:text-sm px-3 sm:px-4 h-8 sm:h-9 flex items-center gap-1.5">
-                        <Plus size={14} /> <span className="hidden xs:inline">Barang</span><span className="xs:hidden">+</span>
+                        <Plus size={14} /> Barang
                     </button>
                     <button type="button" onClick={() => openCatModal()} className="px-3 sm:px-4 h-8 sm:h-9 flex items-center gap-1.5 rounded-lg bg-slate-800 text-white hover:bg-slate-700 transition-colors text-xs sm:text-sm font-medium border border-[#334155]">
-                        <Plus size={14} /> <span className="hidden xs:inline">Kategori</span>
+                        <Plus size={14} /> Kategori
                     </button>
                 </div>
             </div>
@@ -551,7 +551,7 @@ export default function InventoryMasterClient() {
 
             {/* ── ITEM MODAL ── */}
             {isItemModalOpen && (
-                <div className="fixed inset-0 z-[100] bg-[#020617]/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in" onClick={() => { setIsItemModalOpen(false); setErrorMsg(""); }}>
+                <div className="fixed inset-0 z-[100] bg-[#020617]/80 backdrop-blur-sm flex items-center justify-center p-4" style={{animation:'fadeIn .25s ease-out'}} onClick={() => { setIsItemModalOpen(false); setErrorMsg(""); }}>
                     <div className="bg-[#0F172A] border border-[#1E293B] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
                         <div className="p-5 border-b border-[#1E293B] flex items-center justify-between bg-[#020617]/50">
                             <h3 className="font-bold text-white text-lg">{editingItem ? "Edit Barang" : "Tambah Barang"}</h3>

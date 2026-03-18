@@ -347,7 +347,7 @@ export default function StockIndexClient() {
 
             {/* ── ADD/EDIT ── */}
             {isModalOpen && (
-                <div className="fixed inset-0 z-[100] bg-[#020617]/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in" onClick={closeModal}>
+                <div className="fixed inset-0 z-[100] bg-[#020617]/80 backdrop-blur-sm flex items-center justify-center p-4" style={{animation:'fadeIn .25s ease-out'}} onClick={closeModal}>
                     <div className="bg-[#0F172A] border border-[#1E293B] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
                         <div className="p-5 border-b border-[#1E293B] flex items-center justify-between bg-[#020617]/50">
                             <h3 className="font-bold text-white text-lg">{editingWH ? "Edit Gudang" : "Tambah Gudang"}</h3>
@@ -395,7 +395,7 @@ export default function StockIndexClient() {
 
             {/* ── DELETE ── */}
             {deleteTarget && (
-                <div className="fixed inset-0 z-[100] bg-[#020617]/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in" onClick={() => { setDeleteTarget(null); setErrorMsg(""); }}>
+                <div className="fixed inset-0 z-[100] bg-[#020617]/80 backdrop-blur-sm flex items-center justify-center p-4" style={{animation:'fadeIn .25s ease-out'}} onClick={() => { setDeleteTarget(null); setErrorMsg(""); }}>
                     <div className="bg-[#0F172A] border border-[#1E293B] rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden p-6 text-center" onClick={e => e.stopPropagation()}>
                         <div className="w-16 h-16 rounded-full bg-red-500/10 text-red-500 flex items-center justify-center mx-auto mb-4"><Trash2 size={32} /></div>
                         <h3 className="font-bold text-white text-lg mb-2">Hapus Gudang?</h3>

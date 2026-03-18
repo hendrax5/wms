@@ -1,10 +1,51 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { BarChart3, History, ShieldAlert, Loader2, Download, Package, Search, X, Tags, Building2, Activity, Cpu, ChevronDown, ChevronRight, Eye } from "lucide-react";
+import { BarChart3, History, ShieldAlert, Loader2, Download, Package, Search, X, Tags, Building2, Activity, Cpu, ChevronDown, ChevronRight, Eye, ChevronLeft, ChevronsLeft, ChevronsRight } from "lucide-react";
 import { getStockSummaryReport, getTransactionHistoryReport, getDamagedItemsReport, getAssetMutationReport } from "@/app/actions/reports";
 
 type TabType = "STOCK" | "HISTORY" | "DAMAGED" | "ASSET";
+
+/* ── Pagination ── */
+function usePagination<T>(items: T[], perPage: number) {
+    const [page, setPage] = useState(1);
+    const totalPages = Math.max(1, Math.ceil(items.length / perPage));
+    const safeP = Math.min(page, totalPages);
+    const paged = items.slice((safeP - 1) * perPage, safeP * perPage);
+    const reset = () => setPage(1);
+    return { page: safeP, setPage, totalPages, paged, reset, total: items.length };
+}
+
+function PaginationBar({ page, totalPages, setPage, total, perPage, label }: {
+    page: number; totalPages: number; setPage: (n: number) => void; total: number; perPage: number; label?: string;
+}) {
+    if (total <= perPage) return null;
+    const start = (page - 1) * perPage + 1;
+    const end = Math.min(page * perPage, total);
+    const pages: (number | "...")[] = [];
+    if (totalPages <= 7) { for (let i = 1; i <= totalPages; i++) pages.push(i); }
+    else {
+        pages.push(1);
+        if (page > 3) pages.push("...");
+        for (let i = Math.max(2, page - 1); i <= Math.min(totalPages - 1, page + 1); i++) pages.push(i);
+        if (page < totalPages - 2) pages.push("...");
+        pages.push(totalPages);
+    }
+    return (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 px-1">
+            <span className="text-[11px] text-slate-500">Menampilkan <span className="text-white font-medium">{start}–{end}</span> dari <span className="text-white font-medium">{total}</span> {label || "data"}</span>
+            <div className="flex items-center gap-1">
+                <button type="button" disabled={page <= 1} onClick={() => setPage(1)} className="p-1.5 rounded-lg text-slate-500 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"><ChevronsLeft size={14} /></button>
+                <button type="button" disabled={page <= 1} onClick={() => setPage(page - 1)} className="p-1.5 rounded-lg text-slate-500 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"><ChevronLeft size={14} /></button>
+                {pages.map((p, i) => p === "..." ? (<span key={`e${i}`} className="px-1 text-slate-600 text-xs">…</span>) : (
+                    <button key={p} type="button" onClick={() => setPage(p as number)} className={`min-w-[28px] h-7 rounded-lg text-xs font-medium transition-all ${page === p ? "bg-blue-500/20 text-blue-400 border border-blue-500/30" : "text-slate-500 hover:text-white hover:bg-white/5"}`}>{p}</button>
+                ))}
+                <button type="button" disabled={page >= totalPages} onClick={() => setPage(page + 1)} className="p-1.5 rounded-lg text-slate-500 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"><ChevronRight size={14} /></button>
+                <button type="button" disabled={page >= totalPages} onClick={() => setPage(totalPages)} className="p-1.5 rounded-lg text-slate-500 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"><ChevronsRight size={14} /></button>
+            </div>
+        </div>
+    );
+}
 
 export default function ReportsClient() {
     const [activeTab, setActiveTab] = useState<TabType>("STOCK");
@@ -61,6 +102,9 @@ export default function ReportsClient() {
     useEffect(() => {
         loadData();
     }, []);
+
+    // Pagination
+    const PP = 10;
 
     // Filter Logic per Tab
     const filteredStock = stockData.filter(w => {
@@ -125,219 +169,115 @@ export default function ReportsClient() {
 
     const suggestions = getSuggestions();
 
+    // Pagination instances
+    const stockPag = usePagination(filteredStock, PP);
+    const histPag = usePagination(filteredHistory, PP);
+    const dmgPag = usePagination(filteredDamaged, PP);
+    // assetPag is defined after filteredAssets below
+
     // Helper functions for tables
     const renderStockTab = () => (
-        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                {/* Aggregate Widgets */}
-                <div className="glass p-5 rounded-xl border border-[#334155]">
-                    <p className="text-sm text-slate-400 mb-1">Total Gudang / Cabang</p>
-                    <p className="text-3xl font-bold text-white">{filteredStock.length}</p>
+        <div className="space-y-4">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                <div className="glass p-4 rounded-xl border border-[#334155]">
+                    <p className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold mb-1">Total Gudang</p>
+                    <p className="text-2xl font-bold text-white font-mono">{filteredStock.length}</p>
                 </div>
-                <div className="glass p-5 rounded-xl border border-blue-500/30 bg-blue-500/5">
-                    <p className="text-sm text-blue-400 mb-1">Stock Aktif (Filtered)</p>
-                    <p className="text-3xl font-bold text-blue-50">
-                        {filteredStock.reduce((acc, curr) => acc + curr.totalActive, 0)}
-                    </p>
+                <div className="glass p-4 rounded-xl border border-blue-500/30 bg-blue-500/5">
+                    <p className="text-[10px] text-blue-400 uppercase tracking-wider font-semibold mb-1">Stock Aktif</p>
+                    <p className="text-2xl font-bold text-blue-50 font-mono">{filteredStock.reduce((a, c) => a + c.totalActive, 0)}</p>
                 </div>
-                <div className="glass p-5 rounded-xl border border-red-500/30 bg-red-500/5">
-                    <p className="text-sm text-red-400 mb-1">Stock Rusak (Filtered)</p>
-                    <p className="text-3xl font-bold text-red-50">
-                        {filteredStock.reduce((acc, curr) => acc + curr.totalDamaged, 0)}
-                    </p>
+                <div className="glass p-4 rounded-xl border border-red-500/30 bg-red-500/5">
+                    <p className="text-[10px] text-red-400 uppercase tracking-wider font-semibold mb-1">Stock Rusak</p>
+                    <p className="text-2xl font-bold text-red-50 font-mono">{filteredStock.reduce((a, c) => a + c.totalDamaged, 0)}</p>
                 </div>
             </div>
 
-            <div className="glass rounded-xl border border-[#334155] overflow-hidden shadow-xl">
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left text-sm whitespace-nowrap">
-                        <thead className="bg-[#020617] text-slate-300 border-b border-[#334155]">
-                            <tr>
-                                <th className="px-6 py-4 font-semibold uppercase tracking-wider text-[11px]">Gudang / Cabang</th>
-                                <th className="px-6 py-4 font-semibold uppercase tracking-wider text-[11px]">Tipe Gudang</th>
-                                <th className="px-6 py-4 font-semibold uppercase tracking-wider text-[11px]">Baru</th>
-                                <th className="px-6 py-4 font-semibold uppercase tracking-wider text-[11px]">Dismantle</th>
-                                <th className="px-6 py-4 font-semibold uppercase tracking-wider text-[11px] text-red-400">Rusak</th>
-                                <th className="px-6 py-4 font-semibold uppercase tracking-wider text-[11px] text-blue-400">Total Aktif</th>
-                                <th className="px-6 py-4 font-semibold uppercase tracking-wider text-[11px]">Top Kategori</th>
+            {/* Desktop table */}
+            <div className="hidden sm:block glass rounded-xl border border-[#334155] overflow-hidden">
+                <table className="w-full text-left text-sm">
+                    <thead className="bg-[#020617] text-slate-300 border-b border-[#334155]">
+                        <tr>
+                            <th className="px-4 py-3 font-semibold uppercase tracking-wider text-[10px]">Gudang</th>
+                            <th className="px-4 py-3 font-semibold uppercase tracking-wider text-[10px] text-center">Tipe</th>
+                            <th className="px-4 py-3 font-semibold uppercase tracking-wider text-[10px] text-right text-blue-400">Aktif</th>
+                            <th className="px-4 py-3 font-semibold uppercase tracking-wider text-[10px] text-right text-red-400">Rusak</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#334155] text-slate-200">
+                        {stockPag.paged.map((w: any, idx: number) => (
+                            <tr key={idx} className="hover:bg-blue-500/[0.03] transition-colors">
+                                <td className="px-4 py-3"><span className="font-medium truncate block max-w-[200px]" title={w.warehouseName}>{w.warehouseName}</span></td>
+                                <td className="px-4 py-3 text-center"><span className={`px-2 py-0.5 text-[9px] rounded font-bold border uppercase ${w.type === 'PUSAT' ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' : 'bg-slate-800 text-slate-400 border-slate-700'}`}>{w.type}</span></td>
+                                <td className="px-4 py-3 text-right text-blue-400 font-mono font-bold">{w.totalActive}</td>
+                                <td className="px-4 py-3 text-right text-red-400 font-mono font-bold">{w.totalDamaged}</td>
                             </tr>
-                        </thead>
-                        <tbody className="divide-y divide-[#334155] text-slate-200">
-                            {filteredStock.map((w, idx) => (
-                                <tr key={idx} className="hover:bg-blue-500/[0.03] transition-colors border-b border-[#334155]/30">
-                                    <td className="px-6 py-4 font-medium flex items-center gap-2">
-                                        <Package size={16} className="text-slate-500" />
-                                        {w.warehouseName}
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <span className={`px-2 py-1 text-[10px] rounded font-bold border uppercase tracking-tight ${w.type === 'PUSAT' ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' : 'bg-slate-800 text-slate-400 border-slate-700'}`}>
-                                            {w.type}
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-4 font-mono">{w.totalNew}</td>
-                                    <td className="px-6 py-4 font-mono">{w.totalDismantle}</td>
-                                    <td className="px-6 py-4 text-red-400 font-mono font-bold bg-red-500/[0.02]">{w.totalDamaged}</td>
-                                    <td className="px-6 py-4 text-blue-400 font-mono font-bold bg-blue-500/[0.03]">{w.totalActive}</td>
-                                    <td className="px-6 py-4">
-                                        <div className="flex flex-wrap gap-1">
-                                            {Object.entries(w.categories).slice(0, 2).map(([cat, count]: any) => (
-                                                <span key={cat} className="inline-block bg-[#020617] text-[10px] px-2 py-0.5 rounded border border-slate-800 text-slate-400">
-                                                    {cat}: {count}
-                                                </span>
-                                            ))}
-                                            {Object.keys(w.categories).length > 2 && <span className="text-slate-600 text-[10px] ml-0.5">+{Object.keys(w.categories).length - 2}</span>}
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
+                        ))}
+                    </tbody>
+                </table>
             </div>
+            {/* Mobile cards */}
+            <div className="sm:hidden space-y-2">
+                {stockPag.paged.map((w: any, idx: number) => (
+                    <div key={idx} className="glass rounded-xl p-3 border border-[#334155]">
+                        <div className="flex items-center justify-between mb-2">
+                            <span className="font-medium text-white text-sm truncate flex-1" title={w.warehouseName}>{w.warehouseName}</span>
+                            <span className={`text-[9px] font-bold px-2 py-0.5 rounded border ml-2 ${w.type === 'PUSAT' ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' : 'bg-slate-800 text-slate-400 border-slate-700'}`}>{w.type}</span>
+                        </div>
+                        <div className="flex gap-4 text-xs">
+                            <span className="text-slate-500">Aktif: <span className="text-blue-400 font-mono font-bold">{w.totalActive}</span></span>
+                            <span className="text-slate-500">Rusak: <span className="text-red-400 font-mono font-bold">{w.totalDamaged}</span></span>
+                        </div>
+                    </div>
+                ))}
+            </div>
+            <PaginationBar page={stockPag.page} totalPages={stockPag.totalPages} setPage={stockPag.setPage} total={stockPag.total} perPage={PP} label="gudang" />
         </div>
     );
 
     const renderHistoryTab = () => (
-        <div className="glass rounded-xl border border-[#334155] overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-300 shadow-xl">
-            <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm whitespace-nowrap">
+        <div className="space-y-4">
+            {/* Desktop */}
+            <div className="hidden sm:block glass rounded-xl border border-[#334155] overflow-hidden">
+                <table className="w-full text-left text-sm">
                     <thead className="bg-[#020617] text-slate-300 border-b border-[#334155]">
                         <tr>
-                            <th className="px-3 py-4 w-8"></th>
-                            <th className="px-4 py-4 font-semibold uppercase tracking-wider text-[11px]">Waktu</th>
-                            <th className="px-4 py-4 font-semibold uppercase tracking-wider text-[11px]">Tipe Transaksi</th>
-                            <th className="px-4 py-4 font-semibold uppercase tracking-wider text-[11px]">Barang</th>
-                            <th className="px-4 py-4 font-semibold uppercase tracking-wider text-[11px]">Qty</th>
-                            <th className="px-4 py-4 font-semibold uppercase tracking-wider text-[11px]">Asal (Gudang)</th>
-                            <th className="px-4 py-4 font-semibold uppercase tracking-wider text-[11px]">Tujuan</th>
+                            <th className="px-3 py-3 w-8"></th>
+                            <th className="px-4 py-3 font-semibold uppercase tracking-wider text-[10px]">Waktu</th>
+                            <th className="px-4 py-3 font-semibold uppercase tracking-wider text-[10px]">Tipe</th>
+                            <th className="px-4 py-3 font-semibold uppercase tracking-wider text-[10px]">Barang</th>
+                            <th className="px-4 py-3 font-semibold uppercase tracking-wider text-[10px] text-right">Qty</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-[#334155] text-slate-200">
-                        {filteredHistory.map((h, idx) => {
+                        {histPag.paged.map((h: any) => {
                             const isExpanded = expandedRowId === h.id;
                             return (
                                 <>
-                                    <tr
-                                        key={h.id}
-                                        onClick={() => setExpandedRowId(isExpanded ? null : h.id)}
-                                        className={`cursor-pointer transition-colors border-b border-[#334155]/30 ${isExpanded ? 'bg-blue-500/[0.05]' : 'hover:bg-blue-500/[0.02]'}`}
-                                    >
-                                        <td className="px-3 py-4 text-slate-500">
-                                            {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                                    <tr key={h.id} onClick={() => setExpandedRowId(isExpanded ? null : h.id)}
+                                        className={`cursor-pointer transition-colors ${isExpanded ? 'bg-blue-500/[0.05]' : 'hover:bg-blue-500/[0.02]'}`}>
+                                        <td className="px-3 py-3 text-slate-500">{isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}</td>
+                                        <td className="px-4 py-3 text-slate-500 font-mono text-xs">{new Date(h.date).toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' })}</td>
+                                        <td className="px-4 py-3">
+                                            <span className={`px-2 py-0.5 text-[9px] rounded font-bold border uppercase ${h.type === 'INBOUND' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : h.type === 'TRANSFER' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' : 'bg-rose-500/10 text-rose-400 border-rose-500/20'}`}>{h.type}</span>
                                         </td>
-                                        <td className="px-4 py-4 text-slate-500 font-mono text-xs">
-                                            {new Date(h.date).toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' })}
-                                        </td>
-                                        <td className="px-4 py-4">
-                                            <span className={`px-2.5 py-1 text-[10px] rounded font-bold border uppercase tracking-tight ${h.type === 'INBOUND' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
-                                                h.type === 'TRANSFER' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
-                                                    'bg-rose-500/10 text-rose-400 border-rose-500/20'
-                                                }`}>
-                                                {h.type}
-                                            </span>
-                                        </td>
-                                        <td className="px-4 py-4 font-semibold text-slate-200">{h.item}</td>
-                                        <td className={`px-4 py-4 font-mono font-bold ${h.type === 'INBOUND' ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                            {h.type === 'INBOUND' ? '+' : '-'}{h.qty}
-                                        </td>
-                                        <td className="px-4 py-4 text-slate-400">{h.location}</td>
-                                        <td className="px-4 py-4 text-slate-500 italic">{h.target || '-'}</td>
+                                        <td className="px-4 py-3 font-medium text-sm truncate max-w-[180px]" title={h.item}>{h.item}</td>
+                                        <td className={`px-4 py-3 text-right font-mono font-bold ${h.type === 'INBOUND' ? 'text-emerald-400' : 'text-rose-400'}`}>{h.type === 'INBOUND' ? '+' : '-'}{h.qty}</td>
                                     </tr>
                                     {isExpanded && (
                                         <tr key={`${h.id}-detail`} className="bg-[#020617]/60">
-                                            <td colSpan={7} className="px-6 py-5">
-                                                <div className="space-y-4">
-                                                    <div className="flex flex-wrap gap-6 text-xs">
-                                                        <div className="space-y-1">
-                                                            <p className="text-slate-500 uppercase text-[10px] font-semibold tracking-wider">Keterangan</p>
-                                                            <p className="text-slate-300">{h.description || '-'}</p>
-                                                        </div>
-                                                        <div className="space-y-1">
-                                                            <p className="text-slate-500 uppercase text-[10px] font-semibold tracking-wider">Barang</p>
-                                                            <p className="text-slate-300 font-medium">{h.itemCode ? `[${h.itemCode}] ` : ''}{h.item}</p>
-                                                        </div>
-                                                        <div className="space-y-1">
-                                                            <p className="text-slate-500 uppercase text-[10px] font-semibold tracking-wider">Gudang Asal</p>
-                                                            <p className="text-slate-300">{h.location}</p>
-                                                        </div>
-                                                        {h.target && h.target !== '-' && (
-                                                            <div className="space-y-1">
-                                                                <p className="text-slate-500 uppercase text-[10px] font-semibold tracking-wider">Tujuan</p>
-                                                                <p className="text-slate-300">{h.target}</p>
-                                                            </div>
-                                                        )}
-                                                        <div className="space-y-1">
-                                                            <p className="text-slate-500 uppercase text-[10px] font-semibold tracking-wider">Jumlah</p>
-                                                            <p className={`font-mono font-bold ${h.type === 'INBOUND' ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                                                {h.type === 'INBOUND' ? '+' : '-'}{h.qty} unit
-                                                            </p>
-                                                        </div>
-                                                        <div className="space-y-1">
-                                                            <p className="text-slate-500 uppercase text-[10px] font-semibold tracking-wider">Waktu Transaksi</p>
-                                                            <p className="text-slate-300 font-mono">
-                                                                {new Date(h.date).toLocaleString('id-ID', { dateStyle: 'full', timeStyle: 'short' })}
-                                                            </p>
-                                                        </div>
-                                                        {(h.techName1 || h.techName2) && (
-                                                            <div className="space-y-1">
-                                                                <p className="text-slate-500 uppercase text-[10px] font-semibold tracking-wider">Teknisi</p>
-                                                                <p className="text-slate-300">{[h.techName1, h.techName2].filter(Boolean).join(' & ')}</p>
-                                                            </div>
-                                                        )}
-                                                    </div>
-
-                                                    {/* Serial Numbers */}
-                                                    {h.serialNumbers && h.serialNumbers.length > 0 && (
-                                                        <div className="space-y-2">
-                                                            <p className="text-slate-500 uppercase text-[10px] font-semibold tracking-wider">Serial Numbers ({h.serialNumbers.length})</p>
-                                                            <div className="flex flex-wrap gap-1.5">
-                                                                {h.serialNumbers.map((sn: string, snIdx: number) => (
-                                                                    <span key={snIdx} className="font-mono text-[10px] bg-slate-800 border border-slate-700 text-slate-300 px-2 py-0.5 rounded">
-                                                                        {sn}
-                                                                    </span>
-                                                                ))}
-                                                            </div>
-                                                        </div>
-                                                    )}
-
-                                                    {/* Print Button */}
-                                                    <div className="pt-2 border-t border-[#334155]/50">
-                                                        <button
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                const typeLabel = h.type === 'INBOUND' ? 'Barang Masuk' : h.type === 'TRANSFER' ? 'Transfer Stok' : h.type === 'POP_INSTALL' ? 'Instalasi POP' : 'Instalasi Customer';
-                                                                const printWindow = window.open('', '_blank', 'width=800,height=600');
-                                                                if (printWindow) {
-                                                                    const snRows = (h.serialNumbers || []).map((sn: string, i: number) => `<tr><td style="border:1px solid #ddd;padding:6px;text-align:center">${i+1}</td><td style="border:1px solid #ddd;padding:6px;font-family:monospace">${sn}</td></tr>`).join('');
-                                                                    printWindow.document.write(`
-                                                                        <html><head><title>Laporan Transaksi - ${h.id}</title>
-                                                                        <style>body{font-family:Arial,sans-serif;padding:30px;color:#333}h1{font-size:18px;margin:0}h2{font-size:14px;color:#666;margin:4px 0 20px}.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px}.info-item{padding:8px;background:#f8f9fa;border-radius:4px}.info-label{font-size:10px;color:#999;text-transform:uppercase;letter-spacing:1px;font-weight:700}.info-value{font-size:13px;margin-top:2px}table{width:100%;border-collapse:collapse;margin-top:10px}th{background:#f1f5f9;border:1px solid #ddd;padding:6px;font-size:11px;text-transform:uppercase;text-align:left}td{font-size:12px}.footer{margin-top:40px;display:grid;grid-template-columns:1fr 1fr 1fr;text-align:center;font-size:12px}.footer div{padding-top:60px;border-top:1px solid #ccc;margin-top:10px}@media print{body{padding:20px}}</style>
-                                                                        </head><body>
-                                                                        <div style="text-align:center;margin-bottom:20px;border-bottom:2px solid #333;padding-bottom:10px">
-                                                                            <h1>WMS-2026 — ${typeLabel}</h1>
-                                                                            <h2>No: ${h.id.toUpperCase()} | ${new Date(h.date).toLocaleString('id-ID', { dateStyle: 'long', timeStyle: 'short' })}</h2>
-                                                                        </div>
-                                                                        <div class="info-grid">
-                                                                            <div class="info-item"><div class="info-label">Barang</div><div class="info-value">${h.itemCode ? '[' + h.itemCode + '] ' : ''}${h.item}</div></div>
-                                                                            <div class="info-item"><div class="info-label">Jumlah</div><div class="info-value">${h.qty} unit</div></div>
-                                                                            <div class="info-item"><div class="info-label">Gudang Asal</div><div class="info-value">${h.location}</div></div>
-                                                                            <div class="info-item"><div class="info-label">Tujuan</div><div class="info-value">${h.target || '-'}</div></div>
-                                                                            <div class="info-item"><div class="info-label">Keterangan</div><div class="info-value">${h.description || '-'}</div></div>
-                                                                            ${(h.techName1 || h.techName2) ? `<div class="info-item"><div class="info-label">Teknisi</div><div class="info-value">${[h.techName1, h.techName2].filter(Boolean).join(' & ')}</div></div>` : ''}
-                                                                        </div>
-                                                                        ${snRows.length > 0 ? `<h3 style="font-size:13px;margin-bottom:4px">Daftar Serial Number (${h.serialNumbers.length})</h3><table><thead><tr><th style="width:40px">No</th><th>Serial Number</th></tr></thead><tbody>${snRows}</tbody></table>` : '<p style="color:#999;font-size:12px">Barang tanpa Serial Number</p>'}
-                                                                        <div class="footer"><div>Pengirim</div><div>Penerima</div><div>Mengetahui</div></div>
-                                                                        <script>setTimeout(()=>window.print(),300)</script>
-                                                                        </body></html>
-                                                                    `);
-                                                                    printWindow.document.close();
-                                                                }
-                                                            }}
-                                                            className="flex items-center gap-2 text-[11px] font-semibold text-blue-400 hover:text-blue-300 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 px-3 py-1.5 rounded-lg transition-colors"
-                                                        >
-                                                            <Download size={12} /> Print / Cetak Laporan
-                                                        </button>
-                                                    </div>
+                                            <td colSpan={5} className="px-6 py-4">
+                                                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+                                                    <div><p className="text-slate-500 text-[10px] uppercase font-semibold">Gudang Asal</p><p className="text-slate-300 mt-0.5">{h.location}</p></div>
+                                                    {h.target && <div><p className="text-slate-500 text-[10px] uppercase font-semibold">Tujuan</p><p className="text-slate-300 mt-0.5">{h.target}</p></div>}
+                                                    <div><p className="text-slate-500 text-[10px] uppercase font-semibold">Keterangan</p><p className="text-slate-300 mt-0.5">{h.description || '-'}</p></div>
+                                                    {(h.techName1 || h.techName2) && <div><p className="text-slate-500 text-[10px] uppercase font-semibold">Teknisi</p><p className="text-slate-300 mt-0.5">{[h.techName1, h.techName2].filter(Boolean).join(' & ')}</p></div>}
+                                                </div>
+                                                {h.serialNumbers?.length > 0 && (
+                                                    <div className="mt-3"><p className="text-slate-500 text-[10px] uppercase font-semibold mb-1">Serial Numbers ({h.serialNumbers.length})</p><div className="flex flex-wrap gap-1">{h.serialNumbers.map((sn: string, i: number) => (<span key={i} className="font-mono text-[10px] bg-slate-800 border border-slate-700 text-slate-300 px-2 py-0.5 rounded">{sn}</span>))}</div></div>
+                                                )}
+                                                <div className="pt-2 mt-2 border-t border-[#334155]/50">
+                                                    <button type="button" onClick={(e) => { e.stopPropagation(); const typeLabel = h.type === 'INBOUND' ? 'Barang Masuk' : h.type === 'TRANSFER' ? 'Transfer Stok' : 'Keluar'; const pw = window.open('', '_blank', 'width=800,height=600'); if (pw) { const snRows = (h.serialNumbers || []).map((sn: string, i: number) => `<tr><td style="border:1px solid #ddd;padding:6px;text-align:center">${i+1}</td><td style="border:1px solid #ddd;padding:6px;font-family:monospace">${sn}</td></tr>`).join(''); pw.document.write(`<html><head><title>Laporan - ${h.id}</title><style>body{font-family:Arial;padding:30px;color:#333}h1{font-size:18px}h2{font-size:14px;color:#666}.g{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:20px 0}.i{padding:8px;background:#f8f9fa;border-radius:4px}.l{font-size:10px;color:#999;text-transform:uppercase;font-weight:700}.v{font-size:13px;margin-top:2px}table{width:100%;border-collapse:collapse}th{background:#f1f5f9;border:1px solid #ddd;padding:6px;font-size:11px;text-align:left}td{font-size:12px}.f{margin-top:40px;display:grid;grid-template-columns:1fr 1fr 1fr;text-align:center;font-size:12px}.f div{padding-top:60px;border-top:1px solid #ccc;margin-top:10px}@media print{body{padding:20px}}</style></head><body><div style="text-align:center;border-bottom:2px solid #333;padding-bottom:10px"><h1>WMS — ${typeLabel}</h1><h2>${h.id.toUpperCase()} | ${new Date(h.date).toLocaleString('id-ID')}</h2></div><div class="g"><div class="i"><div class="l">Barang</div><div class="v">${h.item}</div></div><div class="i"><div class="l">Jumlah</div><div class="v">${h.qty}</div></div><div class="i"><div class="l">Asal</div><div class="v">${h.location}</div></div><div class="i"><div class="l">Tujuan</div><div class="v">${h.target||'-'}</div></div></div>${snRows.length>0?`<h3 style="font-size:13px">SN (${h.serialNumbers.length})</h3><table><thead><tr><th style="width:40px">No</th><th>Serial Number</th></tr></thead><tbody>${snRows}</tbody></table>`:''}<div class="f"><div>Pengirim</div><div>Penerima</div><div>Mengetahui</div></div><script>setTimeout(()=>window.print(),300)</script></body></html>`); pw.document.close(); } }} className="flex items-center gap-2 text-[11px] font-semibold text-blue-400 hover:text-blue-300 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 px-3 py-1.5 rounded-lg transition-colors"><Download size={12} /> Cetak</button>
                                                 </div>
                                             </td>
                                         </tr>
@@ -348,54 +288,64 @@ export default function ReportsClient() {
                     </tbody>
                 </table>
             </div>
+            {/* Mobile cards */}
+            <div className="sm:hidden space-y-2">
+                {histPag.paged.map((h: any) => (
+                    <div key={h.id} className="glass rounded-xl p-3 border border-[#334155]">
+                        <div className="flex items-center justify-between mb-2">
+                            <span className={`px-2 py-0.5 text-[9px] rounded font-bold border uppercase ${h.type === 'INBOUND' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : h.type === 'TRANSFER' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' : 'bg-rose-500/10 text-rose-400 border-rose-500/20'}`}>{h.type}</span>
+                            <span className="text-[10px] text-slate-500 font-mono">{new Date(h.date).toLocaleDateString('id-ID', { dateStyle: 'short' })}</span>
+                        </div>
+                        <p className="font-medium text-white text-sm truncate" title={h.item}>{h.item}</p>
+                        <div className="flex items-center gap-3 mt-1 text-xs text-slate-500">
+                            <span>Qty: <span className={`font-mono font-bold ${h.type === 'INBOUND' ? 'text-emerald-400' : 'text-rose-400'}`}>{h.type === 'INBOUND' ? '+' : '-'}{h.qty}</span></span>
+                            <span className="truncate">{h.location}</span>
+                        </div>
+                    </div>
+                ))}
+            </div>
+            <PaginationBar page={histPag.page} totalPages={histPag.totalPages} setPage={histPag.setPage} total={histPag.total} perPage={PP} label="transaksi" />
         </div>
     );
 
     const renderDamagedTab = () => (
-        <div className="glass rounded-xl border border-red-900/50 overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-300 shadow-xl shadow-red-950/10">
-            <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm whitespace-nowrap">
+        <div className="space-y-4">
+            {/* Desktop */}
+            <div className="hidden sm:block glass rounded-xl border border-red-900/50 overflow-hidden">
+                <table className="w-full text-left text-sm">
                     <thead className="bg-[#180808] text-red-200 border-b border-red-900/50">
                         <tr>
-                            <th className="px-6 py-4 font-semibold uppercase tracking-wider text-[11px]">Tanggal Lapor</th>
-                            <th className="px-6 py-4 font-semibold uppercase tracking-wider text-[11px]">Gudang Penyimpanan</th>
-                            <th className="px-6 py-4 font-semibold uppercase tracking-wider text-[11px]">Barang</th>
-                            <th className="px-6 py-4 font-semibold uppercase tracking-wider text-[11px]">Qty</th>
-                            <th className="px-6 py-4 font-semibold uppercase tracking-wider text-[11px]">Keterangan</th>
-                            <th className="px-6 py-4 font-semibold uppercase tracking-wider text-[11px]">Serial Numbers</th>
+                            <th className="px-4 py-3 font-semibold uppercase tracking-wider text-[10px]">Tanggal</th>
+                            <th className="px-4 py-3 font-semibold uppercase tracking-wider text-[10px]">Barang</th>
+                            <th className="px-4 py-3 font-semibold uppercase tracking-wider text-[10px] text-right">Qty</th>
+                            <th className="px-4 py-3 font-semibold uppercase tracking-wider text-[10px]">Gudang</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-red-900/20 text-slate-200">
-                        {filteredDamaged.map((d, idx) => (
-                            <tr key={d.id} className="hover:bg-red-500/[0.03] transition-colors border-b border-red-950/30">
-                                <td className="px-6 py-4 text-slate-500 font-mono text-xs">
-                                    {new Date(d.date).toLocaleString('id-ID', { dateStyle: 'short' })}
-                                </td>
-                                <td className="px-6 py-4 font-bold text-red-200/80">{d.warehouseName}</td>
-                                <td className="px-6 py-4 font-medium">
-                                    <div className="text-slate-200">{d.itemName}</div>
-                                    <div className="text-[10px] text-slate-500 font-mono uppercase mt-0.5">{d.category}</div>
-                                </td>
-                                <td className="px-6 py-4 text-red-400 font-mono font-bold bg-red-500/[0.02]">{d.qty}</td>
-                                <td className="px-6 py-4 text-xs max-w-xs truncate text-slate-400 italic">{d.description || "-"}</td>
-                                <td className="px-6 py-4">
-                                    {d.serialNumbers.length > 0 ? (
-                                        <div className="flex gap-1 flex-wrap max-w-sm">
-                                            {d.serialNumbers.map((sn: string) => (
-                                                <span key={sn} className="bg-red-500/10 text-red-300/80 px-2 py-0.5 rounded text-[10px] font-mono border border-red-500/20">
-                                                    {sn}
-                                                </span>
-                                            ))}
-                                        </div>
-                                    ) : (
-                                        <span className="text-slate-600 text-[10px] italic">Tanpa SN</span>
-                                    )}
-                                </td>
+                        {dmgPag.paged.map((d: any) => (
+                            <tr key={d.id} className="hover:bg-red-500/[0.03] transition-colors">
+                                <td className="px-4 py-3 text-slate-500 font-mono text-xs">{new Date(d.date).toLocaleDateString('id-ID', { dateStyle: 'short' })}</td>
+                                <td className="px-4 py-3"><span className="font-medium truncate block max-w-[180px]" title={d.itemName}>{d.itemName}</span><span className="text-[10px] text-slate-500 font-mono">{d.category}</span></td>
+                                <td className="px-4 py-3 text-right text-red-400 font-mono font-bold">{d.qty}</td>
+                                <td className="px-4 py-3 text-red-200/80 truncate max-w-[150px]" title={d.warehouseName}>{d.warehouseName}</td>
                             </tr>
                         ))}
                     </tbody>
                 </table>
             </div>
+            {/* Mobile cards */}
+            <div className="sm:hidden space-y-2">
+                {dmgPag.paged.map((d: any) => (
+                    <div key={d.id} className="glass rounded-xl p-3 border border-red-900/50">
+                        <div className="flex items-center justify-between mb-1">
+                            <span className="font-medium text-white text-sm truncate flex-1" title={d.itemName}>{d.itemName}</span>
+                            <span className="text-red-400 font-mono font-bold text-sm ml-2">{d.qty}</span>
+                        </div>
+                        <div className="text-xs text-slate-500">{d.warehouseName} · {new Date(d.date).toLocaleDateString('id-ID', { dateStyle: 'short' })}</div>
+                    </div>
+                ))}
+            </div>
+            <PaginationBar page={dmgPag.page} totalPages={dmgPag.totalPages} setPage={dmgPag.setPage} total={dmgPag.total} perPage={PP} label="laporan" />
         </div>
     );
 
@@ -417,47 +367,54 @@ export default function ReportsClient() {
             a.technicianName.toLowerCase().includes(searchInput.toLowerCase());
     });
 
+    const assetPag = usePagination(filteredAssets, PP);
+
+    // Reset on tab/filter change
+    useEffect(() => { stockPag.reset(); histPag.reset(); dmgPag.reset(); assetPag.reset(); }, [activeTab, searchInput, activeFilters]);
+
     const renderAssetTab = () => (
-        <div className="glass rounded-xl border border-[#334155] overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-300 shadow-xl">
-            <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm whitespace-nowrap">
+        <div className="space-y-4">
+            {/* Desktop */}
+            <div className="hidden sm:block glass rounded-xl border border-[#334155] overflow-hidden">
+                <table className="w-full text-left text-sm">
                     <thead className="bg-[#020617] text-slate-300 border-b border-[#334155]">
                         <tr>
-                            <th className="px-6 py-4 font-semibold uppercase tracking-wider text-[11px]">Tgl Deploy</th>
-                            <th className="px-6 py-4 font-semibold uppercase tracking-wider text-[11px]">Barang</th>
-                            <th className="px-6 py-4 font-semibold uppercase tracking-wider text-[11px]">Serial Number</th>
-                            <th className="px-6 py-4 font-semibold uppercase tracking-wider text-[11px]">Teknisi</th>
-                            <th className="px-6 py-4 font-semibold uppercase tracking-wider text-[11px]">Status</th>
-                            <th className="px-6 py-4 font-semibold uppercase tracking-wider text-[11px] text-blue-400">Nilai Buku</th>
+                            <th className="px-4 py-3 font-semibold uppercase tracking-wider text-[10px]">Barang</th>
+                            <th className="px-4 py-3 font-semibold uppercase tracking-wider text-[10px]">SN</th>
+                            <th className="px-4 py-3 font-semibold uppercase tracking-wider text-[10px] text-center">Status</th>
+                            <th className="px-4 py-3 font-semibold uppercase tracking-wider text-[10px] text-right text-blue-400">Nilai</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-[#334155] text-slate-200">
-                        {filteredAssets.length === 0 ? (
-                            <tr><td colSpan={6} className="px-6 py-16 text-center text-slate-500">Belum ada aset ter-deploy</td></tr>
-                        ) : filteredAssets.map((a: any) => (
-                            <tr key={a.id} className="hover:bg-blue-500/[0.02] transition-colors border-b border-[#334155]/30">
-                                <td className="px-6 py-4 text-slate-500 font-mono text-xs">
-                                    {new Date(a.installedAt).toLocaleDateString('id-ID', { dateStyle: 'short' })}
-                                </td>
-                                <td className="px-6 py-4">
-                                    <p className="font-semibold text-slate-200">{a.itemName}</p>
-                                    <p className="text-[10px] text-slate-500 font-mono uppercase">{a.category}</p>
-                                </td>
-                                <td className="px-6 py-4">
-                                    <span className="font-mono text-xs bg-slate-800 border border-slate-700 px-2 py-0.5 rounded">{a.serialCode}</span>
-                                </td>
-                                <td className="px-6 py-4 text-slate-400">{a.technicianName}</td>
-                                <td className="px-6 py-4">
-                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${STATUS_BADGE[a.status] ?? STATUS_BADGE.DECOMMISSIONED}`}>
-                                        {STATUS_LABEL[a.status] ?? a.status}
-                                    </span>
-                                </td>
-                                <td className="px-6 py-4 text-blue-400 font-mono font-bold">{fmtIDR(a.bookValue)}</td>
+                        {assetPag.paged.length === 0 ? (
+                            <tr><td colSpan={4} className="px-6 py-16 text-center text-slate-500">Belum ada aset ter-deploy</td></tr>
+                        ) : assetPag.paged.map((a: any) => (
+                            <tr key={a.id} className="hover:bg-blue-500/[0.02] transition-colors">
+                                <td className="px-4 py-3"><p className="font-medium truncate max-w-[180px]" title={a.itemName}>{a.itemName}</p><p className="text-[10px] text-slate-500 font-mono">{a.category} · {new Date(a.installedAt).toLocaleDateString('id-ID', { dateStyle: 'short' })}</p></td>
+                                <td className="px-4 py-3"><span className="font-mono text-xs bg-slate-800 border border-slate-700 px-2 py-0.5 rounded truncate block max-w-[120px]" title={a.serialCode}>{a.serialCode}</span></td>
+                                <td className="px-4 py-3 text-center"><span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${STATUS_BADGE[a.status] ?? STATUS_BADGE.DECOMMISSIONED}`}>{STATUS_LABEL[a.status] ?? a.status}</span></td>
+                                <td className="px-4 py-3 text-right text-blue-400 font-mono font-bold text-xs">{fmtIDR(a.bookValue)}</td>
                             </tr>
                         ))}
                     </tbody>
                 </table>
             </div>
+            {/* Mobile cards */}
+            <div className="sm:hidden space-y-2">
+                {assetPag.paged.map((a: any) => (
+                    <div key={a.id} className="glass rounded-xl p-3 border border-[#334155]">
+                        <div className="flex items-center justify-between mb-1">
+                            <span className="font-medium text-white text-sm truncate flex-1" title={a.itemName}>{a.itemName}</span>
+                            <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ml-2 ${STATUS_BADGE[a.status] ?? STATUS_BADGE.DECOMMISSIONED}`}>{STATUS_LABEL[a.status] ?? a.status}</span>
+                        </div>
+                        <div className="flex items-center gap-3 text-xs text-slate-500">
+                            <span className="font-mono truncate">{a.serialCode}</span>
+                            <span className="text-blue-400 font-mono font-bold ml-auto">{fmtIDR(a.bookValue)}</span>
+                        </div>
+                    </div>
+                ))}
+            </div>
+            <PaginationBar page={assetPag.page} totalPages={assetPag.totalPages} setPage={assetPag.setPage} total={assetPag.total} perPage={PP} label="aset" />
         </div>
     );
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { Plus, Edit2, Trash2, Building, MapPin, Search, Loader2, X, Tags } from "lucide-react";
+import { Plus, Edit2, Trash2, Building, MapPin, Search, Loader2, X, Tags, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
 import PopForm from "@/components/PopForm";
 import { getPops, getWarehousesForSelect, createPop, updatePop, deletePop } from "@/app/actions/pop";
 import { getAreasForSelect } from "@/app/actions/warehouse";
@@ -19,6 +19,47 @@ type PopProps = {
 };
 
 type ActiveFilter = { type: 'area' | 'gudang'; value: string; label: string };
+
+/* ── Pagination ── */
+function usePagination<T>(items: T[], perPage: number) {
+    const [page, setPage] = useState(1);
+    const totalPages = Math.max(1, Math.ceil(items.length / perPage));
+    const safeP = Math.min(page, totalPages);
+    const paged = items.slice((safeP - 1) * perPage, safeP * perPage);
+    const reset = () => setPage(1);
+    return { page: safeP, setPage, totalPages, paged, reset, total: items.length };
+}
+
+function PaginationBar({ page, totalPages, setPage, total, perPage, label }: {
+    page: number; totalPages: number; setPage: (n: number) => void; total: number; perPage: number; label?: string;
+}) {
+    if (total <= perPage) return null;
+    const start = (page - 1) * perPage + 1;
+    const end = Math.min(page * perPage, total);
+    const pages: (number | "...")[] = [];
+    if (totalPages <= 7) { for (let i = 1; i <= totalPages; i++) pages.push(i); }
+    else {
+        pages.push(1);
+        if (page > 3) pages.push("...");
+        for (let i = Math.max(2, page - 1); i <= Math.min(totalPages - 1, page + 1); i++) pages.push(i);
+        if (page < totalPages - 2) pages.push("...");
+        pages.push(totalPages);
+    }
+    return (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 px-1">
+            <span className="text-[11px] text-slate-500">Menampilkan <span className="text-white font-medium">{start}–{end}</span> dari <span className="text-white font-medium">{total}</span> {label || "data"}</span>
+            <div className="flex items-center gap-1">
+                <button type="button" disabled={page <= 1} onClick={() => setPage(1)} className="p-1.5 rounded-lg text-slate-500 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"><ChevronsLeft size={14} /></button>
+                <button type="button" disabled={page <= 1} onClick={() => setPage(page - 1)} className="p-1.5 rounded-lg text-slate-500 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"><ChevronLeft size={14} /></button>
+                {pages.map((p, i) => p === "..." ? (<span key={`e${i}`} className="px-1 text-slate-600 text-xs">…</span>) : (
+                    <button key={p} type="button" onClick={() => setPage(p as number)} className={`min-w-[28px] h-7 rounded-lg text-xs font-medium transition-all ${page === p ? "bg-purple-500/20 text-purple-400 border border-purple-500/30" : "text-slate-500 hover:text-white hover:bg-white/5"}`}>{p}</button>
+                ))}
+                <button type="button" disabled={page >= totalPages} onClick={() => setPage(page + 1)} className="p-1.5 rounded-lg text-slate-500 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"><ChevronRight size={14} /></button>
+                <button type="button" disabled={page >= totalPages} onClick={() => setPage(totalPages)} className="p-1.5 rounded-lg text-slate-500 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"><ChevronsRight size={14} /></button>
+            </div>
+        </div>
+    );
+}
 
 export default function PopClient() {
     const [pops, setPops] = useState<PopProps[]>([]);
@@ -105,6 +146,10 @@ export default function PopClient() {
             return matchesArea && matchesWh && matchesFreeText;
         });
     }, [pops, searchInput, activeFilters]);
+
+    const CARDS_PP = 6;
+    const popPag = usePagination(filteredPops, CARDS_PP);
+    useEffect(() => { popPag.reset(); }, [searchInput, activeFilters]);
 
     const handleCreate = async (formData: FormData) => {
         const res = await createPop(formData);
@@ -235,7 +280,7 @@ export default function PopClient() {
                 </div>
             )}
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                 {filteredPops.length === 0 ? (
                     <div className="col-span-full p-12 text-center text-slate-500 glass rounded-xl border border-[#334155]">
                         <div className="flex flex-col items-center justify-center gap-2">
@@ -244,75 +289,61 @@ export default function PopClient() {
                         </div>
                     </div>
                 ) : (
-                    filteredPops.map((pop) => (
-                        <div key={pop.id} className="glass rounded-xl p-5 border border-[#334155] hover:border-slate-500 transition-colors flex flex-col h-full relative overflow-hidden group">
+                    popPag.paged.map((pop) => (
+                        <div key={pop.id} className="glass rounded-xl p-4 sm:p-5 border border-[#334155] hover:border-slate-500 transition-colors flex flex-col h-full relative overflow-hidden group">
 
-                            {/* Decorative gradient blur */}
                             <div className="absolute -right-6 -top-6 w-24 h-24 bg-purple-500/10 rounded-full blur-2xl group-hover:bg-purple-500/20 transition-colors" />
 
-                            <div className="flex justify-between items-start mb-4 relative">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2.5 rounded-lg bg-purple-500/20 text-purple-400">
-                                        <Building size={24} />
+                            <div className="flex justify-between items-start mb-3 relative gap-2">
+                                <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                                    <div className="p-2 rounded-lg bg-purple-500/20 text-purple-400 shrink-0">
+                                        <Building size={20} />
                                     </div>
-                                    <div>
-                                        <h3 className="font-semibold text-white text-lg leading-tight">{pop.name}</h3>
+                                    <div className="min-w-0">
+                                        <h3 className="font-semibold text-white text-sm leading-tight truncate" title={pop.name}>{pop.name}</h3>
                                         {pop.area && (
-                                            <span className="flex items-center gap-1 mt-1 text-slate-400 text-xs">
-                                                <MapPin size={12} /> {pop.area.name}
+                                            <span className="flex items-center gap-1 mt-0.5 text-slate-400 text-[11px] truncate">
+                                                <MapPin size={10} className="shrink-0" /> <span className="truncate">{pop.area.name}</span>
                                             </span>
                                         )}
                                     </div>
                                 </div>
                             </div>
 
-                            <div className="mb-4 space-y-2 relative">
+                            <div className="mb-3 space-y-2 relative">
                                 {pop.location && (
-                                    <p className="text-sm text-slate-400 line-clamp-2">
-                                        {pop.location}
-                                    </p>
+                                    <p className="text-xs text-slate-400 truncate" title={pop.location}>{pop.location}</p>
                                 )}
-                                <div className="flex items-center gap-2 text-xs text-slate-400 bg-slate-800/50 p-2 rounded-lg border border-slate-700/50">
-                                    <span className="font-medium">Gudang Pengelola:</span>
-                                    <span className="text-white bg-slate-700 px-2 py-0.5 rounded ml-auto">
+                                <div className="flex items-center gap-2 text-[11px] text-slate-400 bg-slate-800/50 p-2 rounded-lg border border-slate-700/50">
+                                    <span className="font-medium">Gudang:</span>
+                                    <span className="text-white bg-slate-700 px-2 py-0.5 rounded ml-auto text-[10px] truncate max-w-[120px]" title={pop.warehouse?.name || 'Belum Diatur'}>
                                         {pop.warehouse?.name || <span className="text-slate-500 italic">Belum Diatur</span>}
                                     </span>
                                 </div>
                             </div>
 
-                            <div className="mt-auto pt-4 border-t border-[#334155] flex items-center justify-between relative">
+                            <div className="mt-auto pt-3 border-t border-[#334155] flex items-center justify-between relative">
                                 <div className="flex gap-4">
-                                    <div className="text-center" title="Total Perangkat SN di POP ini">
-                                        <p className="text-xs text-slate-500 uppercase tracking-wider">Devices</p>
-                                        <p className="font-mono text-white mt-0.5">{pop._count.serialnumber}</p>
+                                    <div className="text-center" title="Total Perangkat SN">
+                                        <p className="text-[9px] text-slate-500 uppercase tracking-wider">Devices</p>
+                                        <p className="font-mono text-white text-sm mt-0.5">{pop._count.serialnumber}</p>
                                     </div>
                                     <div className="text-center" title="Riwayat Instalasi">
-                                        <p className="text-xs text-slate-500 uppercase tracking-wider">Installs</p>
-                                        <p className="font-mono text-white mt-0.5">{pop._count.popinstallation}</p>
+                                        <p className="text-[9px] text-slate-500 uppercase tracking-wider">Installs</p>
+                                        <p className="font-mono text-white text-sm mt-0.5">{pop._count.popinstallation}</p>
                                     </div>
                                 </div>
-                                <div className="flex gap-2">
-                                    <button
-                                        onClick={() => openEdit(pop)}
-                                        className="p-2 text-slate-400 hover:text-purple-400 hover:bg-purple-400/10 rounded-lg transition-colors"
-                                        title="Edit"
-                                    >
-                                        <Edit2 size={16} />
-                                    </button>
-                                    <button
-                                        onClick={() => handleDelete(pop.id)}
-                                        disabled={pop._count.serialnumber > 0 || pop._count.popinstallation > 0 || pop._count.stockout > 0}
-                                        className="p-2 text-slate-400 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-colors disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-slate-400"
-                                        title={(pop._count.serialnumber > 0 || pop._count.popinstallation > 0 || pop._count.stockout > 0) ? "Tidak dapat dihapus: POP memiliki riwayat perangkat" : "Hapus"}
-                                    >
-                                        <Trash2 size={16} />
-                                    </button>
+                                <div className="flex gap-1">
+                                    <button type="button" onClick={() => openEdit(pop)} className="p-1.5 text-slate-400 hover:text-purple-400 hover:bg-purple-400/10 rounded-lg transition-colors" title="Edit"><Edit2 size={14} /></button>
+                                    <button type="button" onClick={() => handleDelete(pop.id)} disabled={pop._count.serialnumber > 0 || pop._count.popinstallation > 0 || pop._count.stockout > 0}
+                                        className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-colors disabled:opacity-30" title="Hapus"><Trash2 size={14} /></button>
                                 </div>
                             </div>
                         </div>
                     ))
                 )}
             </div>
+            <PaginationBar page={popPag.page} totalPages={popPag.totalPages} setPage={popPag.setPage} total={popPag.total} perPage={CARDS_PP} label="POP" />
 
             {isFormOpen && (
                 <PopForm
