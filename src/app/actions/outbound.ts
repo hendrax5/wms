@@ -75,7 +75,7 @@ export async function createInstallation(data: InstallationPayload) {
 
             await tx.warehouseStock.update({
                 where: { id: sourceStock.id },
-                data: { stockNew: { decrement: data.qty } }
+                data: { stockNew: { decrement: data.qty }, updatedAt: new Date() }
             });
 
             const technicianCombined = [data.techName1, data.techName2].filter(Boolean).join(" & ");
@@ -99,8 +99,9 @@ export async function createInstallation(data: InstallationPayload) {
                         data: {
                             warehouseId: null,
                             popId: data.installType === "POP" ? data.targetPopId : null,
-                            customerId: null, // CustomerId is not a real relation, was string in Install table
-                            statusId: statusDipakai.id
+                            customerId: null,
+                            statusId: statusDipakai.id,
+                            updatedAt: new Date(),
                         }
                     });
 

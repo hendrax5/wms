@@ -82,7 +82,8 @@ export async function createTransfer(data: TransferPayload) {
                     await tx.serialNumber.update({
                         where: { id: existingSn.id },
                         data: {
-                            warehouseId: data.targetWarehouseId
+                            warehouseId: data.targetWarehouseId,
+                            updatedAt: new Date(),
                         }
                     });
 
@@ -100,7 +101,7 @@ export async function createTransfer(data: TransferPayload) {
             // 3. Decrement source warehouse stock
             await tx.warehouseStock.update({
                 where: { id: sourceStock.id },
-                data: { stockNew: { decrement: data.qty } }
+                data: { stockNew: { decrement: data.qty }, updatedAt: new Date() }
             });
 
             // 4. Increment target warehouse stock
@@ -116,7 +117,7 @@ export async function createTransfer(data: TransferPayload) {
             if (targetStock) {
                 await tx.warehouseStock.update({
                     where: { id: targetStock.id },
-                    data: { stockNew: { increment: data.qty } }
+                    data: { stockNew: { increment: data.qty }, updatedAt: new Date() }
                 });
             } else {
                 await tx.warehouseStock.create({
@@ -124,6 +125,7 @@ export async function createTransfer(data: TransferPayload) {
                         itemId: data.itemId,
                         warehouseId: data.targetWarehouseId,
                         stockNew: data.qty,
+                        updatedAt: new Date(),
                     }
                 });
             }
@@ -157,16 +159,18 @@ export async function checkSerialInWarehouse(serialCode: string, warehouseId: nu
     try {
         const sn = await prisma.serialNumber.findUnique({
             where: { code: serialCode },
-            include: { status: true }
+            include: { itemstatus: true }
         });
 
         if (!sn) return { success: false, error: "SN tidak ditemukan" };
         if (sn.warehouseId !== warehouseId) return { success: false, error: "SN tidak ada di gudang ini" };
         if (sn.itemId !== itemId) return { success: false, error: "SN bukan untuk barang yang dipilih" };
-        if (sn.status?.name !== "In Stock") return { success: false, error: `SN berstatus: ${sn.status?.name}` };
+        const statusName = (sn as any).itemstatus?.name;
+        if (statusName !== "In Stock") return { success: false, error: `SN berstatus: ${statusName}` };
 
         return { success: true, data: sn };
-    } catch (error) {
+    } catch (error: any) {
+        console.error("checkSerialInWarehouse Error:", error?.message);
         return { success: false, error: "Gagal memvalidasi SN" };
     }
 }
