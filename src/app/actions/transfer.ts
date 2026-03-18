@@ -174,3 +174,30 @@ export async function checkSerialInWarehouse(serialCode: string, warehouseId: nu
         return { success: false, error: "Gagal memvalidasi SN" };
     }
 }
+
+// Get available SNs for a given item in a specific warehouse (In Stock only)
+export async function getAvailableSNs(warehouseId: number, itemId: number) {
+    try {
+        const statusInStock = await prisma.itemStatus.findUnique({ where: { name: "In Stock" } });
+        if (!statusInStock) return { success: true, data: [] };
+
+        const sns = await (prisma as any).serialNumber.findMany({
+            where: {
+                itemId,
+                warehouseId,
+                statusId: statusInStock.id,
+            },
+            select: {
+                id: true,
+                code: true,
+            },
+            orderBy: { id: 'desc' },
+            take: 200,
+        });
+
+        return { success: true, data: sns };
+    } catch (error: any) {
+        console.error("getAvailableSNs Error:", error?.message);
+        return { success: false, error: error.message };
+    }
+}
