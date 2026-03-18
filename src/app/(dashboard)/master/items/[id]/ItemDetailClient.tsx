@@ -74,6 +74,9 @@ export default function ItemDetailClient() {
     // Initialize location filter from URL param after data loads
     const [initialLocationApplied, setInitialLocationApplied] = useState(false);
 
+    // Pagination state (must be before early returns)
+    const [snPage, setSnPage] = useState(1);
+
     const addFilter = (filter: ActiveFilter) => {
         if (!activeFilters.some(f => f.type === filter.type && f.value === filter.value)) {
             setActiveFilters(prev => [...prev, filter]);
@@ -196,8 +199,10 @@ export default function ItemDetailClient() {
     const installedSNCount = locationFilteredSNs.filter(sn => sn.status.name === 'Dipakai').length;
     const damagedSNCount = locationFilteredSNs.filter(sn => sn.status.name === 'Rusak').length;
 
-    const snPag = usePagination(filteredSNs, PP);
-    useEffect(() => { snPag.reset(); }, [searchInput, activeFilters]);
+    // Pagination (computed from state defined before early returns)
+    const snTotalPages = Math.max(1, Math.ceil(filteredSNs.length / PP));
+    const safeSnPage = Math.min(snPage, snTotalPages);
+    const pagedSNs = filteredSNs.slice((safeSnPage - 1) * PP, safeSnPage * PP);
 
     const displayFisik = activeLocations.length > 0
         ? availableSNCount + damagedSNCount
@@ -399,7 +404,7 @@ export default function ItemDetailClient() {
                                         </tr>
                                     </thead>
                                     <tbody className="text-sm">
-                                        {snPag.paged.map((sn) => (
+                                        {pagedSNs.map((sn) => (
                                             <tr key={sn.id} className="border-b border-[#1E293B]/50 hover:bg-white/[0.02] transition-colors group cursor-pointer" onClick={() => router.push(`/master/sn/${sn.id}`)}>
                                                 <td className="px-4 py-3">
                                                     <span className="font-mono text-xs font-bold text-white group-hover:text-purple-400 transition-colors bg-slate-900 border border-slate-700/50 px-2 py-1 rounded">{sn.code}</span>
@@ -423,7 +428,7 @@ export default function ItemDetailClient() {
                             </div>
                             {/* Mobile cards */}
                             <div className="sm:hidden space-y-2 px-3 pb-3">
-                                {snPag.paged.map(sn => (
+                                {pagedSNs.map(sn => (
                                     <div key={sn.id} className="bg-[#020617] border border-[#1E293B] rounded-xl p-3 cursor-pointer hover:border-purple-500/30 transition-colors" onClick={() => router.push(`/master/sn/${sn.id}`)}>
                                         <div className="flex items-center justify-between mb-2">
                                             <span className="font-mono text-xs font-bold text-white bg-slate-900 border border-slate-700/50 px-2 py-0.5 rounded">{sn.code}</span>
@@ -436,7 +441,7 @@ export default function ItemDetailClient() {
                                     </div>
                                 ))}
                             </div>
-                            <PaginationBar page={snPag.page} totalPages={snPag.totalPages} setPage={snPag.setPage} total={snPag.total} perPage={PP} label="SN" />
+                            <PaginationBar page={safeSnPage} totalPages={snTotalPages} setPage={setSnPage} total={filteredSNs.length} perPage={PP} label="SN" />
                         </>
                     )}
                 </div>
