@@ -17,7 +17,11 @@ async function getBranchScope(): Promise<number | null> {
 // ------------------------------------------------------------------
 
 export async function getCategories() {
+    noStore();
     try {
+        if (process.env.NEXT_PHASE === 'phase-production-build') {
+            return { success: true, data: [] };
+        }
         const categories = await prisma.category.findMany({
             orderBy: { name: 'asc' },
             include: {

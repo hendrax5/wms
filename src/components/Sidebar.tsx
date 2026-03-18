@@ -26,7 +26,7 @@ const links = [
     { href: "/pop", label: "Data POP", icon: Server },
     { href: "/stock", label: "Stok Gudang", icon: Package },
     { href: "/reports", label: "Laporan", icon: FileBarChart },
-    { href: "/master", label: "Master Data", icon: Database },
+    { href: "/master", label: "Inventory Master", icon: Package },
 ];
 
 const assetLinks = [
