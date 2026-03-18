@@ -37,27 +37,45 @@ export async function getCategories() {
 }
 
 export async function createCategory(data: { name: string; code?: string; hasSN?: boolean }) {
+    if (!data.name?.trim()) return { success: false, error: "Nama kategori wajib diisi" };
     try {
-        const res = await prisma.category.create({ data: { ...data, hasSN: data.hasSN ?? true, updatedAt: new Date() } });
+        const res = await (prisma as any).category.create({
+            data: {
+                name: data.name.trim(),
+                code: data.code?.trim() || null,
+                hasSN: data.hasSN ?? true,
+                updatedAt: new Date(),
+            }
+        });
         revalidatePath("/master/categories");
         revalidatePath("/master/items");
+        revalidatePath("/master");
         return { success: true, data: res };
     } catch (e: any) {
-        return { success: false, error: e.message };
+        console.error("createCategory error:", e);
+        return { success: false, error: e.message || "Gagal membuat kategori" };
     }
 }
 
 export async function updateCategory(id: number, data: { name: string; code?: string; hasSN?: boolean }) {
+    if (!data.name?.trim()) return { success: false, error: "Nama kategori wajib diisi" };
     try {
-        const res = await prisma.category.update({
+        const res = await (prisma as any).category.update({
             where: { id },
-            data: { ...data, updatedAt: new Date() }
+            data: {
+                name: data.name.trim(),
+                code: data.code?.trim() || null,
+                hasSN: data.hasSN ?? true,
+                updatedAt: new Date(),
+            }
         });
         revalidatePath("/master/categories");
         revalidatePath("/master/items");
+        revalidatePath("/master");
         return { success: true, data: res };
     } catch (e: any) {
-        return { success: false, error: e.message };
+        console.error("updateCategory error:", e);
+        return { success: false, error: e.message || "Gagal memperbarui kategori" };
     }
 }
 
@@ -66,6 +84,7 @@ export async function deleteCategory(id: number) {
         await prisma.category.delete({ where: { id } });
         revalidatePath("/master/categories");
         revalidatePath("/master/items");
+        revalidatePath("/master");
         return { success: true };
     } catch (e: any) {
         if (e.code === 'P2003') {

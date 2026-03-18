@@ -79,7 +79,7 @@ export default function InventoryMasterClient() {
                 getItems(),
                 getCategoriesForSelect()
             ]);
-            if (catRes.success) setCategories(catRes.data as CategoryData[]);
+            if (catRes.success) setCategories((catRes.data || []) as unknown as CategoryData[]);
             if (itemRes.success) setAllItems(itemRes.data as ItemData[]);
             if (catOptRes.success) setCatOptions(catOptRes.data as any[]);
         } catch (err) {
@@ -149,12 +149,18 @@ export default function InventoryMasterClient() {
 
     const submitItem = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (!itemForm.name.trim() || !itemForm.code.trim()) { setErrorMsg("Kode & nama barang wajib diisi"); return; }
         setSubmitLoading(true);
         setErrorMsg("");
-        const payload = { code: itemForm.code, name: itemForm.name, categoryId: Number(itemForm.categoryId), hasSN: itemForm.hasSN };
-        const res = editingItem ? await updateItem(editingItem.id, payload) : await createItem(payload);
-        if (res.success) { setIsItemModalOpen(false); loadData(); }
-        else { setErrorMsg(res.error || "Gagal menyimpan."); }
+        try {
+            const payload = { code: itemForm.code, name: itemForm.name, categoryId: Number(itemForm.categoryId), hasSN: itemForm.hasSN };
+            const res = editingItem ? await updateItem(editingItem.id, payload) : await createItem(payload);
+            if (res.success) { setIsItemModalOpen(false); setEditingItem(null); loadData(); }
+            else { setErrorMsg(res.error || "Gagal menyimpan."); }
+        } catch (err) {
+            console.error("submitItem error:", err);
+            setErrorMsg("Terjadi kesalahan jaringan.");
+        }
         setSubmitLoading(false);
     };
 
@@ -173,13 +179,19 @@ export default function InventoryMasterClient() {
 
     const submitCat = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (!catForm.name.trim()) { setErrorMsg("Nama kategori wajib diisi"); return; }
         setSubmitLoading(true);
         setErrorMsg("");
-        const res = editingCat
-            ? await updateCategory(editingCat.id, catForm)
-            : await createCategory(catForm);
-        if (res.success) { setIsCatModalOpen(false); loadData(); }
-        else { setErrorMsg(res.error || "Gagal menyimpan."); }
+        try {
+            const res = editingCat
+                ? await updateCategory(editingCat.id, catForm)
+                : await createCategory(catForm);
+            if (res.success) { setIsCatModalOpen(false); setEditingCat(null); loadData(); }
+            else { setErrorMsg(res.error || "Gagal menyimpan."); }
+        } catch (err) {
+            console.error("submitCat error:", err);
+            setErrorMsg("Terjadi kesalahan jaringan.");
+        }
         setSubmitLoading(false);
     };
 
@@ -188,11 +200,16 @@ export default function InventoryMasterClient() {
         if (!deleteTarget) return;
         setSubmitLoading(true);
         setErrorMsg("");
-        const res = deleteTarget.type === "item"
-            ? await deleteItem(deleteTarget.data.id)
-            : await deleteCategory(deleteTarget.data.id);
-        if (res.success) { setDeleteTarget(null); loadData(); }
-        else { setErrorMsg(res.error || "Gagal menghapus."); }
+        try {
+            const res = deleteTarget.type === "item"
+                ? await deleteItem(deleteTarget.data.id)
+                : await deleteCategory(deleteTarget.data.id);
+            if (res.success) { setDeleteTarget(null); setErrorMsg(""); loadData(); }
+            else { setErrorMsg(res.error || "Gagal menghapus."); }
+        } catch (err) {
+            console.error("confirmDelete error:", err);
+            setErrorMsg("Terjadi kesalahan jaringan.");
+        }
         setSubmitLoading(false);
     };
 
@@ -218,10 +235,10 @@ export default function InventoryMasterClient() {
                     <p className="text-[13px] text-slate-400 mt-0.5">Kelola kategori & barang dalam satu tampilan terpadu</p>
                 </div>
                 <div className="flex items-center gap-2">
-                    <button onClick={() => openItemModal()} className="btn btn-primary text-sm px-4 h-9 flex items-center gap-2">
+                    <button type="button" onClick={() => openItemModal()} className="btn btn-primary text-sm px-4 h-9 flex items-center gap-2">
                         <Plus size={15} /> Barang
                     </button>
-                    <button onClick={() => openCatModal()} className="px-4 h-9 flex items-center gap-2 rounded-lg bg-slate-800 text-white hover:bg-slate-700 transition-colors text-sm font-medium border border-[#334155]">
+                    <button type="button" onClick={() => openCatModal()} className="px-4 h-9 flex items-center gap-2 rounded-lg bg-slate-800 text-white hover:bg-slate-700 transition-colors text-sm font-medium border border-[#334155]">
                         <Plus size={15} /> Kategori
                     </button>
                 </div>

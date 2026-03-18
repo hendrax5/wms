@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { getWarehouseList, createWarehouse, updateWarehouse, deleteWarehouse } from "@/app/actions/master";
 import {
     Building2, Package, Search, ArrowRight, X, Plus, Pencil, Trash2,
-    AlertTriangle, Loader2, MapPin, LayoutGrid, AlertCircle, Warehouse
+    AlertTriangle, Loader2, MapPin, LayoutGrid, List, AlertCircle
 } from "lucide-react";
 import Link from "next/link";
 
@@ -24,15 +24,16 @@ export default function StockIndexClient() {
     const [loading, setLoading] = useState(true);
     const [searchInput, setSearchInput] = useState("");
     const [filterType, setFilterType] = useState<string | null>(null);
+    const [viewMode, setViewMode] = useState<"card" | "table">("card");
 
-    // Modal state
+    // Modal
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingWH, setEditingWH] = useState<WarehouseData | null>(null);
     const [form, setForm] = useState({ name: "", location: "", type: "CABANG" });
     const [submitLoading, setSubmitLoading] = useState(false);
     const [errorMsg, setErrorMsg] = useState("");
 
-    // Delete modal
+    // Delete
     const [deleteTarget, setDeleteTarget] = useState<WarehouseData | null>(null);
 
     /* ────────────── Data ────────────── */
@@ -40,7 +41,9 @@ export default function StockIndexClient() {
         setLoading(true);
         try {
             const res = await getWarehouseList();
-            if (res.success) setWarehouses(res.data as WarehouseData[]);
+            if (res.success && res.data) {
+                setWarehouses(res.data as WarehouseData[]);
+            }
         } catch (err) {
             console.error("Load error:", err);
         }
@@ -51,8 +54,8 @@ export default function StockIndexClient() {
 
     /* ────────────── Computed ────────────── */
     const totalGudang = warehouses.length;
-    const totalStok = warehouses.reduce((s, w) => s + w.totalFisik, 0);
-    const totalLowStock = warehouses.reduce((s, w) => s + w.lowStockCount, 0);
+    const totalStok = warehouses.reduce((s, w) => s + (w.totalFisik || 0), 0);
+    const totalLowStock = warehouses.reduce((s, w) => s + (w.lowStockCount || 0), 0);
 
     const filtered = warehouses.filter(w => {
         if (filterType && w.type !== filterType) return false;
@@ -68,7 +71,7 @@ export default function StockIndexClient() {
         setErrorMsg("");
         if (wh) {
             setEditingWH(wh);
-            setForm({ name: wh.name, location: wh.location || "", type: wh.type });
+            setForm({ name: wh.name, location: wh.location || "", type: wh.type || "CABANG" });
         } else {
             setEditingWH(null);
             setForm({ name: "", location: "", type: "CABANG" });
@@ -76,15 +79,26 @@ export default function StockIndexClient() {
         setIsModalOpen(true);
     };
 
+    const closeModal = () => {
+        setIsModalOpen(false);
+        setEditingWH(null);
+        setErrorMsg("");
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (!form.name.trim()) { setErrorMsg("Nama gudang wajib diisi"); return; }
         setSubmitLoading(true);
         setErrorMsg("");
-        const res = editingWH
-            ? await updateWarehouse(editingWH.id, form)
-            : await createWarehouse(form);
-        if (res.success) { setIsModalOpen(false); loadData(); }
-        else { setErrorMsg(res.error || "Gagal menyimpan."); }
+        try {
+            const res = editingWH
+                ? await updateWarehouse(editingWH.id, form)
+                : await createWarehouse(form);
+            if (res.success) { closeModal(); loadData(); }
+            else { setErrorMsg(res.error || "Gagal menyimpan."); }
+        } catch (err) {
+            setErrorMsg("Terjadi kesalahan jaringan.");
+        }
         setSubmitLoading(false);
     };
 
@@ -92,9 +106,13 @@ export default function StockIndexClient() {
         if (!deleteTarget) return;
         setSubmitLoading(true);
         setErrorMsg("");
-        const res = await deleteWarehouse(deleteTarget.id);
-        if (res.success) { setDeleteTarget(null); loadData(); }
-        else { setErrorMsg(res.error || "Gagal menghapus."); }
+        try {
+            const res = await deleteWarehouse(deleteTarget.id);
+            if (res.success) { setDeleteTarget(null); setErrorMsg(""); loadData(); }
+            else { setErrorMsg(res.error || "Gagal menghapus."); }
+        } catch (err) {
+            setErrorMsg("Terjadi kesalahan jaringan.");
+        }
         setSubmitLoading(false);
     };
 
@@ -119,9 +137,11 @@ export default function StockIndexClient() {
                     </h2>
                     <p className="text-[13px] text-slate-400 mt-0.5">Pilih gudang untuk melihat stok & aktivitas</p>
                 </div>
-                <button onClick={() => openModal()} className="btn btn-primary text-sm px-4 h-9 flex items-center gap-2">
-                    <Plus size={15} /> Tambah Gudang
-                </button>
+                <div className="flex items-center gap-2">
+                    <button type="button" onClick={() => openModal()} className="btn btn-primary text-sm px-4 h-9 flex items-center gap-2">
+                        <Plus size={15} /> Tambah Gudang
+                    </button>
+                </div>
             </div>
 
             {/* ── SEARCH & FILTER ── */}
@@ -137,17 +157,20 @@ export default function StockIndexClient() {
                     />
                 </div>
                 <div className="flex items-center gap-2">
-                    <button
-                        onClick={() => setFilterType(filterType === "CABANG" ? null : "CABANG")}
-                        className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold border transition-all ${filterType === "CABANG" ? "bg-blue-500/20 border-blue-500/40 text-blue-400" : "bg-transparent border-[#334155] text-slate-400 hover:text-white"}`}
-                    >
+                    <button type="button" onClick={() => setFilterType(filterType === "CABANG" ? null : "CABANG")}
+                        className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold border transition-all ${filterType === "CABANG" ? "bg-blue-500/20 border-blue-500/40 text-blue-400" : "bg-transparent border-[#334155] text-slate-400 hover:text-white"}`}>
                         Cabang
                     </button>
-                    <button
-                        onClick={() => setFilterType(filterType === "PUSAT" ? null : "PUSAT")}
-                        className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold border transition-all ${filterType === "PUSAT" ? "bg-purple-500/20 border-purple-500/40 text-purple-400" : "bg-transparent border-[#334155] text-slate-400 hover:text-white"}`}
-                    >
+                    <button type="button" onClick={() => setFilterType(filterType === "PUSAT" ? null : "PUSAT")}
+                        className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold border transition-all ${filterType === "PUSAT" ? "bg-purple-500/20 border-purple-500/40 text-purple-400" : "bg-transparent border-[#334155] text-slate-400 hover:text-white"}`}>
                         Pusat
+                    </button>
+                    <div className="w-px h-5 bg-[#1E293B] mx-1"></div>
+                    <button type="button" onClick={() => setViewMode("card")} className={`p-1.5 rounded transition-colors ${viewMode === "card" ? "bg-amber-500/20 text-amber-400" : "text-slate-500 hover:text-white"}`} title="Card View">
+                        <LayoutGrid size={15} />
+                    </button>
+                    <button type="button" onClick={() => setViewMode("table")} className={`p-1.5 rounded transition-colors ${viewMode === "table" ? "bg-amber-500/20 text-amber-400" : "text-slate-500 hover:text-white"}`} title="Table View">
+                        <List size={15} />
                     </button>
                 </div>
             </div>
@@ -166,62 +189,52 @@ export default function StockIndexClient() {
                 ))}
             </div>
 
-            {/* ── GRID GUDANG ── */}
+            {/* ── CONTENT ── */}
             {filtered.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-20 gap-3">
                     <div className="w-12 h-12 rounded-xl bg-slate-800 flex items-center justify-center">
                         <Building2 size={20} className="text-slate-500" />
                     </div>
                     <p className="text-sm text-slate-500">Tidak ada gudang ditemukan.</p>
-                    <button onClick={() => openModal()} className="text-xs text-amber-400 hover:text-amber-300 transition-colors flex items-center gap-1">
+                    <button type="button" onClick={() => openModal()} className="text-xs text-amber-400 hover:text-amber-300 transition-colors flex items-center gap-1">
                         <Plus size={14} /> Tambah Gudang
                     </button>
                 </div>
-            ) : (
+            ) : viewMode === "card" ? (
+                /* ── CARD VIEW ── */
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     {filtered.map(wh => (
                         <div key={wh.id} className="card !p-0 border border-[#1E293B] hover:border-amber-500/30 transition-all group overflow-hidden">
-                            {/* Card Header */}
                             <div className="p-5 pb-0">
                                 <div className="flex items-start justify-between mb-1">
-                                    <div className="min-w-0 flex-1">
-                                        <h3 className="font-bold text-white text-base group-hover:text-amber-400 transition-colors truncate flex items-center gap-2">
-                                            <Building2 size={16} className="text-amber-400 shrink-0" />
-                                            {wh.name}
-                                        </h3>
-                                    </div>
+                                    <h3 className="font-bold text-white text-base group-hover:text-amber-400 transition-colors truncate flex items-center gap-2 min-w-0 flex-1">
+                                        <Building2 size={16} className="text-amber-400 shrink-0" />
+                                        {wh.name}
+                                    </h3>
                                     <span className={`text-[9px] font-bold px-2 py-0.5 rounded border shrink-0 ml-2 ${wh.type === "PUSAT" ? "bg-purple-500/10 text-purple-400 border-purple-500/20" : "bg-blue-500/10 text-blue-400 border-blue-500/20"}`}>
                                         {wh.type}
                                     </span>
                                 </div>
                                 {wh.location && (
-                                    <p className="text-[11px] text-slate-500 flex items-center gap-1 mt-1 mb-3">
+                                    <p className="text-[11px] text-slate-500 flex items-center gap-1 mt-1 mb-2">
                                         <MapPin size={10} className="text-slate-600 shrink-0" /> {wh.location}
                                     </p>
                                 )}
                             </div>
-
-                            {/* Stats */}
                             <div className="px-5 py-3 grid grid-cols-2 gap-3">
                                 <div>
-                                    <span className="text-[10px] text-slate-500 flex items-center gap-1">
-                                        <Package size={10} /> Total Stok
-                                    </span>
-                                    <span className={`font-mono font-bold text-xl leading-none mt-1 block ${wh.totalFisik === 0 ? "text-slate-600" : "text-green-400"}`}>
-                                        {wh.totalFisik.toLocaleString("id-ID")}
+                                    <span className="text-[10px] text-slate-500 flex items-center gap-1"><Package size={10} /> Total Stok</span>
+                                    <span className={`font-mono font-bold text-xl leading-none mt-1 block ${(wh.totalFisik || 0) === 0 ? "text-slate-600" : "text-green-400"}`}>
+                                        {(wh.totalFisik || 0).toLocaleString("id-ID")}
                                     </span>
                                 </div>
                                 <div>
-                                    <span className="text-[10px] text-slate-500 flex items-center gap-1">
-                                        <AlertCircle size={10} /> Low Stock
-                                    </span>
-                                    <span className={`font-mono font-bold text-xl leading-none mt-1 block ${wh.lowStockCount > 0 ? "text-amber-400" : "text-slate-600"}`}>
-                                        {wh.lowStockCount}
+                                    <span className="text-[10px] text-slate-500 flex items-center gap-1"><AlertCircle size={10} /> Low Stock</span>
+                                    <span className={`font-mono font-bold text-xl leading-none mt-1 block ${(wh.lowStockCount || 0) > 0 ? "text-amber-400" : "text-slate-600"}`}>
+                                        {wh.lowStockCount || 0}
                                     </span>
                                 </div>
                             </div>
-
-                            {/* Status + Actions */}
                             <div className="px-5 py-3 border-t border-[#1E293B] flex items-center justify-between">
                                 <div className="flex items-center gap-1.5">
                                     <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
@@ -231,10 +244,10 @@ export default function StockIndexClient() {
                                     <Link href={`/stock/warehouse/${wh.id}`} className="px-3 py-1.5 rounded-lg bg-[#020617] border border-[#1E293B] text-[11px] font-medium text-slate-400 hover:text-amber-400 hover:border-amber-500/30 transition-all flex items-center gap-1">
                                         <ArrowRight size={12} /> Detail
                                     </Link>
-                                    <button onClick={() => openModal(wh)} className="p-1.5 rounded-lg text-slate-500 hover:text-blue-400 hover:bg-blue-500/10 transition-all" title="Edit">
+                                    <button type="button" onClick={() => openModal(wh)} className="p-1.5 rounded-lg text-slate-500 hover:text-blue-400 hover:bg-blue-500/10 transition-all" title="Edit">
                                         <Pencil size={13} />
                                     </button>
-                                    <button onClick={() => { setDeleteTarget(wh); setErrorMsg(""); }} className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-all" title="Hapus">
+                                    <button type="button" onClick={() => { setDeleteTarget(wh); setErrorMsg(""); }} className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-all" title="Hapus">
                                         <Trash2 size={13} />
                                     </button>
                                 </div>
@@ -242,20 +255,86 @@ export default function StockIndexClient() {
                         </div>
                     ))}
                 </div>
+            ) : (
+                /* ── TABLE VIEW ── */
+                <div className="card !p-0 border border-[#1E293B] overflow-hidden">
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                            <thead>
+                                <tr className="border-b border-[#1E293B] text-[10px] uppercase tracking-wider text-slate-500 font-semibold bg-[#020617]/50">
+                                    <th className="px-4 py-3">Nama Gudang</th>
+                                    <th className="px-4 py-3">Lokasi</th>
+                                    <th className="px-4 py-3 text-center">Tipe</th>
+                                    <th className="px-4 py-3 text-right">Total Stok</th>
+                                    <th className="px-4 py-3 text-right">Low Stock</th>
+                                    <th className="px-4 py-3 text-center">Status</th>
+                                    <th className="px-4 py-3 text-center">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody className="text-xs">
+                                {filtered.map(wh => (
+                                    <tr key={wh.id} className="border-b border-[#1E293B]/40 hover:bg-white/[0.02] transition-colors group">
+                                        <td className="px-4 py-3">
+                                            <div className="flex items-center gap-2">
+                                                <Building2 size={14} className="text-amber-400 shrink-0" />
+                                                <span className="font-medium text-white group-hover:text-amber-400 transition-colors">{wh.name}</span>
+                                            </div>
+                                        </td>
+                                        <td className="px-4 py-3 text-slate-500">
+                                            {wh.location ? (
+                                                <span className="flex items-center gap-1"><MapPin size={10} />{wh.location}</span>
+                                            ) : "—"}
+                                        </td>
+                                        <td className="px-4 py-3 text-center">
+                                            <span className={`text-[9px] font-bold px-2 py-0.5 rounded border ${wh.type === "PUSAT" ? "bg-purple-500/10 text-purple-400 border-purple-500/20" : "bg-blue-500/10 text-blue-400 border-blue-500/20"}`}>
+                                                {wh.type}
+                                            </span>
+                                        </td>
+                                        <td className={`px-4 py-3 text-right font-mono font-bold ${(wh.totalFisik || 0) === 0 ? "text-slate-600" : "text-green-400"}`}>
+                                            {(wh.totalFisik || 0).toLocaleString("id-ID")}
+                                        </td>
+                                        <td className={`px-4 py-3 text-right font-mono ${(wh.lowStockCount || 0) > 0 ? "text-amber-400 font-bold" : "text-slate-600"}`}>
+                                            {wh.lowStockCount || 0}
+                                        </td>
+                                        <td className="px-4 py-3 text-center">
+                                            <span className="inline-flex items-center gap-1 text-[10px] text-green-400 font-medium">
+                                                <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
+                                                Active
+                                            </span>
+                                        </td>
+                                        <td className="px-4 py-3 text-center">
+                                            <div className="flex justify-center gap-1">
+                                                <Link href={`/stock/warehouse/${wh.id}`} className="p-1 text-slate-500 hover:text-amber-400 transition-colors" title="Detail">
+                                                    <ArrowRight size={13} />
+                                                </Link>
+                                                <button type="button" onClick={() => openModal(wh)} className="p-1 text-slate-500 hover:text-blue-400 transition-colors" title="Edit">
+                                                    <Pencil size={13} />
+                                                </button>
+                                                <button type="button" onClick={() => { setDeleteTarget(wh); setErrorMsg(""); }} className="p-1 text-slate-500 hover:text-red-400 transition-colors" title="Hapus">
+                                                    <Trash2 size={13} />
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             )}
 
             {/* ═══════════════ MODALS ═══════════════ */}
 
             {/* ── ADD/EDIT MODAL ── */}
             {isModalOpen && (
-                <div className="fixed inset-0 z-[100] bg-[#020617]/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+                <div className="fixed inset-0 z-[100] bg-[#020617]/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in" onClick={closeModal}>
                     <div className="bg-[#0F172A] border border-[#1E293B] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
                         <div className="p-5 border-b border-[#1E293B] flex items-center justify-between bg-[#020617]/50">
                             <h3 className="font-bold text-white text-lg">{editingWH ? "Edit Gudang" : "Tambah Gudang"}</h3>
-                            <button onClick={() => setIsModalOpen(false)} className="text-slate-500 hover:text-white transition-colors"><X size={20} /></button>
+                            <button type="button" onClick={closeModal} className="text-slate-500 hover:text-white transition-colors"><X size={20} /></button>
                         </div>
                         <form onSubmit={handleSubmit} className="p-5 space-y-4">
-                            {errorMsg && !deleteTarget && (
+                            {errorMsg && (
                                 <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg flex items-start gap-2.5">
                                     <AlertTriangle size={16} className="text-red-400 shrink-0 mt-0.5" />
                                     <p className="text-sm text-red-400">{errorMsg}</p>
@@ -286,7 +365,7 @@ export default function StockIndexClient() {
                                 </div>
                             </div>
                             <div className="pt-4 flex gap-3">
-                                <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 px-4 py-2 rounded-lg bg-slate-800 text-white hover:bg-slate-700 transition-colors text-sm font-medium">Batal</button>
+                                <button type="button" onClick={closeModal} className="flex-1 px-4 py-2 rounded-lg bg-slate-800 text-white hover:bg-slate-700 transition-colors text-sm font-medium">Batal</button>
                                 <button type="submit" disabled={submitLoading} className="flex-1 btn btn-primary py-2 text-sm">
                                     {submitLoading ? <Loader2 size={16} className="animate-spin mx-auto" /> : "Simpan"}
                                 </button>
@@ -298,14 +377,14 @@ export default function StockIndexClient() {
 
             {/* ── DELETE MODAL ── */}
             {deleteTarget && (
-                <div className="fixed inset-0 z-[100] bg-[#020617]/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
-                    <div className="bg-[#0F172A] border border-[#1E293B] rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden p-6 text-center">
+                <div className="fixed inset-0 z-[100] bg-[#020617]/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in" onClick={() => { setDeleteTarget(null); setErrorMsg(""); }}>
+                    <div className="bg-[#0F172A] border border-[#1E293B] rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden p-6 text-center" onClick={e => e.stopPropagation()}>
                         <div className="w-16 h-16 rounded-full bg-red-500/10 text-red-500 flex items-center justify-center mx-auto mb-4">
                             <Trash2 size={32} />
                         </div>
                         <h3 className="font-bold text-white text-lg mb-2">Hapus Gudang?</h3>
                         <p className="text-sm text-slate-400 mb-6">
-                            Anda yakin ingin menghapus gudang <span className="font-semibold text-white">"{deleteTarget.name}"</span>?
+                            Anda yakin ingin menghapus gudang <span className="font-semibold text-white">&quot;{deleteTarget.name}&quot;</span>?
                         </p>
                         {errorMsg && (
                             <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-left mb-4 flex items-start gap-2">
@@ -314,8 +393,8 @@ export default function StockIndexClient() {
                             </div>
                         )}
                         <div className="flex gap-3">
-                            <button onClick={() => { setDeleteTarget(null); setErrorMsg(""); }} className="flex-1 px-4 py-2 rounded-lg bg-slate-800 text-white hover:bg-slate-700 transition-colors text-sm font-medium">Batal</button>
-                            <button onClick={handleDelete} disabled={submitLoading} className="flex-1 px-4 py-2 rounded-lg bg-red-500 text-white hover:bg-red-600 shadow-lg shadow-red-500/25 transition-all text-sm font-medium">
+                            <button type="button" onClick={() => { setDeleteTarget(null); setErrorMsg(""); }} className="flex-1 px-4 py-2 rounded-lg bg-slate-800 text-white hover:bg-slate-700 transition-colors text-sm font-medium">Batal</button>
+                            <button type="button" onClick={handleDelete} disabled={submitLoading} className="flex-1 px-4 py-2 rounded-lg bg-red-500 text-white hover:bg-red-600 shadow-lg shadow-red-500/25 transition-all text-sm font-medium">
                                 {submitLoading ? <Loader2 size={16} className="animate-spin mx-auto" /> : "Ya, Hapus"}
                             </button>
                         </div>
