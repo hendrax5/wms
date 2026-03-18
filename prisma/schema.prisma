@@ -25,6 +25,7 @@ model Category {
   id        Int        @id @default(autoincrement())
   name      String
   code      String?
+  hasSN     Boolean    @default(true)
   companyId Int?
   createdAt DateTime   @default(now())
   updatedAt DateTime

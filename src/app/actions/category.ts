@@ -26,6 +26,7 @@ export async function getCategories() {
 export async function createCategory(formData: FormData) {
     const name = formData.get("name") as string;
     const code = formData.get("code") as string;
+    const hasSN = formData.get("hasSN") === "on";
 
     if (!name) {
         return { success: false, error: "Nama kategori wajib diisi" };
@@ -36,6 +37,7 @@ export async function createCategory(formData: FormData) {
             data: {
                 name,
                 code: code || null,
+                hasSN,
                 updatedAt: new Date(),
             },
         });
@@ -50,6 +52,7 @@ export async function createCategory(formData: FormData) {
 export async function updateCategory(id: number, formData: FormData) {
     const name = formData.get("name") as string;
     const code = formData.get("code") as string;
+    const hasSN = formData.get("hasSN") === "on";
 
     if (!name) {
         return { success: false, error: "Nama kategori wajib diisi" };
@@ -61,6 +64,7 @@ export async function updateCategory(id: number, formData: FormData) {
             data: {
                 name,
                 code: code || null,
+                hasSN,
                 updatedAt: new Date(),
             },
         });

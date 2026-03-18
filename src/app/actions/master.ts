@@ -32,9 +32,9 @@ export async function getCategories() {
     }
 }
 
-export async function createCategory(data: { name: string; code?: string }) {
+export async function createCategory(data: { name: string; code?: string; hasSN?: boolean }) {
     try {
-        const res = await prisma.category.create({ data: { ...data, updatedAt: new Date() } });
+        const res = await prisma.category.create({ data: { ...data, hasSN: data.hasSN ?? true, updatedAt: new Date() } });
         revalidatePath("/master/categories");
         revalidatePath("/master/items");
         return { success: true, data: res };
@@ -43,7 +43,7 @@ export async function createCategory(data: { name: string; code?: string }) {
     }
 }
 
-export async function updateCategory(id: number, data: { name: string; code?: string }) {
+export async function updateCategory(id: number, data: { name: string; code?: string; hasSN?: boolean }) {
     try {
         const res = await prisma.category.update({
             where: { id },

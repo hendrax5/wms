@@ -32,7 +32,7 @@ export async function getCategoriesForSelect() {
         }
         const items = await prisma.category.findMany({
             orderBy: { name: "asc" },
-            select: { id: true, name: true, code: true }
+            select: { id: true, name: true, code: true, hasSN: true }
         });
         return { success: true, data: items };
     } catch (error) {

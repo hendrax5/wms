@@ -9,6 +9,7 @@ type Category = {
     id: number;
     name: string;
     code: string | null;
+    hasSN: boolean;
     _count?: { items: number };
 };
 
@@ -36,7 +37,7 @@ export default function CategoryMasterPage() {
     // Modal State
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingCat, setEditingCat] = useState<Category | null>(null);
-    const [formData, setFormData] = useState({ name: "", code: "" });
+    const [formData, setFormData] = useState({ name: "", code: "", hasSN: true });
     const [submitLoading, setSubmitLoading] = useState(false);
     const [errorMsg, setErrorMsg] = useState("");
 
@@ -61,10 +62,10 @@ export default function CategoryMasterPage() {
         setErrorMsg("");
         if (cat) {
             setEditingCat(cat);
-            setFormData({ name: cat.name, code: cat.code || "" });
+            setFormData({ name: cat.name, code: cat.code || "", hasSN: cat.hasSN ?? true });
         } else {
             setEditingCat(null);
-            setFormData({ name: "", code: "" });
+            setFormData({ name: "", code: "", hasSN: true });
         }
         setIsModalOpen(true);
     };
@@ -227,6 +228,7 @@ export default function CategoryMasterPage() {
                                     <th className="px-5 py-3 w-16 text-center">No</th>
                                     <th className="px-5 py-3">Nama Kategori</th>
                                     <th className="px-5 py-3">Kode Prefix</th>
+                                    <th className="px-5 py-3 text-center">SN</th>
                                     <th className="px-5 py-3 text-center">Total Item</th>
                                     <th className="px-5 py-3 text-right">Aksi</th>
                                 </tr>
@@ -243,6 +245,13 @@ export default function CategoryMasterPage() {
                                                 </span>
                                             ) : (
                                                 <span className="text-slate-600 text-xs italic">Kosong</span>
+                                            )}
+                                        </td>
+                                        <td className="px-5 py-3.5 text-center">
+                                            {cat.hasSN ? (
+                                                <span className="bg-blue-500/10 text-blue-400 border border-blue-500/20 px-2 py-0.5 rounded text-[10px] font-semibold">SN</span>
+                                            ) : (
+                                                <span className="bg-amber-500/10 text-amber-400 border border-amber-500/20 px-2 py-0.5 rounded text-[10px] font-semibold">Non-SN</span>
                                             )}
                                         </td>
                                         <td className="px-5 py-3.5 text-center">
@@ -328,6 +337,31 @@ export default function CategoryMasterPage() {
                                         placeholder="Contoh: RT, SW..."
                                     />
                                     <p className="text-[11px] text-slate-500 mt-1.5">Opsional. Digunakan sebagai awalan jika ada auto-generate SN/Item Code.</p>
+                                </div>
+
+                                <div>
+                                    <label className="flex items-center gap-3 cursor-pointer group">
+                                        <div className="relative">
+                                            <input
+                                                type="checkbox"
+                                                checked={formData.hasSN}
+                                                onChange={(e) => setFormData({ ...formData, hasSN: e.target.checked })}
+                                                className="sr-only peer"
+                                            />
+                                            <div className="w-10 h-5 bg-slate-700 rounded-full peer-checked:bg-blue-600 transition-colors"></div>
+                                            <div className="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full transition-transform peer-checked:translate-x-5"></div>
+                                        </div>
+                                        <div>
+                                            <span className="text-sm font-medium text-slate-300 group-hover:text-white transition-colors">
+                                                Memiliki Serial Number (SN)
+                                            </span>
+                                            <p className="text-[11px] text-slate-500">
+                                                {formData.hasSN
+                                                    ? 'Barang dalam kategori ini wajib scan SN saat masuk/keluar'
+                                                    : 'Barang dalam kategori ini cukup input Qty saja (misal: kabel, konektor)'}
+                                            </p>
+                                        </div>
+                                    </label>
                                 </div>
 
                                 <div className="pt-4 flex gap-3">
