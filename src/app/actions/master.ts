@@ -144,7 +144,7 @@ export async function getItemDetails(id: number) {
                         pop: true,
                         itemtype: true
                     },
-                    orderBy: { updatedAt: 'desc' } as any,
+                    orderBy: { id: 'desc' } as any,
                     take: 500
                 } as any
             }
