@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { getItemDetails } from "@/app/actions/master";
-import { ArrowLeft, Package, Hash, Building2, Server, MapPin, Loader2, Search, X, Tags, Activity } from "lucide-react";
+import { ArrowLeft, Package, Hash, Building2, Server, MapPin, Loader2, Search, X, Tags, Activity, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
 import Link from "next/link";
 
 type ItemDetail = {
@@ -25,6 +25,39 @@ type ItemDetail = {
 };
 
 type ActiveFilter = { type: 'lokasi' | 'status'; value: string; label: string };
+
+/* ── Pagination ── */
+const PP = 10;
+function usePagination<T>(items: T[], perPage: number) {
+    const [page, setPage] = useState(1);
+    const totalPages = Math.max(1, Math.ceil(items.length / perPage));
+    const safeP = Math.min(page, totalPages);
+    const paged = items.slice((safeP - 1) * perPage, safeP * perPage);
+    const reset = () => setPage(1);
+    return { page: safeP, setPage, totalPages, paged, reset, total: items.length };
+}
+function PaginationBar({ page, totalPages, setPage, total, perPage, label }: { page: number; totalPages: number; setPage: (n: number) => void; total: number; perPage: number; label?: string }) {
+    if (total <= perPage) return null;
+    const start = (page - 1) * perPage + 1;
+    const end = Math.min(page * perPage, total);
+    const pages: (number | '...')[] = [];
+    if (totalPages <= 7) { for (let i = 1; i <= totalPages; i++) pages.push(i); }
+    else { pages.push(1); if (page > 3) pages.push('...'); for (let i = Math.max(2, page - 1); i <= Math.min(totalPages - 1, page + 1); i++) pages.push(i); if (page < totalPages - 2) pages.push('...'); pages.push(totalPages); }
+    return (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 px-1">
+            <span className="text-[11px] text-slate-500">Menampilkan <span className="text-white font-medium">{start}–{end}</span> dari <span className="text-white font-medium">{total}</span> {label || 'data'}</span>
+            <div className="flex items-center gap-1">
+                <button type="button" disabled={page <= 1} onClick={() => setPage(1)} className="p-1.5 rounded-lg text-slate-500 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"><ChevronsLeft size={14} /></button>
+                <button type="button" disabled={page <= 1} onClick={() => setPage(page - 1)} className="p-1.5 rounded-lg text-slate-500 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"><ChevronLeft size={14} /></button>
+                {pages.map((p, i) => p === '...' ? (<span key={`e${i}`} className="px-1 text-slate-600 text-xs">…</span>) : (
+                    <button key={p} type="button" onClick={() => setPage(p as number)} className={`min-w-[28px] h-7 rounded-lg text-xs font-medium transition-all ${page === p ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30' : 'text-slate-500 hover:text-white hover:bg-white/5'}`}>{p}</button>
+                ))}
+                <button type="button" disabled={page >= totalPages} onClick={() => setPage(page + 1)} className="p-1.5 rounded-lg text-slate-500 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"><ChevronRight size={14} /></button>
+                <button type="button" disabled={page >= totalPages} onClick={() => setPage(totalPages)} className="p-1.5 rounded-lg text-slate-500 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"><ChevronsRight size={14} /></button>
+            </div>
+        </div>
+    );
+}
 
 export default function ItemDetailClient() {
     const params = useParams();
@@ -162,6 +195,9 @@ export default function ItemDetailClient() {
     const availableSNCount = locationFilteredSNs.filter(sn => sn.status.name === 'In Stock').length;
     const installedSNCount = locationFilteredSNs.filter(sn => sn.status.name === 'Dipakai').length;
     const damagedSNCount = locationFilteredSNs.filter(sn => sn.status.name === 'Rusak').length;
+
+    const snPag = usePagination(filteredSNs, PP);
+    useEffect(() => { snPag.reset(); }, [searchInput, activeFilters]);
 
     const displayFisik = activeLocations.length > 0
         ? availableSNCount + damagedSNCount
@@ -341,7 +377,7 @@ export default function ItemDetailClient() {
                 </div>
 
                 {/* Table */}
-                <div className="overflow-x-auto max-h-[600px] custom-scrollbar">
+                <div>
                     {item.serialNumbers.length === 0 ? (
                         <div className="flex flex-col items-center justify-center pt-20 pb-20 gap-3">
                             <div className="w-12 h-12 rounded-xl bg-slate-800 flex items-center justify-center">
@@ -350,51 +386,58 @@ export default function ItemDetailClient() {
                             <p className="text-sm text-slate-500">Tidak ada data Serial Number tersimpan.</p>
                         </div>
                     ) : (
-                        <table className="w-full text-left border-collapse">
-                            <thead className="sticky top-0 z-10">
-                                <tr className="border-b border-[#1E293B] bg-[#020617]/90 backdrop-blur-sm text-[10px] uppercase tracking-wider text-slate-500 font-semibold text-center">
-                                    <th className="px-5 py-3 w-12">No</th>
-                                    <th className="px-5 py-3 text-left">Serial Number</th>
-                                    <th className="px-5 py-3 text-left">Status</th>
-                                    <th className="px-5 py-3 text-left">Kondisi</th>
-                                    <th className="px-5 py-3 text-left">Lokasi Saat Ini</th>
-                                    <th className="px-5 py-3 text-right">Terakhir Update</th>
-                                </tr>
-                            </thead>
-                            <tbody className="text-sm">
-                                {filteredSNs.map((sn, idx) => (
-                                    <tr key={sn.id} className="border-b border-[#1E293B]/50 hover:bg-white/[0.02] transition-colors group cursor-pointer" onClick={() => router.push(`/master/sn/${sn.id}`)}>
-                                        <td className="px-5 py-3.5 text-center text-slate-600 text-xs font-mono">{idx + 1}</td>
-                                        <td className="px-5 py-3.5">
-                                            <span className="font-mono text-xs font-bold text-white group-hover:text-purple-400 transition-colors bg-slate-900 border border-slate-700/50 px-2 py-1 rounded">
-                                                {sn.code}
-                                            </span>
-                                        </td>
-                                        <td className="px-5 py-3.5">
-                                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold border uppercase tracking-tight ${sn.status.name === 'In Stock' ? 'bg-green-500/10 text-green-400 border-green-500/20' :
-                                                sn.status.name === 'Dipakai' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
-                                                    sn.status.name === 'Rusak' ? 'bg-red-500/10 text-red-400 border-red-500/20' :
-                                                        'bg-slate-800 text-slate-300 border-slate-700'
-                                                }`}>
-                                                {sn.status.name}
-                                            </span>
-                                        </td>
-                                        <td className="px-5 py-3.5">
-                                            <span className="text-[11px] text-slate-400 uppercase font-medium">{sn.type.name}</span>
-                                        </td>
-                                        <td className="px-5 py-3.5">
-                                            <div className="flex items-center gap-1.5 text-xs text-slate-300 font-medium">
-                                                <MapPin size={12} className="text-slate-500" />
-                                                {sn.warehouse ? sn.warehouse.name : sn.pop ? sn.pop.name : 'Unknown'}
-                                            </div>
-                                        </td>
-                                        <td className="px-5 py-3.5 text-right text-xs text-slate-500 font-mono">
-                                            {new Date(sn.updatedAt).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}
-                                        </td>
-                                    </tr>
+                        <>
+                            {/* Desktop table */}
+                            <div className="hidden sm:block">
+                                <table className="w-full text-left border-collapse">
+                                    <thead className="sticky top-0 z-10">
+                                        <tr className="border-b border-[#1E293B] bg-[#020617]/90 backdrop-blur-sm text-[10px] uppercase tracking-wider text-slate-500 font-semibold text-center">
+                                            <th className="px-4 py-3 text-left">Serial Number</th>
+                                            <th className="px-4 py-3 text-left">Status</th>
+                                            <th className="px-4 py-3 text-left">Lokasi</th>
+                                            <th className="px-4 py-3 text-right">Update</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="text-sm">
+                                        {snPag.paged.map((sn) => (
+                                            <tr key={sn.id} className="border-b border-[#1E293B]/50 hover:bg-white/[0.02] transition-colors group cursor-pointer" onClick={() => router.push(`/master/sn/${sn.id}`)}>
+                                                <td className="px-4 py-3">
+                                                    <span className="font-mono text-xs font-bold text-white group-hover:text-purple-400 transition-colors bg-slate-900 border border-slate-700/50 px-2 py-1 rounded">{sn.code}</span>
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold border uppercase tracking-tight ${sn.status.name === 'In Stock' ? 'bg-green-500/10 text-green-400 border-green-500/20' : sn.status.name === 'Dipakai' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : sn.status.name === 'Rusak' ? 'bg-red-500/10 text-red-400 border-red-500/20' : 'bg-slate-800 text-slate-300 border-slate-700'}`}>{sn.status.name}</span>
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <div className="flex items-center gap-1.5 text-xs text-slate-300 font-medium truncate max-w-[160px]" title={sn.warehouse ? sn.warehouse.name : sn.pop ? sn.pop.name : 'Unknown'}>
+                                                        <MapPin size={12} className="text-slate-500 shrink-0" />
+                                                        {sn.warehouse ? sn.warehouse.name : sn.pop ? sn.pop.name : 'Unknown'}
+                                                    </div>
+                                                </td>
+                                                <td className="px-4 py-3 text-right text-xs text-slate-500 font-mono">
+                                                    {new Date(sn.updatedAt).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                            {/* Mobile cards */}
+                            <div className="sm:hidden space-y-2 px-3 pb-3">
+                                {snPag.paged.map(sn => (
+                                    <div key={sn.id} className="bg-[#020617] border border-[#1E293B] rounded-xl p-3 cursor-pointer hover:border-purple-500/30 transition-colors" onClick={() => router.push(`/master/sn/${sn.id}`)}>
+                                        <div className="flex items-center justify-between mb-2">
+                                            <span className="font-mono text-xs font-bold text-white bg-slate-900 border border-slate-700/50 px-2 py-0.5 rounded">{sn.code}</span>
+                                            <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold border ${sn.status.name === 'In Stock' ? 'bg-green-500/10 text-green-400 border-green-500/20' : sn.status.name === 'Dipakai' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20'}`}>{sn.status.name}</span>
+                                        </div>
+                                        <div className="flex items-center justify-between text-[11px] text-slate-500">
+                                            <span className="flex items-center gap-1 truncate"><MapPin size={10} className="shrink-0" /> {sn.warehouse?.name || sn.pop?.name || '—'}</span>
+                                            <span className="font-mono shrink-0 ml-2">{new Date(sn.updatedAt).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' })}</span>
+                                        </div>
+                                    </div>
                                 ))}
-                            </tbody>
-                        </table>
+                            </div>
+                            <PaginationBar page={snPag.page} totalPages={snPag.totalPages} setPage={snPag.setPage} total={snPag.total} perPage={PP} label="SN" />
+                        </>
                     )}
                 </div>
             </div>

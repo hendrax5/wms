@@ -357,100 +357,66 @@ export default function InventoryMasterClient() {
             </div>
 
             {/* ── MAIN CONTENT ── */}
-            <div className="flex flex-col lg:flex-row gap-4 min-h-[400px]">
-                {/* ── LEFT: Categories Sidebar ── */}
-                <div className={`${sidebarOpen ? "w-full lg:w-56" : "w-full lg:w-10"} shrink-0 card !p-0 border border-[#1E293B] overflow-hidden flex flex-col transition-all`}>
-                    <div className="p-2.5 sm:p-3 border-b border-[#1E293B] bg-[#020617]/50 flex items-center justify-between">
-                        {sidebarOpen && (
-                            <h3 className="text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
-                                <FolderOpen size={12} /> Kategori
-                            </h3>
-                        )}
-                        <button type="button" onClick={() => setSidebarOpen(!sidebarOpen)} className="p-1 text-slate-500 hover:text-white transition-colors lg:block hidden">
-                            <ChevronLeft size={14} className={`transition-transform ${sidebarOpen ? "" : "rotate-180"}`} />
-                        </button>
-                    </div>
-                    {sidebarOpen && (
-                        <div className="flex-1 overflow-y-auto custom-scrollbar max-h-[200px] lg:max-h-none">
-                            {/* Flex row on mobile, column on desktop */}
-                            <div className="flex flex-row lg:flex-col overflow-x-auto lg:overflow-x-visible">
-                                <button type="button" onClick={() => setSelectedCatId(null)}
-                                    className={`whitespace-nowrap lg:w-full text-left px-3 sm:px-4 py-2 sm:py-2.5 text-xs transition-all border-b border-[#1E293B]/30 flex items-center justify-between gap-2 ${selectedCatId === null ? "bg-green-500/10 text-green-400 font-semibold" : "text-slate-300 hover:bg-white/[0.03]"}`}>
-                                    <span>Semua</span>
-                                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${selectedCatId === null ? "bg-green-500/20 text-green-400" : "bg-slate-800 text-slate-500"}`}>{totalItems}</span>
-                                </button>
-                                {categories.map(cat => {
-                                    const count = cat._count?.item || 0;
-                                    const isActive = selectedCatId === cat.id;
-                                    return (
-                                        <div key={cat.id} className={`relative group border-b border-[#1E293B]/30 transition-all ${isActive ? "bg-green-500/10" : "hover:bg-white/[0.03]"}`}>
-                                            <button type="button" onClick={() => setSelectedCatId(isActive ? null : cat.id)}
-                                                className="whitespace-nowrap lg:whitespace-normal lg:w-full text-left px-3 sm:px-4 py-2 sm:py-2.5 text-xs flex items-center justify-between pr-14 lg:pr-16 gap-2">
-                                                <div className="min-w-0">
-                                                    <span className={`block truncate ${isActive ? "text-green-400 font-semibold" : "text-slate-300"}`}>{cat.name}</span>
-                                                    <span className="text-[10px] text-slate-600 hidden lg:block">{count} item • {cat.hasSN ? "SN" : "Non-SN"}</span>
-                                                </div>
-                                                <span className={`text-[10px] px-1.5 py-0.5 rounded-full absolute right-2 top-1/2 -translate-y-1/2 ${isActive ? "bg-green-500/20 text-green-400" : "bg-slate-800 text-slate-500"} group-hover:hidden`}>{count}</span>
-                                            </button>
-                                            <div className="absolute right-1 top-1/2 -translate-y-1/2 hidden group-hover:flex gap-0.5">
-                                                <button type="button" onClick={() => openCatModal(cat)} className="p-1 text-slate-500 hover:text-blue-400 transition-colors" title="Edit"><Pencil size={11} /></button>
-                                                <button type="button" onClick={() => { setDeleteTarget({ type: "cat", data: cat }); setErrorMsg(""); }} className="p-1 text-slate-500 hover:text-red-400 transition-colors" title="Hapus"><Trash2 size={11} /></button>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                                <button type="button" onClick={() => openCatModal()} className="whitespace-nowrap lg:w-full text-left px-3 sm:px-4 py-2 sm:py-2.5 text-xs text-slate-500 hover:text-green-400 transition-colors flex items-center gap-1.5">
-                                    <Plus size={12} /> Tambah
-                                </button>
-                            </div>
+            <div className="card !p-0 border border-[#1E293B] overflow-hidden flex flex-col">
+                {/* Toolbar */}
+                <div className="p-2.5 sm:p-3 border-b border-[#1E293B] bg-[#020617]/50 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                        {/* Category dropdown */}
+                        <div className="relative">
+                            <select
+                                value={selectedCatId ?? ""}
+                                onChange={(e) => setSelectedCatId(e.target.value ? Number(e.target.value) : null)}
+                                className="bg-[#020617] border border-[#1E293B] rounded-lg pl-3 pr-8 py-1.5 text-xs text-white focus:outline-none focus:border-green-500/50 appearance-none cursor-pointer min-w-[120px]"
+                            >
+                                <option value="">Semua ({totalItems})</option>
+                                {categories.map(cat => (
+                                    <option key={cat.id} value={cat.id}>{cat.name} ({cat._count?.item || 0})</option>
+                                ))}
+                            </select>
+                            <Tags size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
                         </div>
-                    )}
-                </div>
-
-                {/* ── RIGHT: Items ── */}
-                <div className="flex-1 card !p-0 border border-[#1E293B] overflow-hidden flex flex-col min-w-0">
-                    {/* Toolbar */}
-                    <div className="p-2.5 sm:p-3 border-b border-[#1E293B] bg-[#020617]/50 flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2 min-w-0">
-                            <h3 className="text-xs sm:text-sm font-semibold text-white truncate">{selectedCat ? selectedCat.name : "Semua Barang"}</h3>
-                            {selectedCat && (
-                                <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded border shrink-0 hidden sm:inline ${selectedCat.hasSN ? "bg-blue-500/10 text-blue-400 border-blue-500/20" : "bg-amber-500/10 text-amber-400 border-amber-500/20"}`}>
+                        {selectedCat && (
+                            <>
+                                <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded border shrink-0 ${selectedCat.hasSN ? "bg-blue-500/10 text-blue-400 border-blue-500/20" : "bg-amber-500/10 text-amber-400 border-amber-500/20"}`}>
                                     {selectedCat.hasSN ? "SN" : "Non-SN"}
                                 </span>
-                            )}
-                            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-green-500/20 text-green-400 shrink-0">{filteredItems.length}</span>
-                        </div>
-                        <div className="flex items-center gap-1 shrink-0">
-                            <button type="button" onClick={() => setViewMode("card")} className={`p-1.5 rounded transition-colors ${viewMode === "card" ? "bg-green-500/20 text-green-400" : "text-slate-500 hover:text-white"}`} title="Card View"><LayoutGrid size={14} /></button>
-                            <button type="button" onClick={() => setViewMode("table")} className={`p-1.5 rounded transition-colors ${viewMode === "table" ? "bg-green-500/20 text-green-400" : "text-slate-500 hover:text-white"}`} title="Table View"><List size={14} /></button>
-                        </div>
+                                <button type="button" onClick={() => openCatModal(selectedCat)} className="p-1 text-slate-500 hover:text-blue-400 transition-colors" title="Edit Kategori"><Pencil size={11} /></button>
+                                <button type="button" onClick={() => { setDeleteTarget({ type: "cat", data: selectedCat }); setErrorMsg(""); }} className="p-1 text-slate-500 hover:text-red-400 transition-colors" title="Hapus Kategori"><Trash2 size={11} /></button>
+                            </>
+                        )}
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-green-500/20 text-green-400 shrink-0">{filteredItems.length}</span>
                     </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                        <button type="button" onClick={() => setViewMode("card")} className={`p-1.5 rounded transition-colors ${viewMode === "card" ? "bg-green-500/20 text-green-400" : "text-slate-500 hover:text-white"}`} title="Card View"><LayoutGrid size={14} /></button>
+                        <button type="button" onClick={() => setViewMode("table")} className={`p-1.5 rounded transition-colors ${viewMode === "table" ? "bg-green-500/20 text-green-400" : "text-slate-500 hover:text-white"}`} title="Table View"><List size={14} /></button>
+                    </div>
+                </div>
 
-                    {/* Content */}
-                    <div className="flex-1 overflow-y-auto p-3 sm:p-4 custom-scrollbar">
-                        {filteredItems.length === 0 ? (
-                            <div className="flex flex-col items-center justify-center py-16 gap-3">
-                                <div className="w-12 h-12 rounded-xl bg-slate-800 flex items-center justify-center"><Package size={20} className="text-slate-500" /></div>
-                                <p className="text-sm text-slate-500">Tidak ada barang ditemukan.</p>
-                                <button type="button" onClick={() => openItemModal()} className="text-xs text-green-400 hover:text-green-300 transition-colors flex items-center gap-1"><Plus size={14} /> Tambah Barang</button>
-                            </div>
-                        ) : viewMode === "card" ? (
-                            /* ── CARD VIEW ── */
-                            <>
-                                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-                                    {pag.paged.map(item => (
-                                        <div key={item.id} className="bg-[#020617] border border-[#1E293B] rounded-xl p-3 sm:p-4 hover:border-green-500/30 transition-all group">
-                                            <div className="flex items-start justify-between mb-2 sm:mb-3 gap-2">
-                                                <div className="min-w-0 flex-1">
-                                                    <p className="font-semibold text-white text-sm group-hover:text-green-400 transition-colors truncate" title={item.name}>{item.name}</p>
-                                                    <p className="text-[10px] text-slate-500 font-mono mt-0.5 truncate">{item.code}</p>
-                                                </div>
-                                                {item.hasSN ? (
-                                                    <span className="bg-blue-500/10 text-blue-400 border border-blue-500/20 px-1.5 py-0.5 rounded text-[9px] font-bold shrink-0">SN</span>
-                                                ) : (
-                                                    <span className="bg-amber-500/10 text-amber-400 border border-amber-500/20 px-1.5 py-0.5 rounded text-[9px] font-bold shrink-0">Non-SN</span>
-                                                )}
+                {/* Content */}
+                <div className="flex-1 p-3 sm:p-4">
+                    {filteredItems.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center py-16 gap-3">
+                            <div className="w-12 h-12 rounded-xl bg-slate-800 flex items-center justify-center"><Package size={20} className="text-slate-500" /></div>
+                            <p className="text-sm text-slate-500">Tidak ada barang ditemukan.</p>
+                            <button type="button" onClick={() => openItemModal()} className="text-xs text-green-400 hover:text-green-300 transition-colors flex items-center gap-1"><Plus size={14} /> Tambah Barang</button>
+                        </div>
+                    ) : viewMode === "card" ? (
+                        /* ── CARD VIEW ── */
+                        <>
+                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                                {pag.paged.map(item => (
+                                    <div key={item.id} className="bg-[#020617] border border-[#1E293B] rounded-xl p-3 sm:p-4 hover:border-green-500/30 transition-all group">
+                                        <div className="flex items-start justify-between mb-2 sm:mb-3 gap-2">
+                                            <div className="min-w-0 flex-1">
+                                                <p className="font-semibold text-white text-sm group-hover:text-green-400 transition-colors truncate" title={item.name}>{item.name}</p>
+                                                <p className="text-[10px] text-slate-500 font-mono mt-0.5 truncate">{item.code}</p>
                                             </div>
+                                            {item.hasSN ? (
+                                                <span className="bg-blue-500/10 text-blue-400 border border-blue-500/20 px-1.5 py-0.5 rounded text-[9px] font-bold shrink-0">SN</span>
+                                            ) : (
+                                                <span className="bg-amber-500/10 text-amber-400 border border-amber-500/20 px-1.5 py-0.5 rounded text-[9px] font-bold shrink-0">Non-SN</span>
+                                            )}
+                                        </div>
                                             <div className="flex items-center gap-3 mb-2 sm:mb-3">
                                                 <div className="flex-1">
                                                     <span className="text-[10px] text-slate-500 block">Stok</span>
@@ -545,7 +511,6 @@ export default function InventoryMasterClient() {
                         )}
                     </div>
                 </div>
-            </div>
 
             {/* ═══════════════ MODALS ═══════════════ */}
 

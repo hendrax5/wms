@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { getItems, searchBySerialNumber } from "@/app/actions/master";
 import { createItem, updateItem, deleteItem, getCategoriesForSelect } from "@/app/actions/item";
-import { Package, Search, Loader2, ArrowLeft, ArrowRight, X, Tags, Hash, Plus, Pencil, Trash2, AlertTriangle } from "lucide-react";
+import { Package, Search, Loader2, ArrowLeft, ArrowRight, X, Tags, Hash, Plus, Pencil, Trash2, AlertTriangle, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 
@@ -22,6 +22,39 @@ type ItemProp = {
 type CategoryOption = { id: number; name: string; code: string | null; hasSN: boolean };
 
 type ActiveFilter = { type: 'kategori' | 'barang'; value: string; label: string };
+
+/* ── Pagination ── */
+const PP = 10;
+function usePagination<T>(items: T[], perPage: number) {
+    const [page, setPage] = useState(1);
+    const totalPages = Math.max(1, Math.ceil(items.length / perPage));
+    const safeP = Math.min(page, totalPages);
+    const paged = items.slice((safeP - 1) * perPage, safeP * perPage);
+    const reset = () => setPage(1);
+    return { page: safeP, setPage, totalPages, paged, reset, total: items.length };
+}
+function PaginationBar({ page, totalPages, setPage, total, perPage, label }: { page: number; totalPages: number; setPage: (n: number) => void; total: number; perPage: number; label?: string }) {
+    if (total <= perPage) return null;
+    const start = (page - 1) * perPage + 1;
+    const end = Math.min(page * perPage, total);
+    const pages: (number | '...')[] = [];
+    if (totalPages <= 7) { for (let i = 1; i <= totalPages; i++) pages.push(i); }
+    else { pages.push(1); if (page > 3) pages.push('...'); for (let i = Math.max(2, page - 1); i <= Math.min(totalPages - 1, page + 1); i++) pages.push(i); if (page < totalPages - 2) pages.push('...'); pages.push(totalPages); }
+    return (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 px-1">
+            <span className="text-[11px] text-slate-500">Menampilkan <span className="text-white font-medium">{start}–{end}</span> dari <span className="text-white font-medium">{total}</span> {label || 'data'}</span>
+            <div className="flex items-center gap-1">
+                <button type="button" disabled={page <= 1} onClick={() => setPage(1)} className="p-1.5 rounded-lg text-slate-500 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"><ChevronsLeft size={14} /></button>
+                <button type="button" disabled={page <= 1} onClick={() => setPage(page - 1)} className="p-1.5 rounded-lg text-slate-500 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"><ChevronLeft size={14} /></button>
+                {pages.map((p, i) => p === '...' ? (<span key={`e${i}`} className="px-1 text-slate-600 text-xs">…</span>) : (
+                    <button key={p} type="button" onClick={() => setPage(p as number)} className={`min-w-[28px] h-7 rounded-lg text-xs font-medium transition-all ${page === p ? 'bg-green-500/20 text-green-400 border border-green-500/30' : 'text-slate-500 hover:text-white hover:bg-white/5'}`}>{p}</button>
+                ))}
+                <button type="button" disabled={page >= totalPages} onClick={() => setPage(page + 1)} className="p-1.5 rounded-lg text-slate-500 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"><ChevronRight size={14} /></button>
+                <button type="button" disabled={page >= totalPages} onClick={() => setPage(totalPages)} className="p-1.5 rounded-lg text-slate-500 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"><ChevronsRight size={14} /></button>
+            </div>
+        </div>
+    );
+}
 
 export default function ItemsClient() {
     const searchParams = useSearchParams();
@@ -202,6 +235,9 @@ export default function ItemsClient() {
         return matchesCategory && matchesItem && matchesFreeText;
     });
 
+    const pag = usePagination(filtered, PP);
+    useEffect(() => { pag.reset(); }, [searchInput, activeFilters]);
+
     return (
         <div className="space-y-6 animate-fade-in">
             {/* Header */}
@@ -335,104 +371,95 @@ export default function ItemsClient() {
                 </div>
 
                 {/* Table */}
-                <div className="overflow-x-auto min-h-[400px]">
+                <div className="min-h-[200px]">
                     {loading ? (
-                        <div className="flex flex-col items-center justify-center pt-32 pb-32 gap-3">
+                        <div className="flex flex-col items-center justify-center pt-16 pb-16 gap-3">
                             <Loader2 size={24} className="text-green-500 animate-spin" />
                             <p className="text-sm text-slate-500">Memuat data barang...</p>
                         </div>
                     ) : filtered.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center pt-32 pb-32 gap-3">
+                        <div className="flex flex-col items-center justify-center pt-16 pb-16 gap-3">
                             <div className="w-12 h-12 rounded-xl bg-slate-800 flex items-center justify-center">
                                 <Package size={20} className="text-slate-500" />
                             </div>
                             <p className="text-sm text-slate-500">Tidak ada barang ditemukan.</p>
                         </div>
                     ) : (
-                        <table className="w-full text-left border-collapse">
-                            <thead>
-                                <tr className="border-b border-[#1E293B] bg-[#020617]/50 text-[11px] uppercase tracking-wider text-slate-500 font-semibold">
-                                    <th className="px-5 py-3.5">Kode Barang</th>
-                                    <th className="px-5 py-3.5">Nama & Kategori</th>
-                                    <th className="px-5 py-3.5 text-center w-16">SN</th>
-                                    <th className="px-5 py-3.5 text-right w-28">Stok Fisik</th>
-                                    <th className="px-5 py-3.5 text-right w-28">Total SN</th>
-                                    <th className="px-5 py-3.5 text-center w-32">Aksi</th>
-                                </tr>
-                            </thead>
-                            <tbody className="text-sm">
-                                {filtered.map((item) => (
-                                    <tr
-                                        key={item.id}
-                                        className="border-b border-[#1E293B]/50 hover:bg-white/[0.02] transition-colors group"
-                                    >
-                                        <td className="px-5 py-4">
-                                            <span className="font-mono text-xs text-slate-400 bg-slate-800/50 px-2.5 py-1 rounded border border-slate-700/50">
-                                                {item.code}
-                                            </span>
-                                        </td>
-                                        <td className="px-5 py-4">
-                                            <p className="font-semibold text-white group-hover:text-green-400 transition-colors">{item.name}</p>
-                                            <p className="text-[11px] text-slate-500 mt-1 flex items-center gap-1.5">
-                                                <span className="w-1.5 h-1.5 rounded-full bg-blue-500/50"></span>
-                                                {item.category?.name || "Tanpa Kategori"}
-                                            </p>
-                                        </td>
-                                        <td className="px-5 py-4 text-center">
-                                            {item.hasSN ? (
-                                                <span className="bg-blue-500/10 text-blue-400 border border-blue-500/20 px-2 py-0.5 rounded text-[10px] font-semibold">SN</span>
-                                            ) : (
-                                                <span className="bg-amber-500/10 text-amber-400 border border-amber-500/20 px-2 py-0.5 rounded text-[10px] font-semibold">Non</span>
-                                            )}
-                                        </td>
-                                        <td className="px-5 py-4 text-right">
-                                            <div className="flex flex-col items-end">
-                                                <span className={`font-mono font-bold text-base leading-none ${item.totalFisik === 0 ? 'text-slate-600' : 'text-green-400'}`}>
-                                                    {item.totalFisik.toLocaleString('id-ID')}
-                                                </span>
-                                                <span className="text-[10px] text-slate-500 mt-1">{item.unit}</span>
-                                            </div>
-                                        </td>
-                                        <td className="px-5 py-4 text-right">
-                                            <div className="flex flex-col items-end">
-                                                <span className={`font-mono font-bold text-base leading-none ${(item.snCount || 0) === 0 ? 'text-slate-600' : 'text-purple-400'}`}>
-                                                    {(item.snCount || 0).toLocaleString('id-ID')}
-                                                </span>
-                                                <span className="text-[10px] text-slate-500 mt-1">SN Terdaftar</span>
-                                            </div>
-                                        </td>
-                                        <td className="px-5 py-4 text-center">
-                                            <div className="flex justify-center gap-1.5">
-                                                <Link href={`/master/items/${item.id}`} className="p-1.5 text-slate-400 hover:text-green-400 hover:bg-green-400/10 rounded transition-colors" title="Detail & SN">
-                                                    <ArrowRight size={15} />
-                                                </Link>
-                                                <button
-                                                    onClick={() => handleOpenModal(item)}
-                                                    className="p-1.5 text-slate-400 hover:text-blue-400 hover:bg-blue-400/10 rounded transition-colors"
-                                                    title="Edit"
-                                                >
-                                                    <Pencil size={15} />
-                                                </button>
-                                                <button
-                                                    onClick={() => { setDeletingItem(item); setIsDeleteModalOpen(true); setErrorMsg(""); }}
-                                                    className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-red-400/10 rounded transition-colors"
-                                                    title="Hapus"
-                                                >
-                                                    <Trash2 size={15} />
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
+                        <>
+                            {/* Desktop table */}
+                            <div className="hidden sm:block">
+                                <table className="w-full text-left border-collapse">
+                                    <thead>
+                                        <tr className="border-b border-[#1E293B] bg-[#020617]/50 text-[11px] uppercase tracking-wider text-slate-500 font-semibold">
+                                            <th className="px-4 py-3">Barang</th>
+                                            <th className="px-4 py-3 text-center w-14">SN</th>
+                                            <th className="px-4 py-3 text-right w-24">Stok</th>
+                                            <th className="px-4 py-3 text-center w-24">Aksi</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="text-sm">
+                                        {pag.paged.map((item) => (
+                                            <tr key={item.id} className="border-b border-[#1E293B]/50 hover:bg-white/[0.02] transition-colors group">
+                                                <td className="px-4 py-3">
+                                                    <p className="font-semibold text-white group-hover:text-green-400 transition-colors truncate max-w-[260px]" title={item.name}>{item.name}</p>
+                                                    <p className="text-[11px] text-slate-500 mt-0.5 flex items-center gap-1.5">
+                                                        <span className="font-mono">{item.code}</span>
+                                                        <span className="text-slate-700">•</span>
+                                                        {item.category?.name || "—"}
+                                                    </p>
+                                                </td>
+                                                <td className="px-4 py-3 text-center">
+                                                    {item.hasSN ? (
+                                                        <span className="bg-blue-500/10 text-blue-400 border border-blue-500/20 px-1.5 py-0.5 rounded text-[10px] font-semibold">SN</span>
+                                                    ) : (
+                                                        <span className="bg-amber-500/10 text-amber-400 border border-amber-500/20 px-1.5 py-0.5 rounded text-[10px] font-semibold">Non</span>
+                                                    )}
+                                                </td>
+                                                <td className="px-4 py-3 text-right">
+                                                    <span className={`font-mono font-bold ${item.totalFisik === 0 ? 'text-slate-600' : 'text-green-400'}`}>{item.totalFisik.toLocaleString('id-ID')}</span>
+                                                    <span className="text-[10px] text-slate-500 ml-1">{item.unit}</span>
+                                                </td>
+                                                <td className="px-4 py-3 text-center">
+                                                    <div className="flex justify-center gap-1">
+                                                        <Link href={`/master/items/${item.id}`} className="p-1.5 text-slate-400 hover:text-green-400 hover:bg-green-400/10 rounded transition-colors" title="Detail"><ArrowRight size={14} /></Link>
+                                                        <button type="button" onClick={() => handleOpenModal(item)} className="p-1.5 text-slate-400 hover:text-blue-400 hover:bg-blue-400/10 rounded transition-colors" title="Edit"><Pencil size={14} /></button>
+                                                        <button type="button" onClick={() => { setDeletingItem(item); setIsDeleteModalOpen(true); setErrorMsg(''); }} className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-red-400/10 rounded transition-colors" title="Hapus"><Trash2 size={14} /></button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                            {/* Mobile cards */}
+                            <div className="sm:hidden space-y-2 px-3 pb-3">
+                                {pag.paged.map(item => (
+                                    <div key={item.id} className="bg-[#020617] border border-[#1E293B] rounded-xl p-3">
+                                        <div className="flex items-center justify-between mb-2">
+                                            <p className="font-medium text-white text-sm truncate flex-1 min-w-0" title={item.name}>{item.name}</p>
+                                            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border shrink-0 ml-2 ${item.hasSN ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : 'bg-amber-500/10 text-amber-400 border-amber-500/20'}`}>{item.hasSN ? 'SN' : 'Non-SN'}</span>
+                                        </div>
+                                        <div className="flex items-center gap-4 text-xs text-slate-500 mb-2">
+                                            <span>Stok: <span className={`font-mono font-bold ${item.totalFisik === 0 ? 'text-red-400' : 'text-green-400'}`}>{item.totalFisik.toLocaleString('id-ID')}</span></span>
+                                            <span className="truncate">{item.category?.name || '—'}</span>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <Link href={`/master/items/${item.id}`} className="flex-1 text-center py-1.5 rounded-lg bg-[#0F172A] border border-[#1E293B] text-[11px] font-medium text-slate-400 hover:text-green-400 transition-all">Detail</Link>
+                                            <button type="button" onClick={() => handleOpenModal(item)} className="p-1.5 text-slate-500 hover:text-blue-400 transition-colors"><Pencil size={13} /></button>
+                                            <button type="button" onClick={() => { setDeletingItem(item); setIsDeleteModalOpen(true); setErrorMsg(''); }} className="p-1.5 text-slate-500 hover:text-red-400 transition-colors"><Trash2 size={13} /></button>
+                                        </div>
+                                    </div>
                                 ))}
-                            </tbody>
-                        </table>
+                            </div>
+                            <PaginationBar page={pag.page} totalPages={pag.totalPages} setPage={pag.setPage} total={pag.total} perPage={PP} label="barang" />
+                        </>
                     )}
                 </div>
             </div>
 
             {/* Add/Edit Modal */}
             {isModalOpen && (
-                <div className="fixed inset-0 z-[100] bg-[#020617]/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+                <div className="fixed inset-0 z-[100] bg-[#020617]/80 backdrop-blur-sm flex items-center justify-center p-4" style={{animation:'fadeIn .25s ease-out'}}>
                     <div className="bg-[#0F172A] border border-[#1E293B] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
                         <div className="p-5 border-b border-[#1E293B] flex items-center justify-between bg-[#020617]/50">
                             <h3 className="font-bold text-white text-lg">
@@ -514,7 +541,7 @@ export default function ItemsClient() {
 
             {/* Delete Confirm Modal */}
             {isDeleteModalOpen && deletingItem && (
-                <div className="fixed inset-0 z-[100] bg-[#020617]/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+                <div className="fixed inset-0 z-[100] bg-[#020617]/80 backdrop-blur-sm flex items-center justify-center p-4" style={{animation:'fadeIn .25s ease-out'}}>
                     <div className="bg-[#0F172A] border border-[#1E293B] rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden p-6 text-center">
                         <div className="w-16 h-16 rounded-full bg-red-500/10 text-red-500 flex items-center justify-center mx-auto mb-4">
                             <Trash2 size={32} />
