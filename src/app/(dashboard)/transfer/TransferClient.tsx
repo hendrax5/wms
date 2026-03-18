@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { ArrowRightLeft, ScanLine, X, Loader2, Save, AlertCircle, Building2, Package } from "lucide-react";
-import { createTransfer, checkSerialInWarehouse } from "@/app/actions/transfer";
+import { ArrowRightLeft, ScanLine, X, Loader2, Save, AlertCircle, Building2, Package, Search, ChevronDown, ChevronUp, Hash, CheckCircle2 } from "lucide-react";
+import { createTransfer, checkSerialInWarehouse, getAvailableSNs } from "@/app/actions/transfer";
 import { getItems } from "@/app/actions/item";
 import { getWarehousesForSelect } from "@/app/actions/pop";
 import { useRouter } from "next/navigation";
@@ -30,6 +30,12 @@ export default function TransferClient() {
     const [currentScan, setCurrentScan] = useState("");
     const [isVerifying, setIsVerifying] = useState(false);
     const scannerInputRef = useRef<HTMLInputElement>(null);
+
+    // SN Picker
+    const [availableSNs, setAvailableSNs] = useState<{ id: number; code: string }[]>([]);
+    const [loadingSNs, setLoadingSNs] = useState(false);
+    const [snSearchFilter, setSnSearchFilter] = useState("");
+    const [isPickerOpen, setIsPickerOpen] = useState(true);
 
     const loadData = async () => {
         setLoading(true);
@@ -60,6 +66,23 @@ export default function TransferClient() {
             scannerInputRef.current.focus();
         }
     }, [requiresSN, serialNumbers.length, sourceId]);
+
+    // Load available SNs when source warehouse + item changes
+    useEffect(() => {
+        if (sourceId && selectedItemId && requiresSN) {
+            setLoadingSNs(true);
+            getAvailableSNs(Number(sourceId), Number(selectedItemId)).then(res => {
+                if (res.success && res.data) {
+                    setAvailableSNs(res.data as any);
+                } else {
+                    setAvailableSNs([]);
+                }
+                setLoadingSNs(false);
+            });
+        } else {
+            setAvailableSNs([]);
+        }
+    }, [sourceId, selectedItemId, requiresSN]);
 
     const handleScanComplete = async (e: React.KeyboardEvent<HTMLInputElement>) => {
         if (e.key === "Enter") {
@@ -106,6 +129,20 @@ export default function TransferClient() {
             setQty(newSNs.length);
         }
     };
+
+    const addSNFromPicker = (snCode: string) => {
+        if (serialNumbers.includes(snCode)) return;
+        const newSNs = [...serialNumbers, snCode];
+        setSerialNumbers(newSNs);
+        if (requiresSN) {
+            setQty(newSNs.length);
+        }
+    };
+
+    const filteredAvailableSNs = availableSNs.filter(sn =>
+        !serialNumbers.includes(sn.code) &&
+        (snSearchFilter.trim() === "" || sn.code.toLowerCase().includes(snSearchFilter.toLowerCase()))
+    );
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -279,8 +316,8 @@ export default function TransferClient() {
                 </div>
             </div>
 
-            {/* BARCODE SCANNER SIDEBAR */}
-            <div className={`glass rounded-xl border ${requiresSN ? 'border-amber-500/50 ring-1 ring-amber-500/20' : 'border-[#334155] opacity-50'} overflow-hidden flex flex-col h-[600px] relative transition-all`}>
+            {/* BARCODE SCANNER + SN PICKER SIDEBAR */}
+            <div className={`glass rounded-xl border ${requiresSN ? 'border-amber-500/50 ring-1 ring-amber-500/20' : 'border-[#334155] opacity-50'} overflow-hidden flex flex-col relative transition-all`}>
                 <div className="p-4 border-b border-[#334155] bg-slate-900/50 flex justify-between items-center">
                     <div>
                         <h3 className="font-semibold text-white flex items-center gap-2">
@@ -288,7 +325,7 @@ export default function TransferClient() {
                             Verifikasi Barcode
                         </h3>
                         <p className="text-[10px] text-slate-400 mt-1">
-                            {requiresSN ? "Scan SN yang AKTIF di Gudang Asal" : "Barang non-SN"}
+                            {requiresSN ? "Scan atau pilih SN yang AKTIF di Gudang Asal" : "Barang non-SN"}
                         </p>
                     </div>
                     {isVerifying && <Loader2 className="animate-spin text-amber-500" size={16} />}
@@ -302,12 +339,75 @@ export default function TransferClient() {
                         value={currentScan}
                         onChange={(e) => setCurrentScan(e.target.value)}
                         onKeyDown={handleScanComplete}
-                        placeholder={requiresSN ? (sourceId ? "Scan S/N Barang Keluar..." : "Pilih Gudang Asal dulu") : "Scanner off"}
+                        placeholder={requiresSN ? (sourceId ? "Scan S/N Barang Transfer..." : "Pilih Gudang Asal dulu") : "Scanner off"}
                         className={`w-full bg-black/50 border ${requiresSN ? 'border-amber-500/50 focus:border-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.2)]' : 'border-[#334155]'} text-white rounded-lg px-4 py-3 font-mono text-center focus:outline-none transition-all disabled:opacity-50`}
                     />
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-4 custom-scrollbar bg-slate-900/30">
+                {/* SN PICKER - Available SNs */}
+                {requiresSN && sourceId && selectedItemId && (
+                    <div className="border-t border-[#334155]">
+                        <button
+                            type="button"
+                            onClick={() => setIsPickerOpen(!isPickerOpen)}
+                            className="w-full flex items-center justify-between px-4 py-2.5 bg-slate-900/60 hover:bg-slate-800/60 transition-colors"
+                        >
+                            <span className="text-xs font-semibold text-slate-300 flex items-center gap-2">
+                                <Hash size={12} className="text-amber-400" />
+                                Pilih dari Daftar SN
+                                <span className="bg-slate-700 text-slate-300 px-1.5 py-0.5 rounded text-[10px] font-bold">
+                                    {loadingSNs ? '...' : filteredAvailableSNs.length}
+                                </span>
+                            </span>
+                            {isPickerOpen ? <ChevronUp size={14} className="text-slate-400" /> : <ChevronDown size={14} className="text-slate-400" />}
+                        </button>
+
+                        {isPickerOpen && (
+                            <div className="bg-slate-900/30">
+                                <div className="px-3 py-2 border-b border-[#334155]/50">
+                                    <div className="relative">
+                                        <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500" />
+                                        <input
+                                            type="text"
+                                            value={snSearchFilter}
+                                            onChange={(e) => setSnSearchFilter(e.target.value)}
+                                            placeholder="Filter serial number..."
+                                            className="w-full bg-black/40 border border-[#334155]/50 text-white rounded-md pl-7 pr-3 py-1.5 text-[11px] font-mono placeholder:text-slate-600 focus:outline-none focus:border-amber-500/40"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="max-h-[200px] overflow-y-auto custom-scrollbar">
+                                    {loadingSNs ? (
+                                        <div className="flex items-center justify-center py-6 gap-2 text-slate-500 text-xs">
+                                            <Loader2 size={14} className="animate-spin" /> Memuat SN...
+                                        </div>
+                                    ) : filteredAvailableSNs.length === 0 ? (
+                                        <div className="text-center py-4 text-slate-600 text-[11px]">
+                                            {availableSNs.length === 0 ? 'Tidak ada SN tersedia' : 'Semua SN sudah dipilih'}
+                                        </div>
+                                    ) : (
+                                        filteredAvailableSNs.map(sn => (
+                                            <button
+                                                key={sn.id}
+                                                type="button"
+                                                onClick={() => addSNFromPicker(sn.code)}
+                                                className="w-full flex items-center gap-2.5 px-4 py-2 text-left hover:bg-amber-500/10 transition-colors border-b border-[#334155]/30 last:border-0 group"
+                                            >
+                                                <Hash size={11} className="text-slate-600 group-hover:text-amber-400 transition-colors shrink-0" />
+                                                <span className="font-mono text-[11px] text-slate-300 group-hover:text-white transition-colors">{sn.code}</span>
+                                                <CheckCircle2 size={12} className="ml-auto text-transparent group-hover:text-amber-400 transition-colors shrink-0" />
+                                            </button>
+                                        ))
+                                    )}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* SELECTED SN LIST */}
+                <div className="flex-1 overflow-y-auto p-4 custom-scrollbar bg-slate-900/30 border-t border-[#334155]">
                     <div className="flex justify-between items-end mb-3">
                         <span className="text-sm font-medium text-slate-300">Siap Transfer:</span>
                         <span className="text-xs font-bold bg-amber-500/20 text-amber-400 px-2.5 py-1 rounded-full">{serialNumbers.length} SN</span>
@@ -315,8 +415,8 @@ export default function TransferClient() {
 
                     <div className="space-y-2">
                         {serialNumbers.length === 0 ? (
-                            <div className="text-center py-12 text-slate-500 border border-dashed border-[#334155] rounded-lg">
-                                Daftar SN Kosong
+                            <div className="text-center py-8 text-slate-500 border border-dashed border-[#334155] rounded-lg text-xs">
+                                Scan barcode atau pilih SN dari daftar di atas
                             </div>
                         ) : (
                             serialNumbers.map((sn, idx) => (

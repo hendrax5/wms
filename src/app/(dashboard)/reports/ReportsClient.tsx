@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { BarChart3, History, ShieldAlert, Loader2, Download, Package, Search, X, Tags, Building2, Activity, Cpu } from "lucide-react";
+import { BarChart3, History, ShieldAlert, Loader2, Download, Package, Search, X, Tags, Building2, Activity, Cpu, ChevronDown, ChevronRight, Eye } from "lucide-react";
 import { getStockSummaryReport, getTransactionHistoryReport, getDamagedItemsReport, getAssetMutationReport } from "@/app/actions/reports";
 
 type TabType = "STOCK" | "HISTORY" | "DAMAGED" | "ASSET";
@@ -21,6 +21,7 @@ export default function ReportsClient() {
     const [searchInput, setSearchInput] = useState("");
     const [isSuggestionsOpen, setIsSuggestionsOpen] = useState(false);
     const [activeFilters, setActiveFilters] = useState<{ type: string; value: string; label: string }[]>([]);
+    const [expandedRowId, setExpandedRowId] = useState<string | null>(null);
 
     const addFilter = (filter: { type: string; value: string; label: string }) => {
         if (!activeFilters.some(f => f.type === filter.type && f.value === filter.value)) {
@@ -202,36 +203,87 @@ export default function ReportsClient() {
                 <table className="w-full text-left text-sm whitespace-nowrap">
                     <thead className="bg-[#020617] text-slate-300 border-b border-[#334155]">
                         <tr>
-                            <th className="px-6 py-4 font-semibold uppercase tracking-wider text-[11px]">Waktu</th>
-                            <th className="px-6 py-4 font-semibold uppercase tracking-wider text-[11px]">Tipe Transaksi</th>
-                            <th className="px-6 py-4 font-semibold uppercase tracking-wider text-[11px]">Barang</th>
-                            <th className="px-6 py-4 font-semibold uppercase tracking-wider text-[11px]">Qty</th>
-                            <th className="px-6 py-4 font-semibold uppercase tracking-wider text-[11px]">Asal (Gudang)</th>
-                            <th className="px-6 py-4 font-semibold uppercase tracking-wider text-[11px]">Tujuan</th>
+                            <th className="px-3 py-4 w-8"></th>
+                            <th className="px-4 py-4 font-semibold uppercase tracking-wider text-[11px]">Waktu</th>
+                            <th className="px-4 py-4 font-semibold uppercase tracking-wider text-[11px]">Tipe Transaksi</th>
+                            <th className="px-4 py-4 font-semibold uppercase tracking-wider text-[11px]">Barang</th>
+                            <th className="px-4 py-4 font-semibold uppercase tracking-wider text-[11px]">Qty</th>
+                            <th className="px-4 py-4 font-semibold uppercase tracking-wider text-[11px]">Asal (Gudang)</th>
+                            <th className="px-4 py-4 font-semibold uppercase tracking-wider text-[11px]">Tujuan</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-[#334155] text-slate-200">
-                        {filteredHistory.map((h, idx) => (
-                            <tr key={h.id} className="hover:bg-blue-500/[0.02] transition-colors border-b border-[#334155]/30">
-                                <td className="px-6 py-4 text-slate-500 font-mono text-xs">
-                                    {new Date(h.date).toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' })}
-                                </td>
-                                <td className="px-6 py-4">
-                                    <span className={`px-2.5 py-1 text-[10px] rounded font-bold border uppercase tracking-tight ${h.type === 'INBOUND' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
-                                        h.type === 'TRANSFER' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
-                                            'bg-rose-500/10 text-rose-400 border-rose-500/20'
-                                        }`}>
-                                        {h.type}
-                                    </span>
-                                </td>
-                                <td className="px-6 py-4 font-semibold text-slate-200">{h.item}</td>
-                                <td className={`px-6 py-4 font-mono font-bold ${h.type === 'INBOUND' ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                    {h.type === 'INBOUND' ? '+' : '-'}{h.qty}
-                                </td>
-                                <td className="px-6 py-4 text-slate-400">{h.location}</td>
-                                <td className="px-6 py-4 text-slate-500 italic">{h.target || '-'}</td>
-                            </tr>
-                        ))}
+                        {filteredHistory.map((h, idx) => {
+                            const isExpanded = expandedRowId === h.id;
+                            return (
+                                <>
+                                    <tr
+                                        key={h.id}
+                                        onClick={() => setExpandedRowId(isExpanded ? null : h.id)}
+                                        className={`cursor-pointer transition-colors border-b border-[#334155]/30 ${isExpanded ? 'bg-blue-500/[0.05]' : 'hover:bg-blue-500/[0.02]'}`}
+                                    >
+                                        <td className="px-3 py-4 text-slate-500">
+                                            {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                                        </td>
+                                        <td className="px-4 py-4 text-slate-500 font-mono text-xs">
+                                            {new Date(h.date).toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' })}
+                                        </td>
+                                        <td className="px-4 py-4">
+                                            <span className={`px-2.5 py-1 text-[10px] rounded font-bold border uppercase tracking-tight ${h.type === 'INBOUND' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
+                                                h.type === 'TRANSFER' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
+                                                    'bg-rose-500/10 text-rose-400 border-rose-500/20'
+                                                }`}>
+                                                {h.type}
+                                            </span>
+                                        </td>
+                                        <td className="px-4 py-4 font-semibold text-slate-200">{h.item}</td>
+                                        <td className={`px-4 py-4 font-mono font-bold ${h.type === 'INBOUND' ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                            {h.type === 'INBOUND' ? '+' : '-'}{h.qty}
+                                        </td>
+                                        <td className="px-4 py-4 text-slate-400">{h.location}</td>
+                                        <td className="px-4 py-4 text-slate-500 italic">{h.target || '-'}</td>
+                                    </tr>
+                                    {isExpanded && (
+                                        <tr key={`${h.id}-detail`} className="bg-[#020617]/60">
+                                            <td colSpan={7} className="px-6 py-4">
+                                                <div className="flex flex-wrap gap-6 text-xs">
+                                                    <div className="space-y-1">
+                                                        <p className="text-slate-500 uppercase text-[10px] font-semibold tracking-wider">Keterangan</p>
+                                                        <p className="text-slate-300">{h.description || '-'}</p>
+                                                    </div>
+                                                    <div className="space-y-1">
+                                                        <p className="text-slate-500 uppercase text-[10px] font-semibold tracking-wider">Barang</p>
+                                                        <p className="text-slate-300 font-medium">{h.item}</p>
+                                                    </div>
+                                                    <div className="space-y-1">
+                                                        <p className="text-slate-500 uppercase text-[10px] font-semibold tracking-wider">Gudang Asal</p>
+                                                        <p className="text-slate-300">{h.location}</p>
+                                                    </div>
+                                                    {h.target && h.target !== '-' && (
+                                                        <div className="space-y-1">
+                                                            <p className="text-slate-500 uppercase text-[10px] font-semibold tracking-wider">Tujuan</p>
+                                                            <p className="text-slate-300">{h.target}</p>
+                                                        </div>
+                                                    )}
+                                                    <div className="space-y-1">
+                                                        <p className="text-slate-500 uppercase text-[10px] font-semibold tracking-wider">Jumlah</p>
+                                                        <p className={`font-mono font-bold ${h.type === 'INBOUND' ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                                            {h.type === 'INBOUND' ? '+' : '-'}{h.qty} unit
+                                                        </p>
+                                                    </div>
+                                                    <div className="space-y-1">
+                                                        <p className="text-slate-500 uppercase text-[10px] font-semibold tracking-wider">Waktu Transaksi</p>
+                                                        <p className="text-slate-300 font-mono">
+                                                            {new Date(h.date).toLocaleString('id-ID', { dateStyle: 'full', timeStyle: 'short' })}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    )}
+                                </>
+                            );
+                        })}
                     </tbody>
                 </table>
             </div>

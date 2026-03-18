@@ -22,7 +22,7 @@ export async function getCategories() {
             orderBy: { name: 'asc' },
             include: {
                 _count: {
-                    select: { items: true }
+                    select: { item: true }
                 }
             }
         });
@@ -34,7 +34,7 @@ export async function getCategories() {
 
 export async function createCategory(data: { name: string; code?: string }) {
     try {
-        const res = await prisma.category.create({ data });
+        const res = await prisma.category.create({ data: { ...data, updatedAt: new Date() } });
         revalidatePath("/master/categories");
         revalidatePath("/master/items");
         return { success: true, data: res };
@@ -47,7 +47,7 @@ export async function updateCategory(id: number, data: { name: string; code?: st
     try {
         const res = await prisma.category.update({
             where: { id },
-            data
+            data: { ...data, updatedAt: new Date() }
         });
         revalidatePath("/master/categories");
         revalidatePath("/master/items");

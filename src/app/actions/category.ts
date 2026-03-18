@@ -13,7 +13,7 @@ export async function getCategories() {
             orderBy: { name: "asc" },
             include: {
                 _count: {
-                    select: { items: true }
+                    select: { item: true }
                 }
             }
         });
@@ -36,6 +36,7 @@ export async function createCategory(formData: FormData) {
             data: {
                 name,
                 code: code || null,
+                updatedAt: new Date(),
             },
         });
 
@@ -60,6 +61,7 @@ export async function updateCategory(id: number, formData: FormData) {
             data: {
                 name,
                 code: code || null,
+                updatedAt: new Date(),
             },
         });
 
