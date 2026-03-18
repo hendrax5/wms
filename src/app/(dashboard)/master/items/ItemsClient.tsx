@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { getItems } from "@/app/actions/master";
-import { Package, Search, Loader2, ArrowLeft, ArrowRight, X, Tags } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { getItems, searchBySerialNumber } from "@/app/actions/master";
+import { Package, Search, Loader2, ArrowLeft, ArrowRight, X, Tags, Hash } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 
@@ -25,6 +25,9 @@ export default function ItemsClient() {
     const [loading, setLoading] = useState(true);
     const [searchInput, setSearchInput] = useState("");
     const [isSuggestionsOpen, setIsSuggestionsOpen] = useState(false);
+    const [snResults, setSnResults] = useState<{ id: number; code: string; itemId: number; item: { id: number; name: string; code: string }; itemstatus: { name: string }; warehouse: { name: string } | null }[]>([]);
+    const [snSearching, setSnSearching] = useState(false);
+    const snSearchTimer = useRef<NodeJS.Timeout | null>(null);
     const [activeFilters, setActiveFilters] = useState<ActiveFilter[]>(
         searchParams.get('search') ? [{ type: 'kategori', value: searchParams.get('search')!, label: searchParams.get('search')! }] : []
     );
@@ -51,6 +54,30 @@ export default function ItemsClient() {
     useEffect(() => {
         loadData();
     }, []);
+
+    // Debounced SN search
+    const handleSearchChange = (val: string) => {
+        setSearchInput(val);
+        setIsSuggestionsOpen(true);
+        // Clear previous timer
+        if (snSearchTimer.current) clearTimeout(snSearchTimer.current);
+        // If input >= 3 chars, search SN after 400ms debounce
+        if (val.trim().length >= 3) {
+            setSnSearching(true);
+            snSearchTimer.current = setTimeout(async () => {
+                const res = await searchBySerialNumber(val.trim());
+                if (res.success && res.data) {
+                    setSnResults(res.data as any);
+                } else {
+                    setSnResults([]);
+                }
+                setSnSearching(false);
+            }, 400);
+        } else {
+            setSnResults([]);
+            setSnSearching(false);
+        }
+    };
 
     const uniqueCategories = Array.from(new Set(items.map(i => i.category?.name || "Tanpa Kategori")));
 
@@ -115,9 +142,9 @@ export default function ItemsClient() {
                             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 z-20" />
                             <input
                                 type="text"
-                                placeholder="Ketik untuk filter: kategori, nama barang..."
+                                placeholder="Ketik untuk filter: kategori, nama barang, serial number..."
                                 value={searchInput}
-                                onChange={(e) => { setSearchInput(e.target.value); setIsSuggestionsOpen(true); }}
+                                onChange={(e) => handleSearchChange(e.target.value)}
                                 onFocus={() => { if (searchInput.trim().length > 0) setIsSuggestionsOpen(true); }}
                                 className="w-full bg-[#020617] border border-[#1E293B] rounded-lg pl-8 pr-3 py-2 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-green-500/50 focus:ring-1 focus:ring-green-500/30 transition-all font-medium"
                             />
@@ -152,6 +179,31 @@ export default function ItemsClient() {
                                                             <Package size={12} className="text-green-400 shrink-0" />
                                                             <span className="text-slate-300">{s.label}</span>
                                                             <span className="ml-auto text-[9px] text-slate-600 bg-slate-800 px-1.5 py-0.5 rounded">+ filter</span>
+                                                        </button>
+                                                    ))}
+                                                </>
+                                            )}
+                                            {/* SN search results */}
+                                            {snSearching && (
+                                                <div className="px-4 py-3 text-center text-xs text-slate-500">
+                                                    <Loader2 size={14} className="animate-spin inline mr-2" />Mencari Serial Number...
+                                                </div>
+                                            )}
+                                            {!snSearching && snResults.length > 0 && (
+                                                <>
+                                                    <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-500 bg-[#020617]/60 flex items-center gap-1.5">
+                                                        <Hash size={10} /> Serial Number
+                                                    </div>
+                                                    {snResults.map(sn => (
+                                                        <button key={`sn-${sn.id}`} onClick={() => { setIsSuggestionsOpen(false); setSearchInput(''); router.push(`/master/sn/${sn.id}`); }} className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-left hover:bg-green-500/10 transition-colors">
+                                                            <Hash size={12} className="text-purple-400 shrink-0" />
+                                                            <div className="flex-1 min-w-0">
+                                                                <span className="font-mono text-white font-medium">{sn.code}</span>
+                                                                <span className="text-slate-500 ml-2">→ {sn.item.code} - {sn.item.name}</span>
+                                                            </div>
+                                                            <span className={`text-[9px] px-1.5 py-0.5 rounded ${sn.itemstatus?.name === 'In Stock' ? 'bg-green-500/10 text-green-400' : 'bg-blue-500/10 text-blue-400'}`}>
+                                                                {sn.itemstatus?.name || '?'}
+                                                            </span>
                                                         </button>
                                                     ))}
                                                 </>

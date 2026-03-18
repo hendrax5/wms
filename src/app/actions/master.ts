@@ -204,6 +204,26 @@ export async function getAllSerialNumbers() {
 }
 
 
+export async function searchBySerialNumber(code: string) {
+    try {
+        const sn = await (prisma as any).serialNumber.findMany({
+            where: { code: { contains: code } },
+            select: {
+                id: true,
+                code: true,
+                itemId: true,
+                item: { select: { id: true, name: true, code: true } },
+                itemstatus: { select: { name: true } },
+                warehouse: { select: { name: true } },
+            },
+            take: 10,
+        });
+        return { success: true, data: sn };
+    } catch (e: any) {
+        return { success: false, error: e.message };
+    }
+}
+
 export async function getSerialNumberHistory(id: number) {
     try {
         const snRaw = await prisma.serialNumber.findUnique({
