@@ -1,7 +1,7 @@
 "use client";
 
 import { Bell, Search, ChevronRight, AlertTriangle, PackageMinus, Cpu, X, ExternalLink } from "lucide-react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
@@ -47,6 +47,8 @@ export default function Header() {
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [criticalCount, setCriticalCount] = useState(0);
     const bellRef = useRef<HTMLDivElement>(null);
+    const [searchQuery, setSearchQuery] = useState("");
+    const router = useRouter();
 
     const pageTitle =
         pathLabels[pathname] ||
@@ -89,6 +91,14 @@ export default function Header() {
                 <input
                     type="text"
                     placeholder="Cari SN, Item, atau PO..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onKeyDown={(e) => {
+                        if (e.key === "Enter" && searchQuery.trim()) {
+                            router.push(`/master/items?search=${encodeURIComponent(searchQuery.trim())}`);
+                            setSearchQuery("");
+                        }
+                    }}
                     className="w-full !bg-surface !border-surface-2 rounded-lg pl-9 pr-4 py-1.5 text-sm text-white placeholder-slate-600 focus:!border-primary focus:!ring-1 focus:!ring-primary/25"
                     style={{ fontSize: '14px' }}
                 />

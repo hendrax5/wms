@@ -9,7 +9,7 @@ export async function getStockSummaryReport() {
         // Get all warehouses and their stock
         const warehouses = await prisma.warehouse.findMany({
             include: {
-                stocks: {
+                warehousestock: {
                     include: {
                         item: {
                             include: { category: true }
@@ -27,7 +27,7 @@ export async function getStockSummaryReport() {
 
             const categories: Record<string, number> = {};
 
-            w.stocks.forEach(s => {
+            w.warehousestock.forEach((s: any) => {
                 totalNew += s.stockNew;
                 totalDismantle += s.stockDismantle;
                 totalDamaged += s.stockDamaged;
@@ -73,8 +73,8 @@ export async function getTransactionHistoryReport(limit = 50) {
                 orderBy: { createdAt: "desc" },
                 include: {
                     item: true,
-                    warehouse: true,
-                    targetWarehouse: true,
+                    warehouse_stockout_warehouseIdTowarehouse: true,
+                    warehouse_stockout_targetWarehouseIdTowarehouse: true,
                     pop: true,
                 }
             })
@@ -95,9 +95,11 @@ export async function getTransactionHistoryReport(limit = 50) {
             });
         });
 
-        outbounds.forEach(o => {
+        outbounds.forEach((o: any) => {
             let target = "-";
-            if (o.outType === "TRANSFER") target = o.targetWarehouse?.name || "-";
+            const srcWarehouse = o.warehouse_stockout_warehouseIdTowarehouse || o.warehouse;
+            const tgtWarehouse = o.warehouse_stockout_targetWarehouseIdTowarehouse || o.targetWarehouse;
+            if (o.outType === "TRANSFER") target = tgtWarehouse?.name || "-";
             if (o.outType === "POP_INSTALL") target = o.pop?.name || "-";
             if (o.outType === "CUSTOMER_INSTALL") target = o.customerName || "-";
 
@@ -107,7 +109,7 @@ export async function getTransactionHistoryReport(limit = 50) {
                 type: o.outType,
                 item: o.item.name,
                 qty: o.qty,
-                location: o.warehouse.name,
+                location: srcWarehouse?.name || '-',
                 target: target,
                 description: o.description || "Barang Keluar"
             });
@@ -126,16 +128,16 @@ export async function getTransactionHistoryReport(limit = 50) {
 export async function getDamagedItemsReport() {
     noStore();
     try {
-        const damaged = await prisma.damagedItem.findMany({
+        const damaged = await (prisma as any).damagedItem.findMany({
             orderBy: { createdAt: "desc" },
             include: {
                 item: { include: { category: true } },
                 warehouse: true,
-                serials: true
+                damagedserial: true
             }
         });
 
-        const data = damaged.map(d => ({
+        const data = damaged.map((d: any) => ({
             id: d.id,
             date: d.createdAt,
             itemName: d.item.name,
@@ -143,7 +145,7 @@ export async function getDamagedItemsReport() {
             warehouseName: d.warehouse.name,
             qty: d.qty,
             description: d.description,
-            serialNumbers: d.serials.map(s => s.serialCode)
+            serialNumbers: (d.damagedserial || d.serials || []).map((s: any) => s.serialCode)
         }));
 
         return { success: true, data };
