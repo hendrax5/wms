@@ -1,7 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/db";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, unstable_noStore as noStore } from "next/cache";
 import { auth } from "@/lib/auth";
 
 // Returns warehouseId if user should be scoped to a branch, null if global access
@@ -76,7 +76,11 @@ export async function deleteCategory(id: number) {
 // ------------------------------------------------------------------
 
 export async function getItems() {
+    noStore();
     try {
+        if (process.env.NEXT_PHASE === 'phase-production-build') {
+            return { success: true, data: [] };
+        }
         const items = await prisma.item.findMany({
             include: { category: true },
             orderBy: { name: 'asc' }

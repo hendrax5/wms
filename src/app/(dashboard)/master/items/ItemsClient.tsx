@@ -63,12 +63,16 @@ export default function ItemsClient() {
 
     const loadData = async () => {
         setLoading(true);
-        const [itemRes, catRes] = await Promise.all([
-            getItems(),
-            getCategoriesForSelect()
-        ]);
-        if (itemRes.success) setItems(itemRes.data as ItemProp[]);
-        if (catRes.success) setCategories(catRes.data as CategoryOption[]);
+        try {
+            const [itemRes, catRes] = await Promise.all([
+                getItems(),
+                categories.length === 0 ? getCategoriesForSelect() : Promise.resolve(null)
+            ]);
+            if (itemRes.success) setItems(itemRes.data as ItemProp[]);
+            if (catRes && catRes.success) setCategories(catRes.data as CategoryOption[]);
+        } catch (err) {
+            console.error('Load data error:', err);
+        }
         setLoading(false);
     };
 
