@@ -6,10 +6,14 @@ import { createTransfer, checkSerialInWarehouse, getAvailableSNs } from "@/app/a
 import { getItems } from "@/app/actions/item";
 import { getWarehousesForSelect } from "@/app/actions/pop";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import SearchableSelect from "@/components/SearchableSelect";
 
 export default function TransferClient() {
     const router = useRouter();
+    const { data: session } = useSession();
+    const userLevel = (session?.user as any)?.level || "";
+    const userWarehouseId = (session?.user as any)?.warehouseId || null;
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState("");
@@ -45,7 +49,12 @@ export default function TransferClient() {
         ]);
 
         if (warehouseRes.success && warehouseRes.data) {
-            setWarehouses(warehouseRes.data as any);
+            let wList = warehouseRes.data as any;
+            if (userLevel !== "MASTER" && userWarehouseId) {
+                wList = wList.filter((w: any) => w.id === userWarehouseId);
+            }
+            setWarehouses(wList);
+            if (wList.length === 1) setSourceId(String(wList[0].id));
         }
         if (itemRes.success && itemRes.data) {
             setItems(itemRes.data as any);

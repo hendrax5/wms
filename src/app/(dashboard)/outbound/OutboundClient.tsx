@@ -7,6 +7,7 @@ import { checkSerialInWarehouse, getAvailableSNs } from "@/app/actions/transfer"
 import { getItems } from "@/app/actions/item";
 import { getWarehousesForSelect, getPops } from "@/app/actions/pop";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import SearchableSelect from "@/components/SearchableSelect";
 
 type CartItem = {
@@ -21,6 +22,9 @@ type CartItem = {
 
 export default function OutboundClient() {
     const router = useRouter();
+    const { data: session } = useSession();
+    const userLevel = (session?.user as any)?.level || "";
+    const userWarehouseId = (session?.user as any)?.warehouseId || null;
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState("");
@@ -70,7 +74,14 @@ export default function OutboundClient() {
             getPops()
         ]);
 
-        if (warehouseRes.success && warehouseRes.data) setWarehouses(warehouseRes.data as any);
+        if (warehouseRes.success && warehouseRes.data) {
+            let wList = warehouseRes.data as any;
+            if (userLevel !== "MASTER" && userWarehouseId) {
+                wList = wList.filter((w: any) => w.id === userWarehouseId);
+            }
+            setWarehouses(wList);
+            if (wList.length === 1) setSourceId(String(wList[0].id));
+        }
         if (itemRes.success && itemRes.data) setItems(itemRes.data as any);
         if (popRes.success && popRes.data) setPops(popRes.data as any);
 

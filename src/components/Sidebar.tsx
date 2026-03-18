@@ -4,13 +4,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
     LayoutDashboard,
-    Download,
-    Upload,
     ArrowRightLeft,
     Server,
     Package,
     FileBarChart,
-    Database,
     BoxIcon,
     Cpu,
     Wrench,
@@ -21,9 +18,7 @@ import {
 
 const links = [
     { href: "/", label: "Dashboard", icon: LayoutDashboard },
-    { href: "/inbound", label: "Barang Masuk", icon: Download },
-    { href: "/outbound", label: "Barang Keluar", icon: Upload },
-    { href: "/transfer", label: "Transfer Stok", icon: ArrowRightLeft },
+    { href: "/operasi", label: "Operasi Stok", icon: ArrowRightLeft },
     { href: "/pop", label: "Data POP", icon: Server },
     { href: "/stock", label: "Direktori Gudang", icon: Building2 },
     { href: "/reports", label: "Laporan", icon: FileBarChart },

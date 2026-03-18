@@ -8,9 +8,7 @@ import Link from "next/link";
 
 const pathLabels: Record<string, string> = {
     "/": "Dashboard",
-    "/inbound": "Barang Masuk",
-    "/outbound": "Barang Keluar",
-    "/transfer": "Transfer Stok",
+    "/operasi": "Operasi Stok",
     "/pop": "Data POP",
     "/stock": "Stok Gudang",
     "/reports": "Laporan",
@@ -18,6 +16,7 @@ const pathLabels: Record<string, string> = {
     "/master/items": "Master Data · Barang",
     "/master/categories": "Master Data · Kategori",
     "/master/warehouses": "Master Data · Gudang",
+    "/master/users": "Manage User",
     "/tracking": "Tracking Serial Number",
     "/damaged": "Barang Rusak",
     "/assets": "Asset Management",
