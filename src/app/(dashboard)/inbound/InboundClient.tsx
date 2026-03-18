@@ -252,7 +252,6 @@ export default function InboundClient() {
                 <td style="border:1px solid #ddd;padding:8px;text-align:center">${idx + 1}</td>
                 <td style="border:1px solid #ddd;padding:8px">[${ci.itemCode}] ${ci.itemName}</td>
                 <td style="border:1px solid #ddd;padding:8px;text-align:center">${ci.qty}</td>
-                <td style="border:1px solid #ddd;padding:8px;text-align:right">${ci.price > 0 ? 'Rp ' + ci.price.toLocaleString('id-ID') : '-'}</td>
                 <td style="border:1px solid #ddd;padding:8px;font-family:monospace;font-size:11px">${snList}</td>
             </tr>`;
         }).join('');
@@ -271,7 +270,6 @@ export default function InboundClient() {
                     <div class="info-item"><div class="info-label">Gudang Tujuan</div><div class="info-value">${wh}</div></div>
                     <div class="info-item"><div class="info-label">Total Unit</div><div class="info-value">${totalQty} unit</div></div>
                     <div class="info-item"><div class="info-label">Keterangan</div><div class="info-value">${description || '-'}</div></div>
-                    <div class="info-item"><div class="info-label">Total Harga</div><div class="info-value">${totalPrice > 0 ? 'Rp ' + totalPrice.toLocaleString('id-ID') : '-'}</div></div>
                 </div>
                 <h3 style="font-size:14px;margin-bottom:6px">Daftar Barang (${cartItems.length} item)</h3>
                 <table>
@@ -279,7 +277,6 @@ export default function InboundClient() {
                         <th style="width:40px">No</th>
                         <th>Barang</th>
                         <th style="width:60px">Qty</th>
-                        <th style="width:100px">Harga</th>
                         <th>Serial Numbers</th>
                     </tr></thead>
                     <tbody>${itemRows}</tbody>
@@ -372,19 +369,7 @@ export default function InboundClient() {
                                         />
                                     </div>
                                 )}
-                                {addingItemId && (
-                                    <div className="w-32">
-                                        <label className="text-xs text-slate-500 mb-1 block">Harga Satuan</label>
-                                        <input
-                                            type="number"
-                                            min="0"
-                                            value={addingPrice || ''}
-                                            onChange={(e) => setAddingPrice(Number(e.target.value))}
-                                            className="w-full bg-[#0f172a] border border-[#334155] text-white rounded-lg px-3 py-2.5 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-sm"
-                                            placeholder="Rp 0"
-                                        />
-                                    </div>
-                                )}
+
                                 <button
                                     type="button"
                                     onClick={addItemToCart}
@@ -403,7 +388,7 @@ export default function InboundClient() {
                                             <tr>
                                                 <th className="px-4 py-3 text-left text-[10px] uppercase tracking-wider font-semibold">Barang</th>
                                                 <th className="px-4 py-3 text-center text-[10px] uppercase tracking-wider font-semibold w-20">Qty</th>
-                                                <th className="px-4 py-3 text-right text-[10px] uppercase tracking-wider font-semibold w-28">Harga</th>
+
                                                 <th className="px-4 py-3 text-center text-[10px] uppercase tracking-wider font-semibold w-16">SN</th>
                                                 <th className="px-4 py-3 text-center text-[10px] uppercase tracking-wider font-semibold w-20">Status</th>
                                                 <th className="px-2 py-3 w-10"></th>
@@ -437,17 +422,7 @@ export default function InboundClient() {
                                                                 />
                                                             )}
                                                         </td>
-                                                        <td className="px-4 py-3 text-right">
-                                                            <input
-                                                                type="number"
-                                                                min="0"
-                                                                value={ci.price || ''}
-                                                                onClick={(e) => e.stopPropagation()}
-                                                                onChange={(e) => updateCartItemPrice(idx, Number(e.target.value))}
-                                                                className="w-24 bg-[#0f172a] border border-[#334155] text-white rounded px-2 py-1 text-right text-xs focus:ring-1 focus:ring-blue-500"
-                                                                placeholder="Rp 0"
-                                                            />
-                                                        </td>
+
                                                         <td className="px-4 py-3 text-center">
                                                             {ci.hasSN ? (
                                                                 <span className="text-[10px] font-bold bg-slate-800 text-slate-300 px-2 py-0.5 rounded-full">
@@ -483,7 +458,7 @@ export default function InboundClient() {
                                     <div className="bg-[#020617] px-4 py-2 flex justify-between items-center text-xs border-t border-[#334155]">
                                         <span className="text-slate-500">{cartItems.length} barang</span>
                                         <div className="flex gap-4">
-                                            {totalPrice > 0 && <span className="text-slate-400">Rp {totalPrice.toLocaleString('id-ID')}</span>}
+
                                             <span className="font-bold text-blue-400">Total: {totalQty} unit</span>
                                         </div>
                                     </div>
