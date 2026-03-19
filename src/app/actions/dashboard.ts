@@ -61,9 +61,9 @@ export async function getDashboardStats() {
             }),
         ]);
 
-        const totalFisik = stocks.reduce((acc, curr) => acc + curr.stockNew + curr.stockDismantle + curr.stockDamaged, 0);
+        const totalFisik = stocks.reduce((acc: number, curr: { stockNew: number; stockDismantle: number; stockDamaged: number }) => acc + curr.stockNew + curr.stockDismantle + curr.stockDamaged, 0);
         const totalItems = warehouseId
-            ? new Set(stocks.map(s => s.itemId)).size
+            ? new Set(stocks.map((s: { itemId: number }) => s.itemId)).size
             : await prisma.item.count();
 
         const trxToday = stockInToday + stockOutToday;
@@ -96,7 +96,7 @@ export async function getLowStockAlerts() {
             include: { item: true, warehouse: true }
         });
 
-        const lowStocks = stocks.filter(stock => {
+        const lowStocks = stocks.filter((stock: { stockNew: number; stockDismantle: number; stockDamaged: number; minStock: number }) => {
             const sum = stock.stockNew + stock.stockDismantle + stock.stockDamaged;
             return sum <= stock.minStock;
         });
@@ -107,11 +107,21 @@ export async function getLowStockAlerts() {
     }
 }
 
+export type TrxItem = { itemName: string; qty: number };
+export type TransactionGroup = {
+    groupId: string;
+    type: 'IN' | 'OUT';
+    date: Date;
+    location: string;
+    items: TrxItem[];
+    totalQty: number;
+};
+
 export async function getRecentTransactions() {
     noStore();
     try {
         if (process.env.NEXT_PHASE === 'phase-production-build') {
-            return { success: true, data: [] };
+            return { success: true, data: [] as TransactionGroup[] };
         }
 
         const warehouseId = await getBranchScope();
@@ -119,47 +129,81 @@ export async function getRecentTransactions() {
         const [ins, outsRaw] = await Promise.all([
             prisma.stockIn.findMany({
                 where: warehouseId ? { warehouseId } : undefined,
-                take: 6,
+                take: 20,
                 orderBy: { createdAt: 'desc' },
                 include: { item: true, warehouse: true }
             }),
             prisma.stockOut.findMany({
                 where: warehouseId ? { warehouseId } : undefined,
-                take: 6,
+                take: 20,
                 orderBy: { createdAt: 'desc' },
                 select: { id: true, createdAt: true, itemId: true, qty: true, warehouseId: true, location: true }
             })
         ]);
 
-        // StockOut has no direct relations — resolve item names separately
-        const outItemIds = [...new Set(outsRaw.map(o => o.itemId))];
-        const outWarehouseIds = [...new Set(outsRaw.map(o => o.warehouseId))];
+        // Resolve item & warehouse names for StockOut
+        type RawOut = { id: number; createdAt: Date; itemId: number; qty: number; warehouseId: number; location: string | null };
+        const typedOuts = outsRaw as RawOut[];
+        const outItemIds = [...new Set(typedOuts.map(o => o.itemId))];
+        const outWarehouseIds = [...new Set(typedOuts.map(o => o.warehouseId))];
         const [outItems, outWarehouses] = await Promise.all([
             prisma.item.findMany({ where: { id: { in: outItemIds } }, select: { id: true, name: true } }),
             prisma.warehouse.findMany({ where: { id: { in: outWarehouseIds } }, select: { id: true, name: true } }),
         ]);
-        const itemMap = Object.fromEntries(outItems.map(i => [i.id, i.name]));
-        const whMap = Object.fromEntries(outWarehouses.map(w => [w.id, w.name]));
+        const itemMap = Object.fromEntries(outItems.map((i: { id: number; name: string }) => [i.id, i.name]));
+        const whMap   = Object.fromEntries(outWarehouses.map((w: { id: number; name: string }) => [w.id, w.name]));
 
-        const outs = outsRaw.map(o => ({
-            id: `out-${o.id}`,
-            type: 'OUT' as const,
-            date: o.createdAt,
-            itemName: itemMap[o.itemId] ?? 'Unknown',
-            qty: o.qty,
-            location: whMap[o.warehouseId] ?? (o.location ?? '-'),
-        }));
-
-        const combined = [
-            ...ins.map(i => ({
-                id: `in-${i.id}`, type: 'IN' as const, date: i.createdAt,
-                itemName: i.item.name, qty: i.qty, location: i.warehouse.name
+        // Flatten to uniform shape
+        type FlatTrx = { id: string; type: 'IN' | 'OUT'; date: Date; itemName: string; qty: number; location: string };
+        const combined: FlatTrx[] = [
+            ...ins.map((i: { id: number; createdAt: Date; qty: number; item: { name: string }; warehouse: { name: string } }) => ({
+                id: `in-${i.id}`,
+                type: 'IN' as const,
+                date: i.createdAt,
+                itemName: i.item.name,
+                qty: i.qty,
+                location: i.warehouse.name,
             })),
-            ...outs
+            ...outsRaw.map((o: { id: number; createdAt: Date; itemId: number; qty: number; warehouseId: number; location: string | null }) => ({
+                id: `out-${o.id}`,
+                type: 'OUT' as const,
+                date: o.createdAt,
+                itemName: itemMap[o.itemId] ?? 'Unknown',
+                qty: o.qty,
+                location: whMap[o.warehouseId] ?? (o.location ?? '-'),
+            })),
         ];
 
+        // Sort descending by date
         combined.sort((a, b) => b.date.getTime() - a.date.getTime());
-        return { success: true, data: combined.slice(0, 12) };
+
+        // Group: same type + same location + within 60-second window
+        const WINDOW_MS = 60 * 1000;
+        const groups: TransactionGroup[] = [];
+
+        for (const trx of combined) {
+            const last = groups[groups.length - 1];
+            if (
+                last &&
+                last.type === trx.type &&
+                last.location === trx.location &&
+                Math.abs(last.date.getTime() - trx.date.getTime()) <= WINDOW_MS
+            ) {
+                last.items.push({ itemName: trx.itemName, qty: trx.qty });
+                last.totalQty += trx.qty;
+            } else {
+                groups.push({
+                    groupId: trx.id,
+                    type: trx.type,
+                    date: trx.date,
+                    location: trx.location,
+                    items: [{ itemName: trx.itemName, qty: trx.qty }],
+                    totalQty: trx.qty,
+                });
+            }
+        }
+
+        return { success: true, data: groups.slice(0, 8) };
     } catch (error) {
         return { success: false, error: "Gagal memuat aktivitas terbaru" };
     }

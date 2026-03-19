@@ -151,7 +151,7 @@ export async function createTransfer(data: TransferPayload) {
                         toWarehouseId: data.targetWarehouseId,
                         itemId: transferItem.itemId,
                         qty: transferItem.qty,
-                        status: "COMPLETED",
+                        status: "RECEIVED",
                         updatedAt: new Date(),
                     }
                 });

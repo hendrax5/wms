@@ -6,7 +6,6 @@ import {
     ArrowRight, Cpu, Wrench, ChevronRight, Minus,
     Zap, BarChart3, Plus
 } from "lucide-react";
-import { Prisma } from "@prisma/client";
 import Link from "next/link";
 
 type DashboardStats = {
@@ -19,17 +18,26 @@ type DashboardStats = {
     trxYesterday: number;
 };
 
-type LowStockProp = Prisma.WarehouseStockGetPayload<{
-    include: { item: true; warehouse: true };
-}>;
+type LowStockProp = {
+    id: number;
+    itemId: number;
+    warehouseId: number;
+    stockNew: number;
+    stockDismantle: number;
+    stockDamaged: number;
+    minStock: number;
+    item: { id: number; name: string; code: string | null };
+    warehouse: { id: number; name: string };
+};
 
-type RecentTrx = {
-    id: string;
+type TrxItem = { itemName: string; qty: number };
+type TransactionGroup = {
+    groupId: string;
     type: 'IN' | 'OUT';
     date: Date;
-    itemName: string;
-    qty: number;
     location: string;
+    items: TrxItem[];
+    totalQty: number;
 };
 
 /* ── Trend badge ── */
@@ -75,7 +83,7 @@ export default function DashboardClient({
 }: {
     initialStats: DashboardStats | null,
     initialAlerts: LowStockProp[],
-    initialTrx: RecentTrx[],
+    initialTrx: TransactionGroup[],
     assetStats?: { active: number; maintenance: number; damaged: number; total: number }
 }) {
     const stats = initialStats;
@@ -259,33 +267,62 @@ export default function DashboardClient({
                                 <p className="text-sm text-slate-500">Belum ada aktivitas hari ini</p>
                             </div>
                         ) : (
-                            recentTrx.map((trx, idx) => (
-                                <div
-                                    key={trx.id}
-                                    className="flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-white/[0.025] transition-colors"
-                                >
-                                    <div className="flex items-center gap-3 min-w-0">
-                                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border ${trx.type === 'IN'
-                                            ? 'bg-green-500/10 text-green-400 border-green-500/15'
-                                            : 'bg-red-500/10 text-red-400 border-red-500/15'}`}>
-                                            {trx.type === 'IN' ? <ArrowDownLeft size={14} /> : <ArrowUpRight size={14} />}
-                                        </div>
-                                        <div className="min-w-0">
-                                            <p className="text-sm font-medium text-white leading-none truncate">{trx.itemName}</p>
-                                            <div className="flex items-center gap-1.5 mt-1">
-                                                <Building2 size={9} className="text-slate-600 shrink-0" />
-                                                <p className="text-[10px] text-slate-500 truncate">{trx.location}</p>
+                            recentTrx.map((grp) => {
+                                const isMulti = grp.items.length > 1;
+                                const colorIn  = 'bg-green-500/10 text-green-400 border-green-500/15';
+                                const colorOut = 'bg-red-500/10 text-red-400 border-red-500/15';
+                                const color    = grp.type === 'IN' ? colorIn : colorOut;
+                                const textColor = grp.type === 'IN' ? 'text-green-400' : 'text-red-400';
+                                return (
+                                    <div
+                                        key={grp.groupId}
+                                        className="px-3 py-2.5 rounded-xl hover:bg-white/[0.025] transition-colors"
+                                    >
+                                        {/* Header row */}
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-3 min-w-0">
+                                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border ${color}`}>
+                                                    {grp.type === 'IN' ? <ArrowDownLeft size={14} /> : <ArrowUpRight size={14} />}
+                                                </div>
+                                                <div className="min-w-0">
+                                                    {isMulti ? (
+                                                        <p className="text-sm font-medium text-white leading-none">
+                                                            {grp.items.length} item
+                                                        </p>
+                                                    ) : (
+                                                        <p className="text-sm font-medium text-white leading-none truncate">{grp.items[0].itemName}</p>
+                                                    )}
+                                                    <div className="flex items-center gap-1.5 mt-1">
+                                                        <Building2 size={9} className="text-slate-600 shrink-0" />
+                                                        <p className="text-[10px] text-slate-500 truncate">{grp.location}</p>
+                                                        <span className="text-slate-700">·</span>
+                                                        <p className="text-[10px] text-slate-600">{relativeTime(grp.date)}</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div className="text-right ml-3 shrink-0">
+                                                <p className={`text-sm font-bold font-mono ${textColor}`}>
+                                                    {grp.type === 'IN' ? '+' : '-'}{grp.totalQty}
+                                                </p>
+                                                {isMulti && (
+                                                    <p className="text-[10px] text-slate-600 mt-0.5">{grp.items.length} item</p>
+                                                )}
                                             </div>
                                         </div>
+                                        {/* Item list for multi-item groups */}
+                                        {isMulti && (
+                                            <div className="ml-11 mt-1.5 space-y-0.5">
+                                                {grp.items.map((item, i) => (
+                                                    <div key={i} className="flex items-center justify-between">
+                                                        <p className="text-[11px] text-slate-500 truncate">• {item.itemName}</p>
+                                                        <p className={`text-[11px] font-mono ml-2 shrink-0 ${textColor} opacity-70`}>×{item.qty}</p>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
                                     </div>
-                                    <div className="text-right ml-3 shrink-0">
-                                        <p className={`text-sm font-bold font-mono ${trx.type === 'IN' ? 'text-green-400' : 'text-red-400'}`}>
-                                            {trx.type === 'IN' ? '+' : '-'}{trx.qty}
-                                        </p>
-                                        <p className="text-[10px] text-slate-600 mt-0.5">{relativeTime(trx.date)}</p>
-                                    </div>
-                                </div>
-                            ))
+                                );
+                            })
                         )}
                     </div>
                 </div>
