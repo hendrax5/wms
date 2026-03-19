@@ -187,6 +187,7 @@ model Pop {
   popinstallation PopInstallation[]
   serialnumber    SerialNumber[]
   stockout        StockOut[]
+  assetlocationlog AssetLocationLog[]
 
   @@index([areaId], map: "Pop_areaId_idx")
   @@index([warehouseId], map: "Pop_warehouseId_idx")
@@ -198,12 +199,15 @@ model PopInstallation {
   popId          Int
   itemId         Int
   serialNumberId Int?
+  assetId        Int?          @unique
+  rackLocation   String?       // posisi rak/slot saat instalasi (teks bebas, misal "Rack A - Slot 3")
   installedBy    String?
   installedAt    DateTime      @default(now())
   description    String?
   item           Item          @relation(fields: [itemId], references: [id], map: "PopInstallation_itemId_fkey")
   pop            Pop           @relation(fields: [popId], references: [id], map: "PopInstallation_popId_fkey")
   serialnumber   SerialNumber? @relation(fields: [serialNumberId], references: [id], map: "PopInstallation_serialNumberId_fkey")
+  asset          Asset?        @relation(fields: [assetId], references: [id])
 
   @@index([itemId], map: "PopInstallation_itemId_idx")
   @@index([popId], map: "PopInstallation_popId_idx")
@@ -446,6 +450,7 @@ model User {
   inventorylog             InventoryLog[]
   asset                    Asset[]
   assetmaintenancelog      AssetMaintenanceLog[]
+  assetlocationlog         AssetLocationLog[]
 
   @@index([warehouseId], map: "User_warehouseId_idx")
   @@map("user")
@@ -721,6 +726,8 @@ model Asset {
   user            User?                 @relation(fields: [assignedToUser], references: [id])
   depreciations   AssetDepreciation[]
   maintenancelogs AssetMaintenanceLog[]
+  popinstallation PopInstallation?
+  locationlogs    AssetLocationLog[]
 
   @@index([itemId])
   @@index([assignedToUser])
@@ -761,6 +768,24 @@ model AssetMaintenanceLog {
   @@map("assetmaintenancelog")
 }
 
+model AssetLocationLog {
+  id           Int      @id @default(autoincrement())
+  assetId      Int
+  popId        Int
+  rackLocation String?  // posisi rak/slot baru (teks bebas)
+  movedAt      DateTime @default(now())
+  movedBy      Int      // userId yang memindahkan
+  note         String?
+
+  asset   Asset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  pop     Pop   @relation(fields: [popId], references: [id])
+  user    User  @relation(fields: [movedBy], references: [id])
+
+  @@index([assetId])
+  @@index([popId])
+  @@index([movedBy])
+  @@map("assetlocationlog")
+}
 
 model AppConfig {
   id          Int      @id @default(1)

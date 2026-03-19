@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { getPopDetails } from "@/app/actions/pop";
+import { getPopDetails, getInstallationsForPop, convertToAsset, moveRack } from "@/app/actions/pop";
 import {
     ArrowLeft, Server, Package, Loader2, MapPin, Clock, User, Hash,
-    ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Search, Building2
+    ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Search,
+    Building2, Cpu, CheckCircle, X, HardDrive, TriangleAlert,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -36,7 +37,131 @@ function PaginationBar({ page, totalPages, setPage, total, perPage, label }: {
     );
 }
 
-type TabKey = "items" | "history";
+/* ── Convert Dialog ── */
+function ConvertDialog({ installation, popId, onClose, onSuccess }: {
+    installation: any; popId: number; onClose: () => void; onSuccess: () => void;
+}) {
+    const [purchasePrice, setPurchasePrice] = useState("");
+    const [warrantyExpiry, setWarrantyExpiry] = useState("");
+    const [rackLocation, setRackLocation] = useState("");
+    const [note, setNote] = useState("");
+    const [saving, setSaving] = useState(false);
+    const [err, setErr] = useState("");
+
+    const handleSubmit = async () => {
+        setSaving(true);
+        setErr("");
+        const res = await convertToAsset(installation.id, {
+            purchasePrice: purchasePrice ? Number(purchasePrice) : undefined,
+            warrantyExpiry: warrantyExpiry || null,
+            rackLocation: rackLocation || null,
+            note: note || null,
+        });
+        setSaving(false);
+        if (res.success) { onSuccess(); onClose(); }
+        else { setErr(res.error ?? "Gagal"); }
+    };
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+            <div className="w-full max-w-md bg-[#0F172A] border border-[#1E293B] rounded-2xl shadow-2xl">
+                <div className="flex items-center justify-between p-4 border-b border-[#1E293B]">
+                    <div>
+                        <h3 className="text-sm font-bold text-white flex items-center gap-2"><Cpu size={15} className="text-purple-400" /> Jadikan Asset</h3>
+                        <p className="text-[10px] text-slate-500 mt-0.5 truncate max-w-[300px]">{installation.item?.name} · SN: {installation.serialnumber?.code}</p>
+                    </div>
+                    <button type="button" onClick={onClose} className="p-1.5 rounded-lg text-slate-500 hover:text-white transition-colors"><X size={16} /></button>
+                </div>
+                <div className="p-4 space-y-3">
+                    {err && <div className="text-[11px] text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2 flex items-center gap-2"><TriangleAlert size={13} /> {err}</div>}
+                    <div>
+                        <label className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">Harga Beli (Rp)</label>
+                        <input type="number" value={purchasePrice} onChange={e => setPurchasePrice(e.target.value)} placeholder="0"
+                            className="mt-1 w-full bg-[#020617] border border-[#1E293B] rounded-lg px-3 py-2 text-sm text-white placeholder:text-slate-700 focus:outline-none focus:border-purple-500/50" />
+                    </div>
+                    <div>
+                        <label className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">Garansi Sampai</label>
+                        <input type="date" value={warrantyExpiry} onChange={e => setWarrantyExpiry(e.target.value)}
+                            className="mt-1 w-full bg-[#020617] border border-[#1E293B] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-purple-500/50" />
+                    </div>
+                    <div>
+                        <label className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">Posisi Rak</label>
+                        <input type="text" value={rackLocation} onChange={e => setRackLocation(e.target.value)} placeholder="cth. Rak-A/Slot-3"
+                            className="mt-1 w-full bg-[#020617] border border-[#1E293B] rounded-lg px-3 py-2 text-sm text-white placeholder:text-slate-700 focus:outline-none focus:border-purple-500/50" />
+                    </div>
+                    <div>
+                        <label className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">Catatan</label>
+                        <textarea value={note} onChange={e => setNote(e.target.value)} rows={2} placeholder="Opsional..."
+                            className="mt-1 w-full bg-[#020617] border border-[#1E293B] rounded-lg px-3 py-2 text-sm text-white placeholder:text-slate-700 focus:outline-none focus:border-purple-500/50 resize-none" />
+                    </div>
+                </div>
+                <div className="flex justify-end gap-2 p-4 border-t border-[#1E293B]">
+                    <button type="button" onClick={onClose} className="px-4 py-2 text-xs text-slate-400 hover:text-white transition-colors">Batal</button>
+                    <button type="button" onClick={handleSubmit} disabled={saving}
+                        className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold rounded-lg transition-all disabled:opacity-50">
+                        {saving ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle size={12} />} Konfirmasi
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+/* ── Move Rack Dialog ── */
+function MoveRackDialog({ installation, onClose, onSuccess }: {
+    installation: any; onClose: () => void; onSuccess: () => void;
+}) {
+    const [rack, setRack] = useState(installation.rackLocation ?? "");
+    const [note, setNote] = useState("");
+    const [saving, setSaving] = useState(false);
+    const [err, setErr] = useState("");
+
+    const handleSubmit = async () => {
+        if (!rack.trim()) { setErr("Posisi rak wajib diisi"); return; }
+        setSaving(true);
+        setErr("");
+        const res = await moveRack(installation.id, rack.trim(), note || undefined);
+        setSaving(false);
+        if (res.success) { onSuccess(); onClose(); }
+        else { setErr(res.error ?? "Gagal"); }
+    };
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+            <div className="w-full max-w-sm bg-[#0F172A] border border-[#1E293B] rounded-2xl shadow-2xl">
+                <div className="flex items-center justify-between p-4 border-b border-[#1E293B]">
+                    <div>
+                        <h3 className="text-sm font-bold text-white flex items-center gap-2"><HardDrive size={15} className="text-cyan-400" /> Pindah Rak</h3>
+                        <p className="text-[10px] text-slate-500 mt-0.5 truncate max-w-[220px]">{installation.item?.name}</p>
+                    </div>
+                    <button type="button" onClick={onClose} className="p-1.5 rounded-lg text-slate-500 hover:text-white transition-colors"><X size={16} /></button>
+                </div>
+                <div className="p-4 space-y-3">
+                    {err && <div className="text-[11px] text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">{err}</div>}
+                    <div>
+                        <label className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">Posisi Rak Baru <span className="text-red-400">*</span></label>
+                        <input type="text" value={rack} onChange={e => setRack(e.target.value)} placeholder="cth. Rak-B/Slot-1"
+                            className="mt-1 w-full bg-[#020617] border border-[#1E293B] rounded-lg px-3 py-2 text-sm text-white placeholder:text-slate-700 focus:outline-none focus:border-cyan-500/50" />
+                    </div>
+                    <div>
+                        <label className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">Alasan / Catatan</label>
+                        <input type="text" value={note} onChange={e => setNote(e.target.value)} placeholder="Opsional..."
+                            className="mt-1 w-full bg-[#020617] border border-[#1E293B] rounded-lg px-3 py-2 text-sm text-white placeholder:text-slate-700 focus:outline-none focus:border-cyan-500/50" />
+                    </div>
+                </div>
+                <div className="flex justify-end gap-2 p-4 border-t border-[#1E293B]">
+                    <button type="button" onClick={onClose} className="px-4 py-2 text-xs text-slate-400 hover:text-white transition-colors">Batal</button>
+                    <button type="button" onClick={handleSubmit} disabled={saving}
+                        className="flex items-center gap-2 px-4 py-2 bg-cyan-700 hover:bg-cyan-600 text-white text-xs font-semibold rounded-lg transition-all disabled:opacity-50">
+                        {saving ? <Loader2 size={12} className="animate-spin" /> : <HardDrive size={12} />} Simpan
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+type TabKey = "items" | "history" | "assets";
 
 export default function PopDetailPage() {
     const params = useParams();
@@ -47,17 +172,36 @@ export default function PopDetailPage() {
     const [search, setSearch] = useState("");
     const [page, setPage] = useState(1);
 
+    // Assets tab state
+    const [installations, setInstallations] = useState<any[]>([]);
+    const [assetsLoading, setAssetsLoading] = useState(false);
+    const [convertTarget, setConvertTarget] = useState<any>(null);
+    const [moveTarget, setMoveTarget] = useState<any>(null);
+
+    const popId = Number(params.id);
+
+    const loadMain = useCallback(async () => {
+        if (isNaN(popId)) { router.push("/pop"); return; }
+        setLoading(true);
+        const res = await getPopDetails(popId);
+        if (res.success && res.data) { setData(res.data); }
+        else { router.push("/pop"); }
+        setLoading(false);
+    }, [popId, router]);
+
+    useEffect(() => { loadMain(); }, [loadMain]);
+
+    const loadInstallations = useCallback(async () => {
+        if (isNaN(popId)) return;
+        setAssetsLoading(true);
+        const res = await getInstallationsForPop(popId);
+        if (res.success) setInstallations(res.data as any[]);
+        setAssetsLoading(false);
+    }, [popId]);
+
     useEffect(() => {
-        const id = Number(params.id);
-        if (isNaN(id)) { router.push("/pop"); return; }
-        (async () => {
-            setLoading(true);
-            const res = await getPopDetails(id);
-            if (res.success && res.data) { setData(res.data); }
-            else { router.push("/pop"); }
-            setLoading(false);
-        })();
-    }, [params.id, router]);
+        if (activeTab === "assets") loadInstallations();
+    }, [activeTab, loadInstallations]);
 
     useEffect(() => { setPage(1); }, [search, activeTab]);
 
@@ -73,9 +217,9 @@ export default function PopDetailPage() {
     }
 
     if (!data) return null;
-    const { pop, installations, serialNumbers, stockOuts } = data;
+    const { pop, installations: rawInstallations, serialNumbers, stockOuts } = data;
 
-    // --- Items at POP (grouped by item from serialNumbers) ---
+    // --- Items at POP ---
     const itemMap = new Map<number, { id: number; name: string; code: string; unit: string; count: number }>();
     serialNumbers.forEach((sn: any) => {
         const it = sn.item;
@@ -86,7 +230,7 @@ export default function PopDetailPage() {
     });
     const itemsList = Array.from(itemMap.values()).sort((a, b) => b.count - a.count);
 
-    // --- History (stockOuts + search filter) ---
+    // --- History ---
     const filteredHistory = (stockOuts as any[]).filter((so: any) => {
         if (!search.trim()) return true;
         const q = search.toLowerCase();
@@ -95,16 +239,39 @@ export default function PopDetailPage() {
             (so.description || "").toLowerCase().includes(q);
     });
 
-    const currentList = activeTab === "items" ? itemsList : filteredHistory;
+    // --- Assets ---
+    const filteredAssets = installations.filter((inst: any) => {
+        if (!search.trim()) return true;
+        const q = search.toLowerCase();
+        return inst.item?.name.toLowerCase().includes(q) || inst.serialnumber?.code.toLowerCase().includes(q);
+    });
+
+    const currentList = activeTab === "items" ? itemsList : activeTab === "history" ? filteredHistory : filteredAssets;
     const totalPages = Math.max(1, Math.ceil(currentList.length / PP));
     const safePage = Math.min(page, totalPages);
     const pagedList = currentList.slice((safePage - 1) * PP, safePage * PP);
 
     const totalSN = serialNumbers.length;
-    const totalInstallations = installations.length;
+    const totalInstallations = rawInstallations.length;
+    const totalAssets = installations.filter((i: any) => i.assetId).length;
+
+    const fmtRp = (n: number) => new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(n);
+    const fmtDate = (d: string | Date | null) => d ? new Date(d).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" }) : "—";
 
     return (
         <div className="space-y-5 animate-fade-in">
+            {/* Dialogs */}
+            {convertTarget && (
+                <ConvertDialog installation={convertTarget} popId={popId}
+                    onClose={() => setConvertTarget(null)}
+                    onSuccess={() => loadInstallations()} />
+            )}
+            {moveTarget && (
+                <MoveRackDialog installation={moveTarget}
+                    onClose={() => setMoveTarget(null)}
+                    onSuccess={() => loadInstallations()} />
+            )}
+
             {/* Breadcrumb + Header */}
             <div>
                 <button type="button" onClick={() => router.push("/pop")} className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-white transition-colors mb-3">
@@ -142,7 +309,7 @@ export default function PopDetailPage() {
             {/* Tabs + Search */}
             <div className="card !p-0 border border-[#1E293B] overflow-hidden">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 sm:p-3 border-b border-[#1E293B] bg-[#020617]/50">
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 flex-wrap">
                         <button type="button" onClick={() => setActiveTab("items")}
                             className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${activeTab === "items" ? "bg-purple-500/15 border-purple-500/30 text-purple-400" : "bg-transparent border-[#1E293B] text-slate-500 hover:text-white"}`}>
                             <Package size={13} className="inline mr-1.5 -mt-0.5" />Barang ({itemsList.length})
@@ -151,20 +318,23 @@ export default function PopDetailPage() {
                             className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${activeTab === "history" ? "bg-amber-500/15 border-amber-500/30 text-amber-400" : "bg-transparent border-[#1E293B] text-slate-500 hover:text-white"}`}>
                             <Clock size={13} className="inline mr-1.5 -mt-0.5" />Riwayat ({stockOuts.length})
                         </button>
+                        <button type="button" onClick={() => setActiveTab("assets")}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${activeTab === "assets" ? "bg-cyan-500/15 border-cyan-500/30 text-cyan-400" : "bg-transparent border-[#1E293B] text-slate-500 hover:text-white"}`}>
+                            <Cpu size={13} className="inline mr-1.5 -mt-0.5" />Asset
+                        </button>
                     </div>
-                    {activeTab === "history" && (
+                    {(activeTab === "history" || activeTab === "assets") && (
                         <div className="relative w-full sm:w-56">
                             <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-                            <input type="text" placeholder="Cari barang, teknisi..." value={search} onChange={e => setSearch(e.target.value)}
+                            <input type="text" placeholder={activeTab === "assets" ? "Cari item, SN..." : "Cari barang, teknisi..."} value={search} onChange={e => setSearch(e.target.value)}
                                 className="w-full bg-[#020617] border border-[#1E293B] rounded-lg pl-8 pr-3 py-1.5 text-xs text-white placeholder:text-slate-600 focus:outline-none focus:border-purple-500/50 transition-all" />
                         </div>
                     )}
                 </div>
 
-                {/* Tab content */}
-                {activeTab === "items" ? (
+                {/* ── Tab: Barang ── */}
+                {activeTab === "items" && (
                     <>
-                        {/* Desktop table */}
                         <div className="hidden sm:block">
                             <table className="w-full text-left border-collapse">
                                 <thead>
@@ -192,7 +362,6 @@ export default function PopDetailPage() {
                                 </tbody>
                             </table>
                         </div>
-                        {/* Mobile cards */}
                         <div className="sm:hidden space-y-2 p-3">
                             {(pagedList as any[]).length === 0 ? (
                                 <div className="flex flex-col items-center py-12 gap-2">
@@ -212,9 +381,11 @@ export default function PopDetailPage() {
                             ))}
                         </div>
                     </>
-                ) : (
+                )}
+
+                {/* ── Tab: Riwayat ── */}
+                {activeTab === "history" && (
                     <>
-                        {/* Desktop table */}
                         <div className="hidden sm:block">
                             <table className="w-full text-left border-collapse">
                                 <thead>
@@ -253,7 +424,6 @@ export default function PopDetailPage() {
                                 </tbody>
                             </table>
                         </div>
-                        {/* Mobile cards */}
                         <div className="sm:hidden space-y-2 p-3">
                             {(pagedList as any[]).length === 0 ? (
                                 <div className="flex flex-col items-center py-12 gap-2">
@@ -283,8 +453,146 @@ export default function PopDetailPage() {
                     </>
                 )}
 
+                {/* ── Tab: Asset ── */}
+                {activeTab === "assets" && (
+                    <>
+                        {assetsLoading ? (
+                            <div className="flex items-center justify-center py-16 gap-2">
+                                <Loader2 size={16} className="animate-spin text-cyan-400" />
+                                <span className="text-sm text-slate-500">Memuat data asset...</span>
+                            </div>
+                        ) : (
+                            <>
+                                <div className="hidden sm:block">
+                                    <table className="w-full text-left border-collapse">
+                                        <thead>
+                                            <tr className="border-b border-[#1E293B] bg-[#020617]/50 text-[10px] uppercase tracking-wider text-slate-500 font-semibold">
+                                                <th className="px-4 py-3">Item / SN</th>
+                                                <th className="px-4 py-3 w-28">Status</th>
+                                                <th className="px-4 py-3 w-32">Posisi Rak</th>
+                                                <th className="px-4 py-3 text-right w-32">Harga Beli</th>
+                                                <th className="px-4 py-3 w-32">Garansi</th>
+                                                <th className="px-4 py-3 text-center w-32">Aksi</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="text-sm">
+                                            {(pagedList as any[]).length === 0 ? (
+                                                <tr><td colSpan={6} className="px-4 py-12 text-center text-slate-500">Belum ada instalasi di POP ini.</td></tr>
+                                            ) : (pagedList as any[]).map((inst: any) => {
+                                                const isAsset = !!inst.assetId;
+                                                const lastLog = inst.asset?.locationlogs?.[0];
+                                                return (
+                                                    <tr key={inst.id} className="border-b border-[#1E293B]/50 hover:bg-white/[0.02] transition-colors">
+                                                        <td className="px-4 py-3">
+                                                            <p className="font-medium text-white text-sm truncate max-w-[220px]">{inst.item?.name}</p>
+                                                            <p className="text-[10px] font-mono text-slate-500 flex items-center gap-1">
+                                                                <Hash size={9} /> {inst.serialnumber?.code ?? <span className="italic text-slate-600">tanpa SN</span>}
+                                                            </p>
+                                                        </td>
+                                                        <td className="px-4 py-3">
+                                                            {isAsset ? (
+                                                                <span className="inline-flex items-center gap-1 text-[10px] bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 px-2 py-0.5 rounded-full font-semibold">
+                                                                    <CheckCircle size={9} /> Asset
+                                                                </span>
+                                                            ) : (
+                                                                <span className="inline-flex items-center gap-1 text-[10px] bg-slate-500/10 border border-slate-500/20 text-slate-500 px-2 py-0.5 rounded-full">
+                                                                    Instalasi
+                                                                </span>
+                                                            )}
+                                                        </td>
+                                                        <td className="px-4 py-3 text-xs text-slate-400 font-mono">
+                                                            {inst.rackLocation ?? (lastLog?.rackLocation ?? "—")}
+                                                        </td>
+                                                        <td className="px-4 py-3 text-right text-xs text-slate-400 font-mono">
+                                                            {isAsset && inst.asset?.purchasePrice ? fmtRp(inst.asset.purchasePrice) : "—"}
+                                                        </td>
+                                                        <td className="px-4 py-3 text-xs text-slate-500">
+                                                            {isAsset ? fmtDate(inst.asset?.warrantyExpiry) : "—"}
+                                                        </td>
+                                                        <td className="px-4 py-3 text-center">
+                                                            <div className="flex items-center justify-center gap-2">
+                                                                {!isAsset && inst.serialnumber && (
+                                                                    <button type="button" onClick={() => setConvertTarget(inst)}
+                                                                        className="text-[10px] px-2 py-1 bg-purple-500/10 border border-purple-500/20 text-purple-400 rounded-lg hover:bg-purple-500/20 transition-all whitespace-nowrap">
+                                                                        Jadikan Asset
+                                                                    </button>
+                                                                )}
+                                                                {isAsset && (
+                                                                    <button type="button" onClick={() => setMoveTarget(inst)}
+                                                                        className="text-[10px] px-2 py-1 bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 rounded-lg hover:bg-cyan-500/20 transition-all whitespace-nowrap">
+                                                                        Pindah Rak
+                                                                    </button>
+                                                                )}
+                                                                {isAsset && (
+                                                                    <Link href={`/assets/${inst.assetId}`} className="text-[10px] text-slate-500 hover:text-cyan-400 transition-colors whitespace-nowrap">
+                                                                        Detail →
+                                                                    </Link>
+                                                                )}
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                {/* Mobile cards */}
+                                <div className="sm:hidden space-y-2 p-3">
+                                    {(pagedList as any[]).length === 0 ? (
+                                        <div className="flex flex-col items-center py-12 gap-2">
+                                            <Cpu size={20} className="text-slate-600" />
+                                            <p className="text-sm text-slate-500">Belum ada instalasi.</p>
+                                        </div>
+                                    ) : (pagedList as any[]).map((inst: any) => {
+                                        const isAsset = !!inst.assetId;
+                                        return (
+                                            <div key={inst.id} className="bg-[#020617] border border-[#1E293B] rounded-xl p-3">
+                                                <div className="flex items-start justify-between mb-1.5">
+                                                    <div className="min-w-0 flex-1">
+                                                        <p className="font-medium text-white text-sm truncate">{inst.item?.name}</p>
+                                                        <p className="text-[10px] font-mono text-slate-500">{inst.serialnumber?.code ?? "—"}</p>
+                                                    </div>
+                                                    {isAsset ? (
+                                                        <span className="text-[9px] bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 px-1.5 py-0.5 rounded-full shrink-0 ml-2">Asset</span>
+                                                    ) : (
+                                                        <span className="text-[9px] bg-slate-500/10 border border-slate-500/20 text-slate-500 px-1.5 py-0.5 rounded-full shrink-0 ml-2">Instalasi</span>
+                                                    )}
+                                                </div>
+                                                {inst.rackLocation && (
+                                                    <p className="text-[10px] text-slate-500 font-mono mb-1.5">Rak: {inst.rackLocation}</p>
+                                                )}
+                                                <div className="flex gap-2 mt-2">
+                                                    {!isAsset && inst.serialnumber && (
+                                                        <button type="button" onClick={() => setConvertTarget(inst)}
+                                                            className="flex-1 text-[10px] py-1.5 bg-purple-500/10 border border-purple-500/20 text-purple-400 rounded-lg text-center">
+                                                            Jadikan Asset
+                                                        </button>
+                                                    )}
+                                                    {isAsset && (
+                                                        <>
+                                                            <button type="button" onClick={() => setMoveTarget(inst)}
+                                                                className="flex-1 text-[10px] py-1.5 bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 rounded-lg text-center">
+                                                                Pindah Rak
+                                                            </button>
+                                                            <Link href={`/assets/${inst.assetId}`} className="flex-1 text-[10px] py-1.5 bg-slate-500/10 border border-slate-500/20 text-slate-400 rounded-lg text-center">
+                                                                Detail
+                                                            </Link>
+                                                        </>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </>
+                        )}
+                    </>
+                )}
+
                 <div className="px-3 pb-3">
-                    <PaginationBar page={safePage} totalPages={totalPages} setPage={setPage} total={currentList.length} perPage={PP} label={activeTab === "items" ? "barang" : "transaksi"} />
+                    <PaginationBar page={safePage} totalPages={totalPages} setPage={setPage}
+                        total={currentList.length} perPage={PP}
+                        label={activeTab === "items" ? "barang" : activeTab === "history" ? "transaksi" : "instalasi"} />
                 </div>
             </div>
         </div>

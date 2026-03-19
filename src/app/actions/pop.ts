@@ -185,3 +185,158 @@ export async function getPopDetails(id: number) {
         return { success: false, error: "Gagal mengambil detail POP" };
     }
 }
+
+// ─── Konversi PopInstallation → Asset ─────────────────────────────────────
+
+export async function convertToAsset(
+    installationId: number,
+    data: {
+        purchasePrice?: number;
+        warrantyExpiry?: string | null;
+        rackLocation?: string | null;
+        note?: string | null;
+    }
+) {
+    try {
+        const session = await auth();
+        if (!session?.user?.id) return { success: false, error: "Unauthorized" };
+
+        const userId = Number(session.user.id);
+
+        // Ambil data instalasi
+        const installation = await (prisma as any).popInstallation.findUnique({
+            where: { id: installationId },
+            include: { serialnumber: true },
+        });
+
+        if (!installation) return { success: false, error: "Instalasi tidak ditemukan" };
+        if (installation.assetId) return { success: false, error: "Sudah menjadi asset" };
+        if (!installation.serialNumberId) return { success: false, error: "Instalasi ini tidak memiliki Serial Number — hanya item ber-SN yang bisa jadi asset" };
+
+        const result = await prisma.$transaction(async (tx: any) => {
+            // 1. Buat Asset baru
+            const asset = await tx.asset.create({
+                data: {
+                    serialNumberId: installation.serialNumberId,
+                    itemId: installation.itemId,
+                    purchasePrice: data.purchasePrice ?? 0,
+                    warrantyExpiry: data.warrantyExpiry ? new Date(data.warrantyExpiry) : null,
+                    status: "ACTIVE",
+                    installedAt: installation.installedAt,
+                    updatedAt: new Date(),
+                },
+            });
+
+            // 2. Update PopInstallation: link ke asset + simpan posisi rak
+            await tx.popInstallation.update({
+                where: { id: installationId },
+                data: {
+                    assetId: asset.id,
+                    rackLocation: data.rackLocation ?? null,
+                },
+            });
+
+            // 3. Catat log lokasi pertama
+            await tx.assetLocationLog.create({
+                data: {
+                    assetId: asset.id,
+                    popId: installation.popId,
+                    rackLocation: data.rackLocation ?? null,
+                    movedBy: userId,
+                    note: data.note ?? "Konversi awal dari PopInstallation",
+                },
+            });
+
+            return asset;
+        });
+
+        revalidatePath("/pop");
+        revalidatePath(`/pop/${installation.popId}`);
+        revalidatePath("/assets");
+        return { success: true, data: result };
+    } catch (error: any) {
+        console.error("convertToAsset error:", error);
+        return { success: false, error: "Gagal mengkonversi ke asset: " + (error?.message ?? "") };
+    }
+}
+
+// ─── Pindah posisi rak (setelah sudah jadi asset) ──────────────────────────
+
+export async function moveRack(
+    installationId: number,
+    rackLocation: string,
+    note?: string
+) {
+    try {
+        const session = await auth();
+        if (!session?.user?.id) return { success: false, error: "Unauthorized" };
+
+        const userId = Number(session.user.id);
+
+        const installation = await (prisma as any).popInstallation.findUnique({
+            where: { id: installationId },
+        });
+
+        if (!installation) return { success: false, error: "Instalasi tidak ditemukan" };
+        if (!installation.assetId) return { success: false, error: "Belum menjadi asset" };
+
+        await prisma.$transaction(async (tx: any) => {
+            // Update posisi rak di PopInstallation
+            await tx.popInstallation.update({
+                where: { id: installationId },
+                data: { rackLocation },
+            });
+
+            // Catat log perpindahan
+            await tx.assetLocationLog.create({
+                data: {
+                    assetId: installation.assetId,
+                    popId: installation.popId,
+                    rackLocation,
+                    movedBy: userId,
+                    note: note ?? null,
+                },
+            });
+        });
+
+        revalidatePath(`/pop/${installation.popId}`);
+        return { success: true };
+    } catch (error: any) {
+        console.error("moveRack error:", error);
+        return { success: false, error: "Gagal memindahkan rak: " + (error?.message ?? "") };
+    }
+}
+
+// ─── Ambil data instalasi di suatu POP (untuk tab Assets) ─────────────────
+
+export async function getInstallationsForPop(popId: number) {
+    noStore();
+    try {
+        if (process.env.NEXT_PHASE === 'phase-production-build') {
+            return { success: true, data: [] };
+        }
+
+        const installations = await (prisma as any).popInstallation.findMany({
+            where: { popId },
+            orderBy: { installedAt: "desc" },
+            include: {
+                item: { select: { id: true, name: true, code: true, unit: true } },
+                serialnumber: { select: { id: true, code: true } },
+                asset: {
+                    select: {
+                        id: true, status: true, purchasePrice: true, warrantyExpiry: true,
+                        locationlogs: {
+                            orderBy: { movedAt: "desc" },
+                            take: 1,
+                            select: { movedAt: true, rackLocation: true },
+                        },
+                    },
+                },
+            },
+        });
+
+        return { success: true, data: installations };
+    } catch (error) {
+        return { success: false, error: "Gagal mengambil data instalasi" };
+    }
+}
