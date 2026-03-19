@@ -17,15 +17,21 @@ async function main() {
     })
 
     // 2. Setup Warehouse Pusat
-    const warehousePusat = await prisma.warehouse.create({
-        data: {
-            name: 'Gudang Pusat Jakarta',
-            type: 'PUSAT',
-            areaId: areaPusat.id,
-            location: 'Jakarta',
-            updatedAt: new Date(),
-        },
+    // NOTE: Warehouse.name is NOT @unique, use findFirst+create
+    let warehousePusat = await prisma.warehouse.findFirst({
+        where: { name: 'Gudang Pusat Jakarta' },
     })
+    if (!warehousePusat) {
+        warehousePusat = await prisma.warehouse.create({
+            data: {
+                name: 'Gudang Pusat Jakarta',
+                type: 'PUSAT',
+                areaId: areaPusat.id,
+                location: 'Jakarta',
+                updatedAt: new Date(),
+            },
+        })
+    }
 
     // 3. Setup Master Admin User
     const passwordHash = await bcrypt.hash('!Tahun2026', 10)
@@ -46,14 +52,15 @@ async function main() {
     })
 
     // 4. Setup Categories
+    // NOTE: Category.name is NOT @unique, use findFirst+create
     const categories = ['SWITCH', 'ROUTER', 'SFP', 'ONT', 'CABLE', 'ACCESSORY']
     for (const cat of categories) {
-        await prisma.category.create({
-            data: {
-                name: cat,
-                updatedAt: new Date(),
-            }
-        })
+        const existingCat = await prisma.category.findFirst({ where: { name: cat } })
+        if (!existingCat) {
+            await prisma.category.create({
+                data: { name: cat, hasSN: true, updatedAt: new Date() },
+            })
+        }
     }
 
     // 5. Setup Item Types and Statuses

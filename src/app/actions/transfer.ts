@@ -1,15 +1,22 @@
 "use server";
 
 import { prisma } from "@/lib/db";
+
 import { revalidatePath } from "next/cache";
 
-type TransferPayload = {
-    sourceWarehouseId: number;
-    targetWarehouseId: number;
+// Payload untuk 1 item dalam transfer
+export type TransferItem = {
     itemId: number;
     qty: number;
-    description?: string;
     serialNumbers: string[];
+};
+
+// Payload utama transfer (bisa multiple items)
+export type TransferPayload = {
+    sourceWarehouseId: number;
+    targetWarehouseId: number;
+    items: TransferItem[];
+    description?: string;
 };
 
 export async function createTransfer(data: TransferPayload) {
@@ -18,129 +25,141 @@ export async function createTransfer(data: TransferPayload) {
             return { success: false, error: "Gudang asal dan tujuan tidak boleh sama." };
         }
 
-        if (data.qty <= 0) {
-            return { success: false, error: "Quantity transfer harus lebih dari 0." };
+        if (!data.items || data.items.length === 0) {
+            return { success: false, error: "Minimal 1 barang harus dipilih untuk transfer." };
         }
 
-        if (data.serialNumbers.length > 0 && data.serialNumbers.length !== data.qty) {
-            return { success: false, error: "Jumlah Serial Number tidak sesuai dengan Qty Transfer." };
-        }
-
-        const result = await prisma.$transaction(async (tx) => {
-            // Validate Source Warehouse Stock
-            const sourceStock = await tx.warehouseStock.findUnique({
-                where: {
-                    itemId_warehouseId: {
-                        itemId: data.itemId,
-                        warehouseId: data.sourceWarehouseId
-                    }
-                }
-            });
-
-            if (!sourceStock || sourceStock.stockNew < data.qty) {
-                // Determine actual available
-                const available = sourceStock ? sourceStock.stockNew : 0;
-                throw new Error(`Stok Unit Baru di gudang asal tidak mencukupi. Tersedia: ${available}, Diminta: ${data.qty}`);
+        for (const item of data.items) {
+            if (item.qty <= 0) {
+                return { success: false, error: `Quantity transfer harus lebih dari 0 untuk setiap barang.` };
             }
+            if (item.serialNumbers.length > 0 && item.serialNumbers.length !== item.qty) {
+                return { success: false, error: `Jumlah Serial Number tidak sesuai dengan Qty Transfer untuk item ID ${item.itemId}.` };
+            }
+        }
 
-            // 1. Create StockOut record with TRANSFER type
-            const stockOut = await tx.stockOut.create({
-                data: {
-                    warehouseId: data.sourceWarehouseId,
-                    itemId: data.itemId,
-                    qty: data.qty,
-                    outType: "TRANSFER",
-                    targetWarehouseId: data.targetWarehouseId,
-                    description: data.description,
-                }
-            });
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const result = await prisma.$transaction(async (tx: any) => {
+            const stockOutIds: number[] = [];
 
-            // 2. Process Serial Numbers if present
-            if (data.serialNumbers.length > 0) {
-                for (const snCode of data.serialNumbers) {
-                    // Find the precise SN in the Source Warehouse
-                    const existingSn = await tx.serialNumber.findUnique({
-                        where: { code: snCode }
-                    });
-
-                    if (!existingSn) {
-                        throw new Error(`Serial Number ${snCode} tidak ditemukan di sistem.`);
-                    }
-
-                    if (existingSn.warehouseId !== data.sourceWarehouseId) {
-                        throw new Error(`Serial Number ${snCode} tidak berada di gudang asal yang dipilih.`);
-                    }
-
-                    if (existingSn.statusId) {
-                        const status = await tx.itemStatus.findUnique({ where: { id: existingSn.statusId } });
-                        if (status?.name !== "In Stock") {
-                            throw new Error(`Serial Number ${snCode} tidak berstatus "In Stock". Status saat ini: ${status?.name}`);
+            for (const transferItem of data.items) {
+                // Validate Source Warehouse Stock
+                const sourceStock = await tx.warehouseStock.findUnique({
+                    where: {
+                        itemId_warehouseId: {
+                            itemId: transferItem.itemId,
+                            warehouseId: data.sourceWarehouseId
                         }
                     }
+                });
 
-                    // Update SN location to target warehouse
-                    await tx.serialNumber.update({
-                        where: { id: existingSn.id },
+                if (!sourceStock || sourceStock.stockNew < transferItem.qty) {
+                    const available = sourceStock ? sourceStock.stockNew : 0;
+                    throw new Error(`Stok Unit Baru di gudang asal tidak mencukupi untuk item ID ${transferItem.itemId}. Tersedia: ${available}, Diminta: ${transferItem.qty}`);
+                }
+
+                // 1. Create StockOut record with TRANSFER type
+                const stockOut = await tx.stockOut.create({
+                    data: {
+                        warehouseId: data.sourceWarehouseId,
+                        itemId: transferItem.itemId,
+                        qty: transferItem.qty,
+                        outType: "TRANSFER",
+                        targetWarehouseId: data.targetWarehouseId,
+                        description: data.description,
+                    }
+                });
+
+                // 2. Process Serial Numbers if present
+                if (transferItem.serialNumbers.length > 0) {
+                    for (const snCode of transferItem.serialNumbers) {
+                        const existingSn = await tx.serialNumber.findUnique({
+                            where: { code: snCode }
+                        });
+
+                        if (!existingSn) {
+                            throw new Error(`Serial Number ${snCode} tidak ditemukan di sistem.`);
+                        }
+
+                        if (existingSn.warehouseId !== data.sourceWarehouseId) {
+                            throw new Error(`Serial Number ${snCode} tidak berada di gudang asal yang dipilih.`);
+                        }
+
+                        if (existingSn.statusId) {
+                            const status = await tx.itemStatus.findUnique({ where: { id: existingSn.statusId } });
+                            if (status?.name !== "In Stock") {
+                                throw new Error(`Serial Number ${snCode} tidak berstatus "In Stock". Status saat ini: ${status?.name}`);
+                            }
+                        }
+
+                        // Update SN location to target warehouse
+                        await tx.serialNumber.update({
+                            where: { id: existingSn.id },
+                            data: {
+                                warehouseId: data.targetWarehouseId,
+                                updatedAt: new Date(),
+                            }
+                        });
+
+                        // Link to StockOut
+                        await tx.stockOutSerial.create({
+                            data: {
+                                stockOutId: stockOut.id,
+                                serialNumberId: existingSn.id,
+                                serialCode: existingSn.code
+                            }
+                        });
+                    }
+                }
+
+                // 3. Decrement source warehouse stock
+                await tx.warehouseStock.update({
+                    where: { id: sourceStock.id },
+                    data: { stockNew: { decrement: transferItem.qty }, updatedAt: new Date() }
+                });
+
+                // 4. Increment target warehouse stock
+                const targetStock = await tx.warehouseStock.findUnique({
+                    where: {
+                        itemId_warehouseId: {
+                            itemId: transferItem.itemId,
+                            warehouseId: data.targetWarehouseId
+                        }
+                    }
+                });
+
+                if (targetStock) {
+                    await tx.warehouseStock.update({
+                        where: { id: targetStock.id },
+                        data: { stockNew: { increment: transferItem.qty }, updatedAt: new Date() }
+                    });
+                } else {
+                    await tx.warehouseStock.create({
                         data: {
+                            itemId: transferItem.itemId,
                             warehouseId: data.targetWarehouseId,
+                            stockNew: transferItem.qty,
                             updatedAt: new Date(),
                         }
                     });
-
-                    // Link to StockOut
-                    await tx.stockOutSerial.create({
-                        data: {
-                            stockOutId: stockOut.id,
-                            serialNumberId: existingSn.id,
-                            serialCode: existingSn.code
-                        }
-                    });
                 }
-            }
 
-            // 3. Decrement source warehouse stock
-            await tx.warehouseStock.update({
-                where: { id: sourceStock.id },
-                data: { stockNew: { decrement: data.qty }, updatedAt: new Date() }
-            });
-
-            // 4. Increment target warehouse stock
-            const targetStock = await tx.warehouseStock.findUnique({
-                where: {
-                    itemId_warehouseId: {
-                        itemId: data.itemId,
-                        warehouseId: data.targetWarehouseId
-                    }
-                }
-            });
-
-            if (targetStock) {
-                await tx.warehouseStock.update({
-                    where: { id: targetStock.id },
-                    data: { stockNew: { increment: data.qty }, updatedAt: new Date() }
-                });
-            } else {
-                await tx.warehouseStock.create({
+                // 5. Create Transfer Record Log - field names sesuai schema
+                await tx.stockTransfer.create({
                     data: {
-                        itemId: data.itemId,
-                        warehouseId: data.targetWarehouseId,
-                        stockNew: data.qty,
+                        fromWarehouseId: data.sourceWarehouseId,
+                        toWarehouseId: data.targetWarehouseId,
+                        itemId: transferItem.itemId,
+                        qty: transferItem.qty,
+                        status: "COMPLETED",
                         updatedAt: new Date(),
                     }
                 });
+
+                stockOutIds.push(stockOut.id);
             }
 
-            // 5. Create Transfer Record Log
-            await tx.stockTransfer.create({
-                data: {
-                    stockOutId: stockOut.id,
-                    sourceWarehouseId: data.sourceWarehouseId,
-                    targetWarehouseId: data.targetWarehouseId,
-                    status: "COMPLETED", // Automatically completed for now, could be PENDING later if approval needed
-                }
-            });
-
-            return stockOut;
+            return stockOutIds;
         });
 
         revalidatePath("/transfer");

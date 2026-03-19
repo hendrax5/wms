@@ -31,8 +31,8 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
-# Install openssl for prisma at runtime and global prisma CLI
-RUN apk add --no-cache openssl && npm install -g prisma@6.19.2
+# Install openssl for prisma at runtime
+RUN apk add --no-cache openssl
 
 # Create non-root user for security
 RUN addgroup --system --gid 1001 nodejs && \
@@ -52,14 +52,21 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static    ./.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/prisma                ./prisma
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.prisma  ./node_modules/.prisma
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma  ./node_modules/@prisma
+# Copy prisma CLI + its peer dependency 'effect' (required by @prisma/config in Prisma v6+)
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/prisma   ./node_modules/prisma
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/effect   ./node_modules/effect
 
 # Copy fix scripts
 COPY --from=builder --chown=nextjs:nodejs /app/scripts ./scripts
+# Copy seed script + its runtime dependency (bcryptjs)
+COPY --from=builder --chown=nextjs:nodejs /app/prisma/seed.js  ./prisma/seed.js
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/bcryptjs ./node_modules/bcryptjs
 
-# Copy entrypoint script and fix Windows CRLF line endings
+# Copy entrypoint script
+# Fix Windows CRLF line endings in-place with sed (no extra package needed)
 COPY --chown=nextjs:nodejs entrypoint.sh ./entrypoint.sh
 USER root
-RUN chmod +x ./entrypoint.sh
+RUN sed -i 's/\r//' ./entrypoint.sh && chmod +x ./entrypoint.sh
 USER nextjs
 
 EXPOSE 3000

@@ -95,7 +95,13 @@ export default function Header() {
                     onChange={(e) => setSearchQuery(e.target.value)}
                     onKeyDown={(e) => {
                         if (e.key === "Enter" && searchQuery.trim()) {
-                            router.push(`/master/items?search=${encodeURIComponent(searchQuery.trim())}`);
+                            const q = searchQuery.trim();
+                            // Detect SN pattern: no spaces and length >= 8 (typical barcode/serial)
+                            const looksLikeSN = q.length >= 8 && !/\s/.test(q);
+                            const dest = looksLikeSN
+                                ? `/tracking?sn=${encodeURIComponent(q)}`
+                                : `/master/items?search=${encodeURIComponent(q)}`;
+                            router.push(dest);
                             setSearchQuery("");
                         }
                     }}
