@@ -370,6 +370,20 @@ export default function InboundClient() {
                                     </div>
                                 )}
 
+                                {addingItemId && (
+                                    <div className="w-32">
+                                        <label className="text-xs text-slate-500 mb-1 block">Harga/unit (Rp)</label>
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            value={addingPrice}
+                                            onChange={(e) => setAddingPrice(Number(e.target.value))}
+                                            className="w-full bg-[#0f172a] border border-[#334155] text-white rounded-lg px-3 py-2.5 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                                            placeholder="0"
+                                        />
+                                    </div>
+                                )}
+
                                 <button
                                     type="button"
                                     onClick={addItemToCart}
@@ -388,7 +402,7 @@ export default function InboundClient() {
                                             <tr>
                                                 <th className="px-4 py-3 text-left text-[10px] uppercase tracking-wider font-semibold">Barang</th>
                                                 <th className="px-4 py-3 text-center text-[10px] uppercase tracking-wider font-semibold w-20">Qty</th>
-
+                                                <th className="px-4 py-3 text-left text-[10px] uppercase tracking-wider font-semibold w-36">Harga/unit (Rp)</th>
                                                 <th className="px-4 py-3 text-center text-[10px] uppercase tracking-wider font-semibold w-16">SN</th>
                                                 <th className="px-4 py-3 text-center text-[10px] uppercase tracking-wider font-semibold w-20">Status</th>
                                                 <th className="px-2 py-3 w-10"></th>
@@ -421,6 +435,17 @@ export default function InboundClient() {
                                                                     className="w-16 bg-[#0f172a] border border-[#334155] text-white rounded px-2 py-1 text-center text-xs focus:ring-1 focus:ring-blue-500"
                                                                 />
                                                             )}
+                                                        </td>
+
+                                                        <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                                                            <input
+                                                                type="number"
+                                                                min="0"
+                                                                value={ci.price}
+                                                                onChange={(e) => updateCartItemPrice(idx, Number(e.target.value))}
+                                                                className="w-full bg-[#0f172a] border border-[#334155] text-white rounded px-2 py-1 text-xs focus:ring-1 focus:ring-blue-500"
+                                                                placeholder="0"
+                                                            />
                                                         </td>
 
                                                         <td className="px-4 py-3 text-center">
@@ -458,8 +483,8 @@ export default function InboundClient() {
                                     <div className="bg-[#020617] px-4 py-2 flex justify-between items-center text-xs border-t border-[#334155]">
                                         <span className="text-slate-500">{cartItems.length} barang</span>
                                         <div className="flex gap-4">
-
-                                            <span className="font-bold text-blue-400">Total: {totalQty} unit</span>
+                                            <span className="text-slate-400">Total: <span className="font-bold text-blue-400">{totalQty} unit</span></span>
+                                            <span className="text-slate-400">Nilai: <span className="font-bold text-emerald-400">Rp {totalPrice.toLocaleString('id-ID')}</span></span>
                                         </div>
                                     </div>
                                 </div>
