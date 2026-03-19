@@ -13,7 +13,7 @@ export async function getPops() {
         const session = await auth();
         const warehouseId = session?.user?.level === "CABANG" ? session.user.warehouseId : null;
 
-        const pops = await (prisma as any).pop.findMany({
+        const pops = await prisma.pop.findMany({
             where: warehouseId ? { warehouseId } : undefined,
             orderBy: { name: "asc" },
             include: {
@@ -139,7 +139,7 @@ export async function getPopDetails(id: number) {
         if (!pop) return { success: false, error: "POP tidak ditemukan" };
 
         // Installations (history of items installed here)
-        const installations = await (prisma as any).popInstallation.findMany({
+        const installations = await prisma.popInstallation.findMany({
             where: { popId: id },
             orderBy: { installedAt: "desc" },
             include: {
@@ -149,17 +149,17 @@ export async function getPopDetails(id: number) {
         });
 
         // Serial numbers currently at this POP
-        const serialNumbers = await (prisma as any).serialNumber.findMany({
+        const serialNumbers = await prisma.serialNumber.findMany({
             where: { popId: id },
             orderBy: { updatedAt: "desc" },
             include: {
                 item: { select: { id: true, name: true, code: true, unit: true } },
-                status: { select: { name: true } },
+                itemstatus: { select: { name: true } },
             },
         });
 
         // StockOut records targeting this POP
-        const stockOuts = await (prisma as any).stockOut.findMany({
+        const stockOuts = await prisma.stockOut.findMany({
             where: { popId: id },
             orderBy: { createdAt: "desc" },
             include: {

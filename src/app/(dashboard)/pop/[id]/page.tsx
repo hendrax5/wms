@@ -168,6 +168,7 @@ export default function PopDetailPage() {
     const router = useRouter();
     const [data, setData] = useState<any>(null);
     const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState<TabKey>("items");
     const [search, setSearch] = useState("");
     const [page, setPage] = useState(1);
@@ -183,9 +184,10 @@ export default function PopDetailPage() {
     const loadMain = useCallback(async () => {
         if (isNaN(popId)) { router.push("/pop"); return; }
         setLoading(true);
+        setLoadError(null);
         const res = await getPopDetails(popId);
         if (res.success && res.data) { setData(res.data); }
-        else { router.push("/pop"); }
+        else { setLoadError((res as any).error || "Gagal memuat data POP. Pastikan database tersambung dan jalankan 'prisma db push'."); }
         setLoading(false);
     }, [popId, router]);
 
@@ -212,6 +214,23 @@ export default function PopDetailPage() {
                     <Loader2 className="animate-spin text-purple-400 w-6 h-6" />
                 </div>
                 <p className="text-sm text-slate-500">Memuat detail POP...</p>
+            </div>
+        );
+    }
+
+    if (loadError) {
+        return (
+            <div className="flex flex-col items-center justify-center min-h-[50vh] gap-4 px-4">
+                <div className="w-12 h-12 rounded-2xl bg-red-500/10 flex items-center justify-center">
+                    <TriangleAlert className="text-red-400 w-6 h-6" />
+                </div>
+                <div className="text-center">
+                    <p className="text-sm font-semibold text-red-400 mb-1">Gagal memuat data POP</p>
+                    <p className="text-xs text-slate-500 max-w-sm">{loadError}</p>
+                </div>
+                <button onClick={() => router.push("/pop")} className="text-xs text-slate-400 hover:text-white underline transition-colors">
+                    ← Kembali ke daftar POP
+                </button>
             </div>
         );
     }
