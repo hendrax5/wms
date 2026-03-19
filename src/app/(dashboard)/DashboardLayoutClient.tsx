@@ -1,13 +1,24 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Sidebar, { SidebarContext } from "@/components/Sidebar";
 import Header from "@/components/Header";
 import MobileNav from "@/components/MobileNav";
 
+const STORAGE_KEY = "wms:sidebar-collapsed";
+
 export default function DashboardLayoutClient({ children, appConfig }: { children: React.ReactNode, appConfig?: any }) {
-    const [collapsed, setCollapsed] = useState(false);
-    const toggle = () => setCollapsed(v => !v);
+    // Initialize from localStorage to avoid layout flash
+    const [collapsed, setCollapsed] = useState(() => {
+        if (typeof window === "undefined") return false;
+        try { return localStorage.getItem(STORAGE_KEY) === "1"; } catch { return false; }
+    });
+
+    const toggle = () => setCollapsed(v => {
+        const next = !v;
+        try { localStorage.setItem(STORAGE_KEY, next ? "1" : "0"); } catch {}
+        return next;
+    });
 
     return (
         <SidebarContext.Provider value={{ collapsed, toggle }}>

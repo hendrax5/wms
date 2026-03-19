@@ -112,7 +112,7 @@ export default function InventoryMasterClient() {
     // Item Modal
     const [isItemModalOpen, setIsItemModalOpen] = useState(false);
     const [editingItem, setEditingItem] = useState<ItemData | null>(null);
-    const [itemForm, setItemForm] = useState({ code: "", name: "", categoryId: "", hasSN: true, price: 0, unit: "Pcs" });
+    const [itemForm, setItemForm] = useState({ code: "", name: "", categoryId: "", hasSN: true, unit: "Pcs" });
 
     // Category Modal
     const [isCatModalOpen, setIsCatModalOpen] = useState(false);
@@ -204,12 +204,12 @@ export default function InventoryMasterClient() {
         setErrorMsg("");
         if (item) {
             setEditingItem(item);
-            setItemForm({ code: item.code, name: item.name, categoryId: item.categoryId?.toString() || "", hasSN: item.hasSN, price: item.price || 0, unit: item.unit || "Pcs" });
+            setItemForm({ code: item.code, name: item.name, categoryId: item.categoryId?.toString() || "", hasSN: item.hasSN, unit: item.unit || "Pcs" });
         } else {
             setEditingItem(null);
             const preselectedCat = selectedCatId?.toString() || "";
             const cat = catOptions.find(c => c.id === selectedCatId);
-            setItemForm({ code: "", name: "", categoryId: preselectedCat, hasSN: cat?.hasSN ?? true, price: 0, unit: "Pcs" });
+            setItemForm({ code: "", name: "", categoryId: preselectedCat, hasSN: cat?.hasSN ?? true, unit: "Pcs" });
         }
         setIsItemModalOpen(true);
     };
@@ -225,7 +225,7 @@ export default function InventoryMasterClient() {
         setSubmitLoading(true);
         setErrorMsg("");
         try {
-            const payload = { code: itemForm.code, name: itemForm.name, categoryId: Number(itemForm.categoryId), hasSN: itemForm.hasSN, price: itemForm.price || 0, unit: itemForm.unit || "Pcs" };
+            const payload = { code: itemForm.code, name: itemForm.name, categoryId: Number(itemForm.categoryId), hasSN: itemForm.hasSN, unit: itemForm.unit || "Pcs" };
             const res = editingItem ? await updateItem(editingItem.id, payload) : await createItem(payload);
             if (res.success) { setIsItemModalOpen(false); setEditingItem(null); loadData(); }
             else { setErrorMsg(res.error || "Gagal menyimpan."); }
@@ -517,12 +517,7 @@ export default function InventoryMasterClient() {
                                                         {(item.totalFisik || 0).toLocaleString("id-ID")}
                                                     </span>
                                                 </div>
-                                                {isMaster && item.price > 0 && (
-                                                    <div className="flex-1">
-                                                        <span className="text-[10px] text-slate-500 block">Harga</span>
-                                                        <span className="font-mono font-bold text-sm leading-none text-emerald-400">Rp {item.price.toLocaleString("id-ID")}</span>
-                                                    </div>
-                                                )}
+
                                                 {item.hasSN && (
                                                     <div className="flex-1">
                                                         <span className="text-[10px] text-slate-500 block">SN#</span>
@@ -556,7 +551,7 @@ export default function InventoryMasterClient() {
                                             <tr className="border-b border-[#1E293B] text-[10px] uppercase tracking-wider text-slate-500 font-semibold">
                                                 <th className="px-3 py-2.5">Nama</th>
                                                 <th className="px-3 py-2.5 text-center">SN</th>
-                                                {isMaster && <th className="px-3 py-2.5 text-right">Harga</th>}
+
                                                 <th className="px-3 py-2.5 text-right">Stok</th>
                                                 <th className="px-3 py-2.5 text-center">Aksi</th>
                                             </tr>
@@ -571,11 +566,7 @@ export default function InventoryMasterClient() {
                                                     <td className="px-3 py-2.5 text-center">
                                                         <span className={`text-[10px] font-bold ${item.hasSN ? "text-blue-400" : "text-amber-400"}`}>{item.hasSN ? "SN" : "Non"}</span>
                                                     </td>
-                                                    {isMaster && (
-                                                        <td className="px-3 py-2.5 text-right">
-                                                            <span className={`font-mono text-xs ${item.price > 0 ? "text-emerald-400" : "text-slate-600"}`}>{item.price > 0 ? `Rp ${item.price.toLocaleString("id-ID")}` : "—"}</span>
-                                                        </td>
-                                                    )}
+
                                                     <td className={`px-3 py-2.5 text-right font-mono font-bold ${(item.totalFisik || 0) === 0 ? "text-red-400" : "text-green-400"}`}>
                                                         {(item.totalFisik || 0).toLocaleString("id-ID")}
                                                     </td>
@@ -673,13 +664,7 @@ export default function InventoryMasterClient() {
                                     </p>
                                 )}
                             </div>
-                            {isMaster && (
-                                <div>
-                                    <label className="block text-xs font-semibold text-slate-400 mb-1.5">Harga Satuan</label>
-                                    <input type="number" min="0" value={itemForm.price || ''} onChange={(e) => setItemForm({ ...itemForm, price: Number(e.target.value) })}
-                                        className="w-full bg-[#020617] border border-[#1E293B] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-green-500/50 font-mono" placeholder="Rp 0" />
-                                </div>
-                            )}
+
                             <div className="pt-4 flex gap-3">
                                 <button type="button" onClick={() => { setIsItemModalOpen(false); setErrorMsg(""); }} className="flex-1 px-4 py-2 rounded-lg bg-slate-800 text-white hover:bg-slate-700 transition-colors text-sm font-medium">Batal</button>
                                 <button type="submit" disabled={submitLoading} className="flex-1 btn btn-primary py-2 text-sm">

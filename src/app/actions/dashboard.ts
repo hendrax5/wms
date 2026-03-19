@@ -21,18 +21,25 @@ export async function getDashboardStats() {
         if (process.env.NEXT_PHASE === 'phase-production-build') {
             return {
                 success: true, data: {
-                    totalItems: 0, totalFisik: 0, totalSN: 0, trxToday: 0
+                    totalItems: 0, totalFisik: 0, totalSN: 0,
+                    trxToday: 0, trxIn: 0, trxOut: 0, trxYesterday: 0
                 }
             };
         }
 
         const warehouseId = await getBranchScope();
-        const today = {
-            gte: new Date(new Date().setHours(0, 0, 0, 0)),
-            lte: new Date(new Date().setHours(23, 59, 59, 999))
-        };
 
-        const [stocks, totalSN, stockInToday, stockOutToday] = await Promise.all([
+        const now = new Date();
+        const todayStart = new Date(now); todayStart.setHours(0, 0, 0, 0);
+        const todayEnd   = new Date(now); todayEnd.setHours(23, 59, 59, 999);
+
+        const yesterdayStart = new Date(todayStart); yesterdayStart.setDate(yesterdayStart.getDate() - 1);
+        const yesterdayEnd   = new Date(todayEnd);   yesterdayEnd.setDate(yesterdayEnd.getDate() - 1);
+
+        const today = { gte: todayStart, lte: todayEnd };
+        const yesterday = { gte: yesterdayStart, lte: yesterdayEnd };
+
+        const [stocks, totalSN, stockInToday, stockOutToday, stockInYesterday, stockOutYesterday] = await Promise.all([
             prisma.warehouseStock.findMany({
                 where: warehouseId ? { warehouseId } : undefined,
                 select: { stockNew: true, stockDismantle: true, stockDamaged: true, itemId: true }
@@ -45,18 +52,26 @@ export async function getDashboardStats() {
             }),
             prisma.stockOut.count({
                 where: { ...(warehouseId ? { warehouseId } : {}), createdAt: today }
-            })
+            }),
+            prisma.stockIn.count({
+                where: { ...(warehouseId ? { warehouseId } : {}), createdAt: yesterday }
+            }),
+            prisma.stockOut.count({
+                where: { ...(warehouseId ? { warehouseId } : {}), createdAt: yesterday }
+            }),
         ]);
 
         const totalFisik = stocks.reduce((acc, curr) => acc + curr.stockNew + curr.stockDismantle + curr.stockDamaged, 0);
-        // Count only unique items in this warehouse
         const totalItems = warehouseId
             ? new Set(stocks.map(s => s.itemId)).size
             : await prisma.item.count();
 
+        const trxToday = stockInToday + stockOutToday;
+        const trxYesterday = stockInYesterday + stockOutYesterday;
+
         return {
             success: true,
-            data: { totalItems, totalFisik, totalSN, trxToday: stockInToday + stockOutToday }
+            data: { totalItems, totalFisik, totalSN, trxToday, trxIn: stockInToday, trxOut: stockOutToday, trxYesterday }
         };
     } catch (error) {
         console.error("DASHBOARD STATS ERROR", error);
@@ -101,34 +116,50 @@ export async function getRecentTransactions() {
 
         const warehouseId = await getBranchScope();
 
-        const [ins, outs] = await Promise.all([
+        const [ins, outsRaw] = await Promise.all([
             prisma.stockIn.findMany({
                 where: warehouseId ? { warehouseId } : undefined,
-                take: 5,
+                take: 6,
                 orderBy: { createdAt: 'desc' },
                 include: { item: true, warehouse: true }
             }),
             prisma.stockOut.findMany({
                 where: warehouseId ? { warehouseId } : undefined,
-                take: 5,
+                take: 6,
                 orderBy: { createdAt: 'desc' },
-                include: { item: true, warehouse: true }
+                select: { id: true, createdAt: true, itemId: true, qty: true, warehouseId: true, location: true }
             })
         ]);
 
+        // StockOut has no direct relations — resolve item names separately
+        const outItemIds = [...new Set(outsRaw.map(o => o.itemId))];
+        const outWarehouseIds = [...new Set(outsRaw.map(o => o.warehouseId))];
+        const [outItems, outWarehouses] = await Promise.all([
+            prisma.item.findMany({ where: { id: { in: outItemIds } }, select: { id: true, name: true } }),
+            prisma.warehouse.findMany({ where: { id: { in: outWarehouseIds } }, select: { id: true, name: true } }),
+        ]);
+        const itemMap = Object.fromEntries(outItems.map(i => [i.id, i.name]));
+        const whMap = Object.fromEntries(outWarehouses.map(w => [w.id, w.name]));
+
+        const outs = outsRaw.map(o => ({
+            id: `out-${o.id}`,
+            type: 'OUT' as const,
+            date: o.createdAt,
+            itemName: itemMap[o.itemId] ?? 'Unknown',
+            qty: o.qty,
+            location: whMap[o.warehouseId] ?? (o.location ?? '-'),
+        }));
+
         const combined = [
             ...ins.map(i => ({
-                id: `in-${i.id}`, type: 'IN', date: i.createdAt,
+                id: `in-${i.id}`, type: 'IN' as const, date: i.createdAt,
                 itemName: i.item.name, qty: i.qty, location: i.warehouse.name
             })),
-            ...outs.map(o => ({
-                id: `out-${o.id}`, type: 'OUT', date: o.createdAt,
-                itemName: o.item.name, qty: o.qty, location: o.warehouse.name
-            }))
+            ...outs
         ];
 
         combined.sort((a, b) => b.date.getTime() - a.date.getTime());
-        return { success: true, data: combined.slice(0, 10) };
+        return { success: true, data: combined.slice(0, 12) };
     } catch (error) {
         return { success: false, error: "Gagal memuat aktivitas terbaru" };
     }
