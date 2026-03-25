@@ -42,7 +42,7 @@ Sistem manajemen gudang dan aset terpadu untuk operasional multi-lokasi. Dibangu
 ### ⚡ Zero Config — Deploy Langsung
 
 ```bash
-git clone https://github.com/USERNAME/REPO.git wms
+git clone https://github.com/hendrax5/wms.git
 cd wms
 docker compose up -d --build
 ```
@@ -57,10 +57,10 @@ Selesai. Tidak ada konfigurasi tambahan.
 
 ```bash
 # curl:
-bash <(curl -fsSL https://raw.githubusercontent.com/USERNAME/REPO/main/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/hendrax5/wms/main/install.sh)
 
 # wget:
-bash <(wget -qO- https://raw.githubusercontent.com/USERNAME/REPO/main/install.sh)
+bash <(wget -qO- https://raw.githubusercontent.com/hendrax5/wms/main/install.sh)
 ```
 
 Script `install.sh` otomatis menangani:
@@ -92,23 +92,69 @@ chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
 
 ---
 
-## Development Lokal
+## Panduan Lengkap Instalasi & Deployment Lokal (Dari Awal)
+
+Ikuti langkah-langkah di bawah ini untuk menginstal dan menjalankan aplikasi WMS-2026 di lingkungan lokal Anda secara lengkap dari awal (from scratch).
+
+### 1. Prasyarat Sistem
+Pastikan sistem operasi Anda sudah menginstal:
+- **Node.js** (Disarankan versi 18.x atau yang lebih baru)
+- **MySQL Server** (Berjalan secara lokal, misal di port 3306)
+- **Git**
+
+### 2. Kloning Repositori & Masuk Folder
+```bash
+git clone https://github.com/hendrax5/wms.git
+cd wms
+```
+
+### 3. Install NPM Dependencies
+Unduh semua pustaka yang dibutuhkan oleh Next.js:
+```bash
+npm install
+```
+
+### 4. Konfigurasi Environment Variables (`.env`)
+WMS-2026 membutuhkan konfigurasi `.env` untuk bisa bekerja. Buat file baru bernama `.env` di *root* (folder utama) proyek, lalu isi dengan konfigurasi berikut ini:
+
+```env
+# URL Koneksi Database MySQL 
+# Format: mysql://USER:PASSWORD@HOST:PORT/NAMA_DATABASE
+# Ubah '!Tahun2026' menjadi password MySQL root Anda.
+DATABASE_URL="mysql://root:!Tahun2026@localhost:3306/wms_2026"
+
+# Konfigurasi NextAuth (Wajib untuk fungsi Login)
+NEXTAUTH_URL="http://localhost:3000"
+NEXTAUTH_SECRET="kunci-rahasia-wms-2026-super-aman"
+```
+
+### 5. Inisialisasi Database dengan Prisma
+Langkah ini penting untuk membuat skema tabel ke dalam MySQL:
 
 ```bash
-# Install dependencies
-npm install
+# Sinkronisasi schema.prisma ke database (membuat otomatis tabel jika belum ada)
+npx prisma db push
 
-# Setup database (pastikan MySQL berjalan)
-cp .env.example .env
-# Edit .env — isi DATABASE_URL
-
-# Generate Prisma client & migrate
+# Generate Prisma Client untuk integrasi dengan kode TypeScript
 npx prisma generate
-npx prisma migrate dev
+```
 
-# Jalankan dev server
+### 6. Impor Data Awal / Seeding (Opsional namun disarankan)
+Agar aplikasi tidak benar-benar kosong dan bisa dipakai login, Anda bisa melakukan import dari backup SQL (*database dump*) yang sudah disertakan di repositori proyek, yaitu file `wms_2026.sql`.
+
+```bash
+# Gunakan perintah ini memakai CLI MySQL, pastikan memasukkan password saat diminta
+mysql -u root -p wms_2026 < wms_2026.sql
+```
+
+### 7. Menjalankan Server Development Lokal
+Semua konfigurasi selesai, sekarang jalankan aplikasi:
+```bash
 npm run dev
 ```
+
+Server lokal akan mulai, buka browser dan akses aplikasi melalui URL:
+**[http://localhost:3000](http://localhost:3000)**
 
 ---
 
