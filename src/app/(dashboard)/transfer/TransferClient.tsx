@@ -353,8 +353,8 @@ export default function TransferClient() {
                             <div className="p-5 grid grid-cols-1 lg:grid-cols-[1fr_200px] gap-6">
                                 {/* Left: Item + Qty */}
                                 <div className="space-y-4">
-                                    <div className="grid grid-cols-1 sm:grid-cols-[1fr_140px] gap-4">
-                                        <div className="space-y-2">
+                                    <div className="flex gap-4 items-end flex-wrap">
+                                        <div className="flex-1 min-w-[200px] space-y-2">
                                             <label className="text-xs font-medium text-slate-400">Pilih Barang <span className="text-red-400">*</span></label>
                                             <SearchableSelect
                                                 options={items.map(i => ({ value: i.id.toString(), label: `${i.code} – ${i.name}` }))}
@@ -365,7 +365,7 @@ export default function TransferClient() {
                                                 icon={<Package size={12} />}
                                             />
                                         </div>
-                                        <div className="space-y-2">
+                                        <div className="w-24 space-y-2">
                                             <label className="text-xs font-medium text-slate-400">Quantity <span className="text-red-400">*</span></label>
                                             <input
                                                 type="number"
