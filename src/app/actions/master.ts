@@ -446,17 +446,35 @@ export async function getWarehouseList() {
         if (process.env.NEXT_PHASE === 'phase-production-build') {
             return { success: true, data: [] };
         }
-        const warehouseId = await getBranchScope();
+        
+        const session = await auth();
+        if (!session?.user) return { success: false, error: "Unauthorized" };
+
+        let accessibleIds: number[] | undefined = undefined;
+        
+        if (session.user.level !== "MASTER") {
+            const dbUser = await (prisma as any).user.findUnique({
+                where: { email: session.user.email },
+                include: { accessibleWarehouses: true }
+            });
+            
+            if (dbUser) {
+                const multiIds = dbUser.accessibleWarehouses?.map((w: any) => w.id) || [];
+                accessibleIds = Array.from(new Set([dbUser.warehouseId, ...multiIds].filter(Boolean))) as number[];
+            } else {
+                return { success: false, error: "User not found" };
+            }
+        }
 
         const warehouses = await prisma.warehouse.findMany({
-            where: warehouseId ? { id: warehouseId } : undefined,
+            where: accessibleIds ? { id: { in: accessibleIds } } : undefined,
             orderBy: { name: 'asc' }
         });
 
         // Count total stock (new + dismantle + damaged) per warehouse
         const rawStocks = await (prisma as any).warehouseStock.findMany({
-            where: warehouseId ? { warehouseId } : undefined,
-            select: { warehouseId: true, stockNew: true, stockDamaged: true, stockDismantle: true, minStock: true, itemId: true }
+            where: accessibleIds ? { warehouseId: { in: accessibleIds } } : undefined,
+            select: { warehouseId: true, stockNew: true, stockDamaged: true, stockDismantle: true }
         });
 
         const stockMap: Record<number, number> = {};
