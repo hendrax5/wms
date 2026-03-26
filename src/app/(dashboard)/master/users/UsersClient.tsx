@@ -252,6 +252,14 @@ export default function UsersClient({ initialUsers, warehouses }: { initialUsers
                                             </div>
                                             {user.level === "MASTER" ? (
                                                 <p className="text-[10px] text-green-400 font-medium">Global Access</p>
+                                            ) : user.accessibleWarehouses && user.accessibleWarehouses.length > 0 ? (
+                                                <div className="flex flex-wrap gap-1 mt-1">
+                                                    {user.accessibleWarehouses.map((w: any) => (
+                                                        <span key={w.id} className="text-[9px] text-amber-400 bg-amber-400/10 border border-amber-400/20 px-1.5 py-0.5 rounded flex items-center gap-1">
+                                                            <Building2 size={8} /> {w.name}
+                                                        </span>
+                                                    ))}
+                                                </div>
                                             ) : user.warehouse ? (
                                                 <p className="text-[10px] text-amber-400 flex items-center gap-1"><Building2 size={9} /> {user.warehouse.name}</p>
                                             ) : (
