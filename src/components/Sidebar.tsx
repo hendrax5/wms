@@ -39,9 +39,15 @@ const assetLinks = [
     { href: "/dashboard/technician/return", label: "Return Aset", icon: RotateCcw },
 ];
 
+import { useSession } from "next-auth/react";
+
 export default function Sidebar({ appConfig }: { appConfig?: any }) {
     const pathname = usePathname();
     const { collapsed, toggle } = useSidebar();
+    const { data: session } = useSession();
+
+    const userLevel = (session?.user as any)?.level || "";
+    const canSeeMaster = userLevel === "MASTER" || userLevel === "SPV";
 
     return (
         <aside className={`bg-[#020617] border-r border-[#1E293B] hidden md:flex flex-col h-full shrink-0 transition-all duration-300 ease-in-out ${collapsed ? "w-[68px]" : "w-60"}`}>
@@ -65,7 +71,7 @@ export default function Sidebar({ appConfig }: { appConfig?: any }) {
             {/* Navigation */}
             <nav className="flex-1 overflow-y-auto py-4 px-2 flex flex-col gap-0.5">
                 {!collapsed && <p className="text-[10px] font-semibold text-slate-600 uppercase tracking-widest px-3 mb-2">Menu</p>}
-                {links.map((link) => {
+                {links.filter(l => l.href !== "/master" || canSeeMaster).map((link) => {
                     const isActive = pathname === link.href || (link.href !== "/" && pathname.startsWith(link.href));
                     return (
                         <Link

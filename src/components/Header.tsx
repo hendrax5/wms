@@ -1,6 +1,6 @@
 "use client";
 
-import { Bell, Search, ChevronRight, AlertTriangle, PackageMinus, Cpu, X, ExternalLink, Users, Settings, LogOut } from "lucide-react";
+import { Bell, Search, ChevronRight, AlertTriangle, PackageMinus, Cpu, X, ExternalLink, Users, Settings, LogOut, ChevronDown, Check, Building } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import { useState, useEffect, useRef } from "react";
@@ -43,8 +43,19 @@ export default function Header() {
     const pathname = usePathname();
     const { data: session } = useSession();
     const [showDropdown, setShowDropdown] = useState(false);
+    const [showBranchDropdown, setShowBranchDropdown] = useState(false);
     const [showNotifications, setShowNotifications] = useState(false);
     const [notifications, setNotifications] = useState<Notification[]>([]);
+
+    const accessibleWarehouses = (session?.user as any)?.accessibleWarehouses || [];
+    const activeWarehouseId = (session?.user as any)?.warehouseId;
+    const activeWarehouseName = accessibleWarehouses.find((w: any) => w.id === activeWarehouseId)?.name || "Pusat";
+
+    const handleBranchSwitch = (id: number) => {
+        document.cookie = `active_warehouse_id=${id}; path=/; max-age=86400`;
+        setShowBranchDropdown(false);
+        router.refresh();
+    };
     const [criticalCount, setCriticalCount] = useState(0);
     const bellRef = useRef<HTMLDivElement>(null);
     const [searchQuery, setSearchQuery] = useState("");
@@ -188,6 +199,45 @@ export default function Header() {
                         </>
                     )}
                 </div>
+
+                {/* Branch Switcher */}
+                {accessibleWarehouses.length > 0 && (
+                    <div className="relative hidden sm:block">
+                        <button
+                            onClick={() => setShowBranchDropdown(prev => !prev)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border/50 bg-surface/50 hover:bg-surface hover:border-border transition-all cursor-pointer"
+                        >
+                            <Building size={14} className="text-blue-400" />
+                            <span className="text-xs font-semibold text-slate-300 max-w-[120px] truncate">
+                                {activeWarehouseName}
+                            </span>
+                            <ChevronDown size={14} className="text-slate-500 ml-1" />
+                        </button>
+
+                        {showBranchDropdown && (
+                            <>
+                                <div className="fixed inset-0 z-40" onClick={() => setShowBranchDropdown(false)} />
+                                <div className="absolute right-0 mt-2 w-56 glass-card border border-border py-1.5 z-50 shadow-2xl rounded-xl overflow-hidden">
+                                    <div className="px-3 py-2 border-b border-border/50 mb-1">
+                                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Switch Branch Context</p>
+                                    </div>
+                                    <div className="max-h-60 overflow-y-auto custom-scrollbar">
+                                        {accessibleWarehouses.map((w: any) => (
+                                            <button
+                                                key={w.id}
+                                                onClick={() => handleBranchSwitch(w.id)}
+                                                className={`w-full text-left flex items-center justify-between px-3 py-2.5 text-xs transition-colors hover:bg-white/5 ${activeWarehouseId === w.id ? 'bg-blue-500/10 text-blue-400 font-semibold' : 'text-slate-300'}`}
+                                            >
+                                                <span className="truncate pr-2">{w.name}</span>
+                                                {activeWarehouseId === w.id && <Check size={14} className="text-blue-500 shrink-0" />}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            </>
+                        )}
+                    </div>
+                )}
 
                 {/* User Avatar + Dropdown */}
                 <div className="relative">

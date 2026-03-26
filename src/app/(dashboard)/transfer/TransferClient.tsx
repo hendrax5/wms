@@ -353,19 +353,21 @@ export default function TransferClient() {
                             <div className="p-5 grid grid-cols-1 lg:grid-cols-[1fr_200px] gap-6">
                                 {/* Left: Item + Qty */}
                                 <div className="space-y-4">
-                                    <div className="flex gap-4 items-end flex-wrap">
-                                        <div className="flex-1 min-w-[200px] space-y-2">
+                                    <div className="grid grid-cols-1 sm:grid-cols-[1fr_100px] gap-4 items-start">
+                                        <div className="space-y-2">
                                             <label className="text-xs font-medium text-slate-400">Pilih Barang <span className="text-red-400">*</span></label>
-                                            <SearchableSelect
-                                                options={items.map(i => ({ value: i.id.toString(), label: `${i.code} – ${i.name}` }))}
-                                                value={line.itemId}
-                                                onChange={val => handleItemChange(line.uid, val)}
-                                                placeholder="Ketik kode atau nama..."
-                                                accentColor="blue"
-                                                icon={<Package size={12} />}
-                                            />
+                                            <div className="w-full">
+                                                <SearchableSelect
+                                                    options={items.map(i => ({ value: i.id.toString(), label: `${i.code} – ${i.name}` }))}
+                                                    value={line.itemId}
+                                                    onChange={val => handleItemChange(line.uid, val)}
+                                                    placeholder="Ketik kode atau nama..."
+                                                    accentColor="blue"
+                                                    icon={<Package size={12} />}
+                                                />
+                                            </div>
                                         </div>
-                                        <div className="w-24 space-y-2">
+                                        <div className="space-y-2">
                                             <label className="text-xs font-medium text-slate-400">Quantity <span className="text-red-400">*</span></label>
                                             <input
                                                 type="number"
@@ -373,9 +375,9 @@ export default function TransferClient() {
                                                 value={line.qty}
                                                 onChange={e => updateLine(line.uid, { qty: Number(e.target.value) })}
                                                 readOnly={requiresSN}
-                                                className={`w-full bg-[#0f172a] border border-[#334155] text-white rounded-lg px-3 py-2.5 text-sm focus:ring-1 focus:ring-blue-500 transition-all duration-300 ${requiresSN ? "opacity-50 cursor-not-allowed" : ""}`}
+                                                className={`w-full bg-[#0f172a] border border-[#334155] text-white rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-blue-500 transition-all duration-300 ${requiresSN ? "opacity-50 cursor-not-allowed" : ""}`}
                                             />
-                                            {requiresSN && <p className="text-[10px] text-slate-500">Qty mengikuti scan SN</p>}
+                                            {requiresSN && <p className="text-[10px] text-slate-500 leading-tight">Ikuti scan SN</p>}
                                         </div>
                                     </div>
 

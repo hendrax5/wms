@@ -444,6 +444,7 @@ model User {
   updatedAt                DateTime
   area                     Area[]
   warehouse                Warehouse?            @relation(fields: [warehouseId], references: [id], map: "User_warehouseId_fkey")
+  accessibleWarehouses     Warehouse[]           @relation("UserAccessWarehouses")
   stockadjustment_created  StockAdjustment[]     @relation("adjustment_createdBy")
   stockadjustment_approved StockAdjustment[]     @relation("adjustment_approvedBy")
   stockopname              StockOpname[]         @relation("opname_pic")
@@ -474,6 +475,7 @@ model Warehouse {
   stocktransfer_stocktransfer_fromWarehouseIdTowarehouse StockTransfer[]   @relation("stocktransfer_fromWarehouseIdTowarehouse")
   stocktransfer_stocktransfer_toWarehouseIdTowarehouse   StockTransfer[]   @relation("stocktransfer_toWarehouseIdTowarehouse")
   user                                                   User[]
+  accessibleByUsers                                      User[]            @relation("UserAccessWarehouses")
   area                                                   Area?             @relation(fields: [areaId], references: [id], map: "Warehouse_areaId_fkey")
   warehousestock                                         WarehouseStock[]
   rack                                                   Rack[]

@@ -17,6 +17,7 @@ type User = {
     phone: string | null;
     warehouseId: number | null;
     warehouse: { id: number; name: string } | null;
+    accessibleWarehouses?: { id: number; name: string }[];
     isActive: boolean;
 };
 
@@ -30,12 +31,13 @@ type FormState = {
     jabatan: string;
     phone: string;
     warehouseId: string;
+    accessibleWarehouses: number[];
     isActive: boolean;
 };
 
 const emptyForm: FormState = {
     name: "", username: "", password: "", level: "STAFF",
-    jabatan: "", phone: "", warehouseId: "", isActive: true,
+    jabatan: "", phone: "", warehouseId: "", accessibleWarehouses: [], isActive: true,
 };
 
 type AlertMsg = { type: "success" | "error"; text: string } | null;
@@ -102,6 +104,7 @@ export default function UsersClient({ initialUsers, warehouses }: { initialUsers
                 name: user.name, username: user.username, password: "",
                 level: user.level, jabatan: user.jabatan || "",
                 phone: user.phone || "", warehouseId: user.warehouseId?.toString() || "",
+                accessibleWarehouses: user.accessibleWarehouses?.map(w => w.id) || [],
                 isActive: user.isActive,
             });
             setEditingUser(user);
@@ -122,6 +125,16 @@ export default function UsersClient({ initialUsers, warehouses }: { initialUsers
     const setField = (key: keyof FormState, value: any) => {
         setForm(prev => ({ ...prev, [key]: value }));
         setErrors(prev => ({ ...prev, [key]: undefined }));
+    };
+
+    const toggleAccessibleWarehouse = (id: number) => {
+        setForm(prev => {
+            const current = prev.accessibleWarehouses || [];
+            if (current.includes(id)) {
+                return { ...prev, accessibleWarehouses: current.filter(wId => wId !== id) };
+            }
+            return { ...prev, accessibleWarehouses: [...current, id] };
+        });
     };
 
     const validate = (): boolean => {
@@ -146,6 +159,7 @@ export default function UsersClient({ initialUsers, warehouses }: { initialUsers
         formData.append("jabatan", form.jabatan);
         formData.append("phone", form.phone);
         formData.append("warehouseId", form.warehouseId);
+        form.accessibleWarehouses.forEach(id => formData.append("accessibleWarehouses", id.toString()));
         if (form.isActive) formData.append("isActive", "on");
         const res = editingUser ? await updateUser(editingUser.id, formData) : await createUser(formData);
         if (res.success) {
@@ -367,11 +381,36 @@ export default function UsersClient({ initialUsers, warehouses }: { initialUsers
                                     </select>
                                 </div>
                                 <div className="space-y-1.5">
-                                    <label className="text-[11px] font-medium text-slate-400 uppercase tracking-wider">Akses Cabang</label>
+                                    <label className="text-[11px] font-medium text-slate-400 uppercase tracking-wider">Cabang Utama (Primary)</label>
                                     <select className="w-full bg-[#020617] border border-[#1E293B] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-purple-500/50 transition-all" value={form.warehouseId} onChange={e => setField("warehouseId", e.target.value)}>
                                         <option value="">Global (Semua)</option>
                                         {warehouses.map(w => (<option key={w.id} value={w.id}>{w.name}</option>))}
                                     </select>
+                                </div>
+                            </div>
+
+                            {/* Additional Accessible Branches */}
+                            <div className="space-y-2 pt-1 border-t border-[#1E293B]/50 mt-2">
+                                <label className="text-[11px] font-medium text-slate-400 uppercase tracking-wider">Akses Multi-Cabang (Opsional)</label>
+                                <p className="text-[10px] text-slate-500 leading-tight">Pilih cabang tambahan yang dapat diakses oleh user ini. Digunakan untuk fitur Switch Context.</p>
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-2 max-h-40 overflow-y-auto custom-scrollbar pr-1">
+                                    {warehouses.map(w => (
+                                        <label key={w.id} className={`flex items-start gap-2 p-2.5 rounded-lg border cursor-pointer transition-all ${
+                                            form.accessibleWarehouses?.includes(w.id) 
+                                            ? 'bg-blue-500/10 border-blue-500/30 text-blue-400' 
+                                            : 'bg-[#020617] border-[#1E293B] text-slate-300 hover:border-slate-700 hover:bg-white/5'
+                                        }`}>
+                                            <div className="flex items-center h-4">
+                                                <input 
+                                                    type="checkbox" 
+                                                    checked={form.accessibleWarehouses?.includes(w.id) || false}
+                                                    onChange={() => toggleAccessibleWarehouse(w.id)}
+                                                    className="w-3.5 h-3.5 bg-[#0F172A] border-[#1E293B] rounded focus:ring-blue-500 focus:ring-offset-[#020617] text-blue-500 transition-colors cursor-pointer" 
+                                                />
+                                            </div>
+                                            <span className="text-[11px] font-medium truncate leading-tight mt-[1px]" title={w.name}>{w.name}</span>
+                                        </label>
+                                    ))}
                                 </div>
                             </div>
 

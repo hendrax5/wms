@@ -13,7 +13,10 @@ export async function getUsers() {
         const users = await prisma.user.findMany({
             orderBy: { name: "asc" },
             include: {
-                warehouse: true
+                warehouse: true,
+                accessibleWarehouses: {
+                    select: { id: true, name: true }
+                }
             }
         });
 
@@ -38,6 +41,7 @@ export async function createUser(formData: FormData) {
     const phone = formData.get("phone") as string;
     const warehouseId = formData.get("warehouseId") ? Number(formData.get("warehouseId")) : null;
     const isActive = formData.get("isActive") === "on";
+    const accessibleWarehouseIds = formData.getAll("accessibleWarehouses").map(id => Number(id)).filter(id => id > 0);
 
     if (!name || !username || !password) {
         return { success: false, error: "Username, Nama dan Password wajib diisi" };
@@ -62,6 +66,9 @@ export async function createUser(formData: FormData) {
                 phone: phone || null,
                 warehouseId,
                 isActive,
+                accessibleWarehouses: {
+                    connect: accessibleWarehouseIds.map(id => ({ id }))
+                },
                 updatedAt: new Date()
             },
         });
@@ -83,6 +90,7 @@ export async function updateUser(id: number, formData: FormData) {
     const phone = formData.get("phone") as string;
     const warehouseId = formData.get("warehouseId") ? Number(formData.get("warehouseId")) : null;
     const isActive = formData.get("isActive") === "on";
+    const accessibleWarehouseIds = formData.getAll("accessibleWarehouses").map(id => Number(id)).filter(id => id > 0);
 
     if (!name || !username) {
         return { success: false, error: "Username dan Nama wajib diisi" };
@@ -103,6 +111,9 @@ export async function updateUser(id: number, formData: FormData) {
             phone: phone || null,
             warehouseId,
             isActive,
+            accessibleWarehouses: {
+                set: accessibleWarehouseIds.map(id => ({ id }))
+            },
             updatedAt: new Date()
         };
 

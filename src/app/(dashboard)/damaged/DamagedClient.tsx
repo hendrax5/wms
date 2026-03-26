@@ -7,6 +7,7 @@ import { checkSerialInWarehouse } from "@/app/actions/transfer"; // Reusing vali
 import { getItems } from "@/app/actions/item";
 import { getWarehousesForSelect } from "@/app/actions/pop";
 import { useRouter } from "next/navigation";
+import SearchableSelect from "@/components/SearchableSelect";
 
 export default function DamagedClient() {
     const router = useRouter();
@@ -177,38 +178,32 @@ export default function DamagedClient() {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                             <div className="space-y-2">
                                 <label className="text-sm font-medium text-slate-300">Lokasi Gudang Barang <span className="text-red-400">*</span></label>
-                                <select
+                                <SearchableSelect
+                                    options={warehouses.map(w => ({ value: w.id.toString(), label: w.name, subLabel: w.type }))}
                                     value={warehouseId}
-                                    onChange={(e) => {
-                                        setWarehouseId(e.target.value);
+                                    onChange={(val) => {
+                                        setWarehouseId(val);
                                         setSerialNumbers([]);
                                     }}
-                                    className="w-full bg-[#0f172a] border border-[#334155] text-white rounded-lg px-4 py-2.5 focus:ring-1 focus:ring-red-500 focus:border-red-500"
+                                    placeholder="Pilih Gudang..."
                                     required
-                                >
-                                    <option value="" disabled>Pilih Gudang...</option>
-                                    {warehouses.map(w => (
-                                        <option key={w.id} value={w.id.toString()}>{w.name}</option>
-                                    ))}
-                                </select>
+                                    accentColor="red"
+                                />
                             </div>
 
                             <div className="space-y-2">
                                 <label className="text-sm font-medium text-slate-300">Pilih Barang <span className="text-red-400">*</span></label>
-                                <select
+                                <SearchableSelect
+                                    options={items.map(i => ({ value: i.id.toString(), label: `${i.code} - ${i.name}` }))}
                                     value={selectedItemId}
-                                    onChange={(e) => {
-                                        setSelectedItemId(e.target.value);
+                                    onChange={(val) => {
+                                        setSelectedItemId(val);
                                         setSerialNumbers([]);
                                     }}
-                                    className="w-full bg-[#0f172a] border border-[#334155] text-white rounded-lg px-4 py-2.5 focus:ring-1 focus:ring-red-500 focus:border-red-500"
+                                    placeholder="Pilih Barang..."
                                     required
-                                >
-                                    <option value="" disabled>Pilih Barang...</option>
-                                    {items.map(i => (
-                                        <option key={i.id} value={i.id.toString()}>{i.code} - {i.name}</option>
-                                    ))}
-                                </select>
+                                    accentColor="red"
+                                />
                             </div>
                         </div>
 

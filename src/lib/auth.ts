@@ -9,7 +9,9 @@ declare module "next-auth" {
             username: string;
             level: string;
             warehouseId: number | null;
+            primaryWarehouseId?: number | null;
             jabatan: string | null;
+            accessibleWarehouses?: { id: number; name: string }[];
         } & DefaultSession["user"];
     }
 
@@ -84,18 +86,46 @@ export const authOptions = {
         },
         async session({ session, token }: { session: any, token: any }) {
             if (token && session.user) {
-                // Always re-fetch from DB to get the latest warehouseId and level
                 try {
                     const { prisma } = await import("@/lib/db");
+                    const { cookies } = await import("next/headers");
+                    
                     const freshUser = await prisma.user.findUnique({
                         where: { id: Number(token.id) },
-                        select: { id: true, username: true, level: true, warehouseId: true, jabatan: true, isActive: true }
+                        select: {
+                            id: true,
+                            username: true,
+                            level: true,
+                            warehouseId: true,
+                            jabatan: true,
+                            isActive: true,
+                            accessibleWarehouses: { select: { id: true, name: true } }
+                        }
                     });
+
                     if (freshUser && freshUser.isActive) {
+                        const accessibleWarehouseIds = freshUser.accessibleWarehouses.map((w: any) => w.id);
+                        let finalWarehouseId = freshUser.warehouseId;
+
+                        try {
+                            const cookieStore = cookies();
+                            const activeCookie = cookieStore.get('active_warehouse_id');
+                            if (activeCookie && activeCookie.value) {
+                                const activeId = Number(activeCookie.value);
+                                if (activeId === freshUser.warehouseId || accessibleWarehouseIds.includes(activeId)) {
+                                    finalWarehouseId = activeId;
+                                }
+                            }
+                        } catch (cookieErr) {
+                            // Suppress cookie errors if called outside of render context
+                        }
+
                         session.user.id = freshUser.id.toString();
                         session.user.username = freshUser.username;
                         session.user.level = freshUser.level;
-                        session.user.warehouseId = freshUser.warehouseId;
+                        session.user.warehouseId = finalWarehouseId; // Context overridden
+                        session.user.primaryWarehouseId = freshUser.warehouseId;
+                        session.user.accessibleWarehouses = freshUser.accessibleWarehouses;
                         session.user.jabatan = freshUser.jabatan;
                     }
                 } catch {
