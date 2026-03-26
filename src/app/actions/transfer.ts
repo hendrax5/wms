@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/db";
 
 import { revalidatePath } from "next/cache";
+import { getBranchScope } from "@/app/actions/master";
 
 // Payload untuk 1 item dalam transfer
 export type TransferItem = {
@@ -27,6 +28,11 @@ export async function createTransfer(data: TransferPayload) {
 
         if (!data.items || data.items.length === 0) {
             return { success: false, error: "Minimal 1 barang harus dipilih untuk transfer." };
+        }
+
+        const scope = await getBranchScope();
+        if (scope !== null && !scope.includes(data.sourceWarehouseId)) {
+            return { success: false, error: "Akses ditolak: Anda tidak memiliki akses ke gudang asal ini." };
         }
 
         for (const item of data.items) {

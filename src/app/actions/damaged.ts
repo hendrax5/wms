@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
+import { getBranchScope } from "@/app/actions/master";
 
 type DamagedPayload = {
     warehouseId: number;
@@ -19,6 +20,11 @@ export async function createDamagedReport(data: DamagedPayload) {
 
         if (data.serialNumbers.length > 0 && data.serialNumbers.length !== data.qty) {
             return { success: false, error: "Jumlah Serial Number tidak sesuai dengan Qty." };
+        }
+
+        const scope = await getBranchScope();
+        if (scope !== null && !scope.includes(data.warehouseId)) {
+            return { success: false, error: "Akses ditolak: Anda tidak memiliki akses ke gudang ini." };
         }
 
         // Determine Status ID for Rusak

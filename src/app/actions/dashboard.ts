@@ -4,15 +4,21 @@ import { prisma } from "@/lib/db";
 import { unstable_noStore as noStore } from "next/cache";
 import { auth } from "@/lib/auth";
 
-// Returns warehouseId if user should be scoped to a branch, null if global access
-async function getBranchScope(): Promise<number | null> {
+// Returns array of accessible warehouseIds if user is scoped, null if global access (MASTER)
+async function getBranchScope(): Promise<number[] | null> {
     const session = await auth();
     if (!session?.user) return null;
-    const level = session.user.level;
-    // MASTER always sees everything
-    if (level === "MASTER") return null;
-    // Any other role with a warehouseId is scoped to that branch
-    return session.user.warehouseId ?? null;
+    if (session.user.level === "MASTER") return null;  // MASTER sees all
+    
+    const ids = new Set<number>();
+    if (session.user.warehouseId) ids.add(session.user.warehouseId);
+    
+    const accessible = (session.user as any).accessibleWarehouses;
+    if (Array.isArray(accessible)) {
+        accessible.forEach((w: any) => ids.add(w.id));
+    }
+    
+    return Array.from(ids);
 }
 
 export async function getDashboardStats() {
@@ -27,7 +33,7 @@ export async function getDashboardStats() {
             };
         }
 
-        const warehouseId = await getBranchScope();
+        const warehouseIds = await getBranchScope();
 
         const now = new Date();
         const todayStart = new Date(now); todayStart.setHours(0, 0, 0, 0);
@@ -41,28 +47,28 @@ export async function getDashboardStats() {
 
         const [stocks, totalSN, stockInToday, stockOutToday, stockInYesterday, stockOutYesterday] = await Promise.all([
             prisma.warehouseStock.findMany({
-                where: warehouseId ? { warehouseId } : undefined,
+                where: warehouseIds ? { warehouseId: { in: warehouseIds } } : undefined,
                 select: { stockNew: true, stockDismantle: true, stockDamaged: true, itemId: true }
             }),
             prisma.serialNumber.count({
-                where: warehouseId ? { warehouseId } : undefined,
+                where: warehouseIds ? { warehouseId: { in: warehouseIds } } : undefined,
             }),
             prisma.stockIn.count({
-                where: { ...(warehouseId ? { warehouseId } : {}), createdAt: today }
+                where: { ...(warehouseIds ? { warehouseId: { in: warehouseIds } } : {}), createdAt: today }
             }),
             prisma.stockOut.count({
-                where: { ...(warehouseId ? { warehouseId } : {}), createdAt: today }
+                where: { ...(warehouseIds ? { warehouseId: { in: warehouseIds } } : {}), createdAt: today }
             }),
             prisma.stockIn.count({
-                where: { ...(warehouseId ? { warehouseId } : {}), createdAt: yesterday }
+                where: { ...(warehouseIds ? { warehouseId: { in: warehouseIds } } : {}), createdAt: yesterday }
             }),
             prisma.stockOut.count({
-                where: { ...(warehouseId ? { warehouseId } : {}), createdAt: yesterday }
+                where: { ...(warehouseIds ? { warehouseId: { in: warehouseIds } } : {}), createdAt: yesterday }
             }),
         ]);
 
         const totalFisik = stocks.reduce((acc: number, curr: { stockNew: number; stockDismantle: number; stockDamaged: number }) => acc + curr.stockNew + curr.stockDismantle + curr.stockDamaged, 0);
-        const totalItems = warehouseId
+        const totalItems = warehouseIds
             ? new Set(stocks.map((s: { itemId: number }) => s.itemId)).size
             : await prisma.item.count();
 
@@ -86,12 +92,12 @@ export async function getLowStockAlerts() {
             return { success: true, data: [] };
         }
 
-        const warehouseId = await getBranchScope();
+        const warehouseIds = await getBranchScope();
 
         const stocks = await prisma.warehouseStock.findMany({
             where: {
                 minStock: { gt: 0 },
-                ...(warehouseId ? { warehouseId } : {})
+                ...(warehouseIds ? { warehouseId: { in: warehouseIds } } : {})
             },
             include: { item: true, warehouse: true }
         });
@@ -124,17 +130,17 @@ export async function getRecentTransactions() {
             return { success: true, data: [] as TransactionGroup[] };
         }
 
-        const warehouseId = await getBranchScope();
+        const warehouseIds = await getBranchScope();
 
         const [ins, outsRaw] = await Promise.all([
             prisma.stockIn.findMany({
-                where: warehouseId ? { warehouseId } : undefined,
+                where: warehouseIds ? { warehouseId: { in: warehouseIds } } : undefined,
                 take: 20,
                 orderBy: { createdAt: 'desc' },
                 include: { item: true, warehouse: true }
             }),
             prisma.stockOut.findMany({
-                where: warehouseId ? { warehouseId } : undefined,
+                where: warehouseIds ? { warehouseId: { in: warehouseIds } } : undefined,
                 take: 20,
                 orderBy: { createdAt: 'desc' },
                 select: { id: true, createdAt: true, itemId: true, qty: true, warehouseId: true, location: true }

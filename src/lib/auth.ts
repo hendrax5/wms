@@ -104,26 +104,10 @@ export const authOptions = {
                     });
 
                     if (freshUser && freshUser.isActive) {
-                        const accessibleWarehouseIds = freshUser.accessibleWarehouses.map((w: any) => w.id);
-                        let finalWarehouseId = freshUser.warehouseId;
-
-                        try {
-                            const cookieStore = cookies();
-                            const activeCookie = cookieStore.get('active_warehouse_id');
-                            if (activeCookie && activeCookie.value) {
-                                const activeId = Number(activeCookie.value);
-                                if (activeId === freshUser.warehouseId || accessibleWarehouseIds.includes(activeId)) {
-                                    finalWarehouseId = activeId;
-                                }
-                            }
-                        } catch (cookieErr) {
-                            // Suppress cookie errors if called outside of render context
-                        }
-
                         session.user.id = freshUser.id.toString();
                         session.user.username = freshUser.username;
                         session.user.level = freshUser.level;
-                        session.user.warehouseId = finalWarehouseId; // Context overridden
+                        session.user.warehouseId = freshUser.warehouseId;
                         session.user.primaryWarehouseId = freshUser.warehouseId;
                         session.user.accessibleWarehouses = freshUser.accessibleWarehouses;
                         session.user.jabatan = freshUser.jabatan;

@@ -77,9 +77,6 @@ export default function TransferClient() {
             const [wRes, iRes] = await Promise.all([getWarehousesForSelect(), getItems()]);
             if (wRes.success && wRes.data) {
                 let wList = wRes.data as any;
-                if (userLevel !== "MASTER" && userWarehouseId) {
-                    wList = wList.filter((w: any) => w.id === userWarehouseId);
-                }
                 setWarehouses(wList);
                 if (wList.length === 1) setSourceId(String(wList[0].id));
             }

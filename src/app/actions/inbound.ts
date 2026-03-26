@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/db";
 import { revalidatePath, unstable_noStore as noStore } from "next/cache";
+import { getBranchScope } from "@/app/actions/master";
 
 type InboundItemPayload = {
     itemId: number;
@@ -21,6 +22,11 @@ export async function createStockIn(data: StockInPayload) {
     try {
         if (!data.items || data.items.length === 0) {
             return { success: false, error: "Minimal 1 barang harus ditambahkan." };
+        }
+
+        const scope = await getBranchScope();
+        if (scope !== null && !scope.includes(data.warehouseId)) {
+            return { success: false, error: "Akses ditolak: Anda tidak memiliki akses ke gudang ini." };
         }
 
         for (const item of data.items) {

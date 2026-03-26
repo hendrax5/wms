@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
+import { getBranchScope } from "@/app/actions/master";
 
 type OutboundItemPayload = {
     itemId: number;
@@ -25,6 +26,11 @@ export async function createInstallation(data: InstallationPayload) {
     try {
         if (!data.items || data.items.length === 0) {
             return { success: false, error: "Minimal 1 barang harus ditambahkan." };
+        }
+
+        const scope = await getBranchScope();
+        if (scope !== null && !scope.includes(data.sourceWarehouseId)) {
+            return { success: false, error: "Akses ditolak: Anda tidak memiliki akses ke gudang asal ini." };
         }
 
         for (const item of data.items) {

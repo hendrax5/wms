@@ -4,12 +4,21 @@ import { prisma } from "@/lib/db";
 import { revalidatePath, unstable_noStore as noStore } from "next/cache";
 import { auth } from "@/lib/auth";
 
-// Returns warehouseId if user should be scoped to a branch, null if global access
-async function getBranchScope(): Promise<number | null> {
+// Returns array of accessible warehouseIds if user is scoped, null if global access (MASTER)
+export async function getBranchScope(): Promise<number[] | null> {
     const session = await auth();
     if (!session?.user) return null;
     if (session.user.level === "MASTER") return null;  // MASTER sees all
-    return session.user.warehouseId ?? null;           // anyone else with warehouseId is scoped
+    
+    const ids = new Set<number>();
+    if (session.user.warehouseId) ids.add(session.user.warehouseId);
+    
+    const accessible = (session.user as any).accessibleWarehouses;
+    if (Array.isArray(accessible)) {
+        accessible.forEach((w: any) => ids.add(w.id));
+    }
+    
+    return Array.from(ids);
 }
 
 // ------------------------------------------------------------------
@@ -109,11 +118,11 @@ export async function getItems() {
             orderBy: { name: 'asc' }
         });
 
-        const warehouseId = await getBranchScope();
+        const warehouseIds = await getBranchScope();
 
         const stocks = await (prisma as any).warehouseStock.groupBy({
             by: ['itemId'],
-            where: warehouseId ? { warehouseId } : undefined,
+            where: warehouseIds ? { warehouseId: { in: warehouseIds } } : undefined,
             _sum: { stockNew: true, stockDismantle: true, stockDamaged: true }
         });
 
@@ -124,7 +133,7 @@ export async function getItems() {
 
         const snCounts = await (prisma as any).serialNumber.groupBy({
             by: ['itemId'],
-            where: warehouseId ? { warehouseId } : undefined,
+            where: warehouseIds ? { warehouseId: { in: warehouseIds } } : undefined,
             _count: { id: true }
         });
         const snCountMap = snCounts.reduce((acc: Record<number, number>, curr: any) => {
@@ -138,7 +147,7 @@ export async function getItems() {
             snCount: snCountMap[item.id] || 0
         }));
 
-        if (warehouseId) {
+        if (warehouseIds) {
             const itemIdsInWarehouse = new Set(stocks.map((s: any) => s.itemId));
             return { success: true, data: fullItems.filter((item: any) => itemIdsInWarehouse.has(item.id)) };
         }
@@ -153,18 +162,18 @@ export async function getItems() {
 
 export async function getItemDetails(id: number) {
     try {
-        const warehouseId = await getBranchScope();
+        const warehouseIds = await getBranchScope();
 
         const item = await prisma.item.findUnique({
             where: { id },
             include: {
                 category: true,
                 warehousestock: {
-                    where: warehouseId ? { warehouseId } : undefined,
+                    where: warehouseIds ? { warehouseId: { in: warehouseIds } } : undefined,
                     include: { warehouse: true }
                 } as any,
                 serialnumber: {
-                    where: warehouseId ? { warehouseId } : undefined,
+                    where: warehouseIds ? { warehouseId: { in: warehouseIds } } : undefined,
                     include: {
                         itemstatus: true,
                         warehouse: true,
@@ -244,10 +253,10 @@ export async function getItemDetails(id: number) {
 
 export async function getAllSerialNumbers() {
     try {
-        const warehouseId = await getBranchScope();
+        const warehouseIds = await getBranchScope();
 
         const sns = await (prisma as any).serialNumber.findMany({
-            where: warehouseId ? { warehouseId } : undefined,
+            where: warehouseIds ? { warehouseId: { in: warehouseIds } } : undefined,
             include: {
                 item: { include: { category: true } },
                 itemstatus: true,
@@ -447,33 +456,16 @@ export async function getWarehouseList() {
             return { success: true, data: [] };
         }
         
-        const session = await auth();
-        if (!session?.user) return { success: false, error: "Unauthorized" };
-
-        let accessibleIds: number[] | undefined = undefined;
-        
-        if (session.user.level !== "MASTER") {
-            const dbUser = await (prisma as any).user.findUnique({
-                where: { email: session.user.email },
-                include: { accessibleWarehouses: true }
-            });
-            
-            if (dbUser) {
-                const multiIds = dbUser.accessibleWarehouses?.map((w: any) => w.id) || [];
-                accessibleIds = Array.from(new Set([dbUser.warehouseId, ...multiIds].filter(Boolean))) as number[];
-            } else {
-                return { success: false, error: "User not found" };
-            }
-        }
+        const warehouseIds = await getBranchScope();
 
         const warehouses = await prisma.warehouse.findMany({
-            where: accessibleIds ? { id: { in: accessibleIds } } : undefined,
+            where: warehouseIds ? { id: { in: warehouseIds } } : undefined,
             orderBy: { name: 'asc' }
         });
 
         // Count total stock (new + dismantle + damaged) per warehouse
         const rawStocks = await (prisma as any).warehouseStock.findMany({
-            where: accessibleIds ? { warehouseId: { in: accessibleIds } } : undefined,
+            where: warehouseIds ? { warehouseId: { in: warehouseIds } } : undefined,
             select: { warehouseId: true, stockNew: true, stockDamaged: true, stockDismantle: true }
         });
 

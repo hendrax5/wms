@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/db";
 import { revalidatePath, unstable_noStore as noStore } from "next/cache";
 import { auth } from "@/lib/auth";
+import { getBranchScope } from "@/app/actions/master";
 
 export async function getPops() {
     noStore();
@@ -11,10 +12,21 @@ export async function getPops() {
             return { success: true, data: [] };
         }
         const session = await auth();
-        const warehouseId = session?.user?.level === "CABANG" ? session.user.warehouseId : null;
+        if (!session?.user) return { success: false, error: "Unauthorized" };
+        
+        let warehouseIds: number[] | null = null;
+        if (session.user.level !== "MASTER") {
+            const ids = new Set<number>();
+            if (session.user.warehouseId) ids.add(session.user.warehouseId);
+            const accessible = (session.user as any).accessibleWarehouses;
+            if (Array.isArray(accessible)) {
+                accessible.forEach((w: any) => ids.add(w.id));
+            }
+            warehouseIds = Array.from(ids);
+        }
 
         const pops = await prisma.pop.findMany({
-            where: warehouseId ? { warehouseId } : undefined,
+            where: warehouseIds ? { warehouseId: { in: warehouseIds } } : undefined,
             orderBy: { name: "asc" },
             include: {
                 area: true,
@@ -37,10 +49,21 @@ export async function getWarehousesForSelect() {
             return { success: true, data: [] };
         }
         const session = await auth();
-        const warehouseId = session?.user?.level === "CABANG" ? session.user.warehouseId : null;
+        if (!session?.user) return { success: false, error: "Unauthorized" };
+        
+        let warehouseIds: number[] | null = null;
+        if (session.user.level !== "MASTER") {
+            const ids = new Set<number>();
+            if (session.user.warehouseId) ids.add(session.user.warehouseId);
+            const accessible = (session.user as any).accessibleWarehouses;
+            if (Array.isArray(accessible)) {
+                accessible.forEach((w: any) => ids.add(w.id));
+            }
+            warehouseIds = Array.from(ids);
+        }
 
         const warehouses = await prisma.warehouse.findMany({
-            where: warehouseId ? { id: warehouseId } : undefined,
+            where: warehouseIds ? { id: { in: warehouseIds } } : undefined,
             orderBy: { name: "asc" },
             select: { id: true, name: true, type: true }
         });
@@ -58,6 +81,13 @@ export async function createPop(formData: FormData) {
 
     if (!name) {
         return { success: false, error: "Nama POP wajib diisi" };
+    }
+
+    if (warehouseId) {
+        const scope = await getBranchScope();
+        if (scope !== null && !scope.includes(warehouseId)) {
+            return { success: false, error: "Akses ditolak: Anda tidak memiliki akses ke gudang ini." };
+        }
     }
 
     try {
@@ -86,6 +116,13 @@ export async function updatePop(id: number, formData: FormData) {
 
     if (!name) {
         return { success: false, error: "Nama POP wajib diisi" };
+    }
+
+    if (warehouseId) {
+        const scope = await getBranchScope();
+        if (scope !== null && !scope.includes(warehouseId)) {
+            return { success: false, error: "Akses ditolak: Anda tidak memiliki akses ke gudang ini." };
+        }
     }
 
     try {
