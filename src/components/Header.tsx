@@ -230,7 +230,10 @@ export default function Header() {
                                 )}
                                 <div className="py-1">
                                     <button
-                                        onClick={() => signOut({ callbackUrl: "/login" })}
+                                        onClick={async () => {
+                                            await signOut({ redirect: false });
+                                            window.location.href = "/login";
+                                        }}
                                         className="w-full text-left px-3 py-2 text-sm text-red-400 hover:bg-red-500/10 transition-colors flex items-center gap-2"
                                     >
                                         <LogOut size={14} /> Keluar

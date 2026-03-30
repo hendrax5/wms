@@ -66,32 +66,37 @@ export async function resetOperationalData(confirmCompanyName: string) {
 
         // Execute sequentially to avoid foreign key constraint errors
         await prisma.$transaction(async (tx) => {
-            // Level 3 (Deepest dependents)
+            // Level 4 (Deepest dependents)
+            await tx.assetLocationLog.deleteMany({});
+            await tx.assetDepreciation.deleteMany({});
+            await tx.assetMaintenanceLog.deleteMany({});
+            await tx.popInstallation.deleteMany({});
+            await tx.customerInstallation.deleteMany({});
+            
+            // Level 3
             await tx.stockInSerial.deleteMany({});
             await tx.stockOutSerial.deleteMany({});
             await tx.damagedSerial.deleteMany({});
             await tx.stockRequestDetail.deleteMany({});
             await tx.stockAdjustmentDetail.deleteMany({});
             await tx.stockOpnameDetail.deleteMany({});
-            await tx.popInstallation.deleteMany({});
-            await tx.customerInstallation.deleteMany({});
-            await tx.assetDepreciation.deleteMany({});
-            await tx.assetMaintenanceLog.deleteMany({});
+            await tx.deliveryManifest.deleteMany({});
+            await tx.inventoryLog.deleteMany({});
             
             // Level 2
-            await tx.serialNumber.deleteMany({});
-            await tx.inventoryLog.deleteMany({});
+            await tx.asset.deleteMany({});
             await tx.damagedItem.deleteMany({});
-            await tx.deliveryManifest.deleteMany({});
             
             // Level 1
+            await tx.serialNumber.deleteMany({});
             await tx.stockIn.deleteMany({});
             await tx.stockOut.deleteMany({});
             await tx.stockTransfer.deleteMany({});
             await tx.stockRequest.deleteMany({});
             await tx.stockAdjustment.deleteMany({});
             await tx.stockOpname.deleteMany({});
-            await tx.asset.deleteMany({});
+            await tx.purchaseOrderItem.deleteMany({});
+            await tx.purchaseOrder.deleteMany({});
             await tx.pop.deleteMany({});
             
             // Level 0 (Stock counts)
