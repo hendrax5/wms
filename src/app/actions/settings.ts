@@ -102,6 +102,32 @@ export async function resetOperationalData(confirmCompanyName: string) {
             
             // Level 0 (Stock counts)
             await tx.warehouseStock.deleteMany({});
+            
+            // --- MASTER DATA WIPE ---
+            // Unlink relationships for the superadmin to prevent constraint errors
+            await tx.user.updateMany({
+                where: { level: 'MASTER' },
+                data: { warehouseId: null }
+            });
+            await tx.area.updateMany({
+                data: { adminId: null }
+            });
+
+            // Master dependents
+            await tx.rack.deleteMany({});
+            await tx.item.deleteMany({});
+            await tx.user.deleteMany({
+                where: { level: { not: 'MASTER' } }
+            });
+            
+            // Master groups
+            await tx.category.deleteMany({});
+            await tx.warehouse.deleteMany({});
+            await tx.distributor.deleteMany({});
+            
+            // Root masters
+            await tx.company.deleteMany({});
+            await tx.area.deleteMany({});
         }, {
             maxWait: 10000,
             timeout: 120000, // 2 minutes
