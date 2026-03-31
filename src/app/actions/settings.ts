@@ -110,6 +110,6 @@ export async function resetOperationalData(confirmCompanyName: string) {
         return { success: true };
     } catch (error: any) {
         console.error("RESET DATA ERROR", error?.message);
-        return { success: false, error: "Gagal me-reset data. Pastikan tidak ada transaksi yang sedang berjalan." };
+        return { success: false, error: `Gagal me-reset data. Error: ${error?.message}` };
     }
 }
