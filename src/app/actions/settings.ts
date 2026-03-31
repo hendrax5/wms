@@ -102,6 +102,9 @@ export async function resetOperationalData(confirmCompanyName: string) {
             
             // Level 0 (Stock counts)
             await tx.warehouseStock.deleteMany({});
+        }, {
+            maxWait: 10000,
+            timeout: 120000, // 2 minutes
         });
 
         // Also reset Item's computed/denormalized fields if any, but our schema doesn't seem to have totalFisik in Item.
