@@ -86,6 +86,7 @@ export async function resetOperationalData(confirmCompanyName: string) {
             // Level 2
             await tx.asset.deleteMany({});
             await tx.damagedItem.deleteMany({});
+            await tx.itemBatch.deleteMany({});
             
             // Level 1
             await tx.serialNumber.deleteMany({});
