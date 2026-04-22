@@ -187,7 +187,7 @@ export async function createInstallation(data: InstallationPayload) {
             }
 
             return stockOuts;
-        });
+        }, { maxWait: 20000, timeout: 300000 });
 
         revalidatePath("/outbound");
         revalidatePath("/stock");

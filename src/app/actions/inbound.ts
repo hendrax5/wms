@@ -136,7 +136,7 @@ export async function createStockIn(data: StockInPayload) {
             }
 
             return stockIns;
-        });
+        }, { maxWait: 20000, timeout: 300000 });
 
         revalidatePath("/inbound");
         revalidatePath("/stock");

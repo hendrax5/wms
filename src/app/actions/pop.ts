@@ -248,7 +248,7 @@ export async function convertToAsset(
             });
 
             return asset;
-        });
+        }, { maxWait: 20000, timeout: 300000 });
 
         revalidatePath("/pop");
         revalidatePath(`/pop/${installation.popId}`);
@@ -297,7 +297,7 @@ export async function moveRack(
                     note: note ?? null,
                 },
             });
-        });
+        }, { maxWait: 20000, timeout: 300000 });
 
         revalidatePath(`/pop/${installation.popId}`);
         return { success: true };

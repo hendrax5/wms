@@ -146,7 +146,7 @@ export async function updateUser(id: number, formData: FormData) {
                     });
                 }
             }
-        });
+        }, { maxWait: 20000, timeout: 300000 });
 
         revalidatePath("/master/users");
         return { success: true };

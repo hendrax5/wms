@@ -170,7 +170,7 @@ export async function createReturn(data: ReturnPayload) {
             }
 
             return stockIns;
-        });
+        }, { maxWait: 20000, timeout: 300000 });
 
         revalidatePath("/operasi");
         revalidatePath("/inbound");

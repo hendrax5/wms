@@ -145,7 +145,7 @@ export async function createTransfer(data: TransferPayload) {
             });
 
             return stockOut;
-        });
+        }, { maxWait: 20000, timeout: 300000 });
 
         revalidatePath("/transfer");
         revalidatePath("/stock");

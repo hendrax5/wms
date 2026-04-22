@@ -107,7 +107,7 @@ export async function createDamagedReport(data: DamagedPayload) {
             }
 
             return damagedLog;
-        });
+        }, { maxWait: 20000, timeout: 300000 });
 
         revalidatePath("/damaged");
         revalidatePath("/stock");
