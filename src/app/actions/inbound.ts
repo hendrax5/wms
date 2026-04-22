@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/db";
 import { revalidatePath, unstable_noStore as noStore } from "next/cache";
+import { logAudit } from "./audit";
 
 type InboundItemPayload = {
     itemId: number;
@@ -21,14 +22,17 @@ type StockInPayload = {
 export async function createStockIn(data: StockInPayload) {
     try {
         if (!data.items || data.items.length === 0) {
+            await logAudit({ action: "INBOUND_IMPORT", status: "ERROR", warehouseId: data.warehouseId, message: "Minimal 1 barang harus ditambahkan." });
             return { success: false, error: "Minimal 1 barang harus ditambahkan." };
         }
 
         for (const item of data.items) {
             if (item.qty <= 0) {
+                await logAudit({ action: "INBOUND_IMPORT", status: "ERROR", warehouseId: data.warehouseId, message: "Quantity setiap barang harus lebih dari 0." });
                 return { success: false, error: "Quantity setiap barang harus lebih dari 0." };
             }
             if (item.serialNumbers.length > 0 && item.serialNumbers.length !== item.qty) {
+                await logAudit({ action: "INBOUND_IMPORT", status: "ERROR", warehouseId: data.warehouseId, message: "Jumlah Serial Number tidak sesuai dengan Qty untuk salah satu barang." });
                 return { success: false, error: "Jumlah Serial Number tidak sesuai dengan Qty untuk salah satu barang." };
             }
         }
@@ -139,10 +143,25 @@ export async function createStockIn(data: StockInPayload) {
         revalidatePath("/dashboard");
         revalidatePath("/master");
         revalidatePath("/master/items");
+        
+        await logAudit({ 
+            action: "INBOUND_IMPORT", 
+            status: "SUCCESS", 
+            warehouseId: data.warehouseId, 
+            message: `Berhasil import ${data.items.length} item(s) dengan total qty ${data.items.reduce((sum, item) => sum + item.qty, 0)}`,
+            details: JSON.stringify({ itemCount: data.items.length })
+        });
+        
         return { success: true, data: results };
 
     } catch (error: any) {
         console.error("StockIn Error:", error);
+        await logAudit({ 
+            action: "INBOUND_IMPORT", 
+            status: "ERROR", 
+            warehouseId: data.warehouseId, 
+            message: error.message || "Gagal memproses barang masuk." 
+        });
         return { success: false, error: error.message || "Gagal memproses barang masuk." };
     }
 }

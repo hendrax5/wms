@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
+import { logAudit } from "./audit";
 
 type OutboundItemPayload = {
     itemId: number;
@@ -24,23 +25,28 @@ type InstallationPayload = {
 export async function createInstallation(data: InstallationPayload) {
     try {
         if (!data.items || data.items.length === 0) {
+            await logAudit({ action: "OUTBOUND_INSTALLATION", status: "ERROR", warehouseId: data.sourceWarehouseId, message: "Minimal 1 barang harus ditambahkan." });
             return { success: false, error: "Minimal 1 barang harus ditambahkan." };
         }
 
         for (const item of data.items) {
             if (item.qty <= 0) {
+                await logAudit({ action: "OUTBOUND_INSTALLATION", status: "ERROR", warehouseId: data.sourceWarehouseId, message: "Quantity setiap barang harus lebih dari 0." });
                 return { success: false, error: "Quantity setiap barang harus lebih dari 0." };
             }
             if (item.serialNumbers.length > 0 && item.serialNumbers.length !== item.qty) {
+                await logAudit({ action: "OUTBOUND_INSTALLATION", status: "ERROR", warehouseId: data.sourceWarehouseId, message: "Jumlah Serial Number tidak sesuai dengan Qty untuk salah satu barang." });
                 return { success: false, error: `Jumlah Serial Number tidak sesuai dengan Qty untuk salah satu barang.` };
             }
         }
 
         if (data.installType === "POP" && !data.targetPopId) {
+            await logAudit({ action: "OUTBOUND_INSTALLATION", status: "ERROR", warehouseId: data.sourceWarehouseId, message: "POP Tujuan wajib dipilih." });
             return { success: false, error: "POP Tujuan wajib dipilih." };
         }
 
         if (data.installType === "CUSTOMER" && !data.targetCustomerName) {
+            await logAudit({ action: "OUTBOUND_INSTALLATION", status: "ERROR", warehouseId: data.sourceWarehouseId, message: "Nama Customer Tujuan wajib diisi." });
             return { success: false, error: "Nama Customer Tujuan wajib diisi." };
         }
 
@@ -188,10 +194,25 @@ export async function createInstallation(data: InstallationPayload) {
         revalidatePath("/pop");
         revalidatePath("/dashboard");
         revalidatePath("/tracking");
+        
+        await logAudit({ 
+            action: "OUTBOUND_INSTALLATION", 
+            status: "SUCCESS", 
+            warehouseId: data.sourceWarehouseId, 
+            message: `Berhasil mengeluarkan ${data.items.length} item(s) untuk ${data.installType}`,
+            details: JSON.stringify({ target: data.installType === "POP" ? data.targetPopId : data.targetCustomerName })
+        });
+        
         return { success: true, data: results };
 
     } catch (error: any) {
         console.error("Installation Error:", error);
+        await logAudit({ 
+            action: "OUTBOUND_INSTALLATION", 
+            status: "ERROR", 
+            warehouseId: data.sourceWarehouseId, 
+            message: error.message || "Gagal memproses barang keluar / instalasi." 
+        });
         return { success: false, error: error.message || "Gagal memproses barang keluar / instalasi." };
     }
 }

@@ -1,0 +1,55 @@
+﻿
+
+Memasukan barang yg ber  SN tidak bisa export excel ( soalnya ont sekali masuk banyak ),,
+
+Tampilan view kolom qty terbatas dibarang masuk (tidak bisa lihat full angka dengan jumlah yang banyak),,
+
+Tampilan view kolom pilih barang di transfer stok terbatas (tidak bisa melihat full nama barang yang akan di pilih),,
+
+
+
+
+
+Tampilan fitur semua type akun sama (contoh, master dan staff),,
+
+
+
+
+Akun Cabang ,
+
+
+
+
+Mengeluarkan lebih dari 1 sn hanya ada satu kolom untuk mengisi nama client ( jujung ),,
+
+
+
+
+
+Tidak ada tampilan inputan transfer ataupun barang kluar yg ada di cabang tersebut, (semua cabang bisa lihat history inputan),,
+
+Tidak ada fitur tampilan mengembalikan stok barang yang tidak terpakai teknisi ( EDIT barang yg tidak terpakai ),,
+
+Traces sn tidak ada tampilan/sn tidak muncul saat di traces,,
+
+Tampilan fitur barang masuk tidak ada barang new dan dismetal,,
+
+
+
+
+
+untuk transfer barang ke cabang, tidak muncul semua nama terkecuali di coba dngan 1 nama baru muncul,,
+
+
+
+
+
+untuk qty ready stock yg berSN ada, tapi yg no SN tidak terlihat qty nya,,
+
+
+
+
+
+
+	
+

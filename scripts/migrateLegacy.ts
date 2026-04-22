@@ -30,7 +30,7 @@ async function main() {
             // Probably exists
         }
     }
-    console.log(` > Categories Migrated: ${categories.length}`);
+    console.log(` > Categories Migrated: ${(categories as any[]).length}`);
 
     console.log('[3/4] Migrating Warehouses (Cabang)...');
     const [cabangs] = await legacyDb.execute('SELECT * FROM m_gudang_cabang');
@@ -50,7 +50,7 @@ async function main() {
             console.error('Failed to create branch: ', cb.nama_cabang);
         }
     }
-    console.log(` > Warehouses Migrated: ${cabangs.length}`);
+    console.log(` > Warehouses Migrated: ${(cabangs as any[]).length}`);
 
     console.log('[4/4] Migrating Master Items (Barang)...');
     const [items] = await legacyDb.execute('SELECT * FROM m_gudang_barang');
@@ -74,7 +74,7 @@ async function main() {
             console.error('Failed to create item: ', item.kode_barang);
         }
     }
-    console.log(` > Items Migrated: ${items.length}`);
+    console.log(` > Items Migrated: ${(items as any[]).length}`);
 
     console.log('[5/4] Migrating Serial Numbers (Barang Detail) with Bulk Insert...');
     const [serials] = await legacyDb.execute('SELECT * FROM m_gudang_barang_detail');

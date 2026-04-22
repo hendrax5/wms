@@ -17,7 +17,8 @@ import {
     RotateCcw,
     Building2,
     ChevronsLeft,
-    ChevronsRight
+    ChevronsRight,
+    Activity
 } from "lucide-react";
 
 /* ── Sidebar context (shared with layout) ── */
@@ -30,6 +31,7 @@ const links = [
     { href: "/pop", label: "Data POP", icon: Server },
     { href: "/stock", label: "Direktori Gudang", icon: Building2 },
     { href: "/reports", label: "Laporan", icon: FileBarChart },
+    { href: "/logs", label: "Log Aktivitas", icon: Activity },
     { href: "/master", label: "Inventory Master", icon: Package },
 ];
 
@@ -47,7 +49,7 @@ export default function Sidebar({ appConfig }: { appConfig?: any }) {
     const userLevel = (session?.user as any)?.level || "";
 
     const visibleLinks = links.filter(link => {
-        if (link.href === "/pop" || link.href === "/master") {
+        if (link.href === "/pop" || link.href === "/master" || link.href === "/logs") {
             return userLevel === "MASTER";
         }
         return true;

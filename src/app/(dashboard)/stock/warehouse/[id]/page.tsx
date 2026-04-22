@@ -57,6 +57,7 @@ export default function WarehouseDetailMasterPage() {
     const [searchInput, setSearchInput] = useState("");
     const [isSuggestionsOpen, setIsSuggestionsOpen] = useState(false);
     const [activeFilters, setActiveFilters] = useState<ActiveFilter[]>([]);
+    const [isExportingSN, setIsExportingSN] = useState(false);
 
     const addFilter = (filter: ActiveFilter) => {
         if (!activeFilters.some(f => f.type === filter.type && f.value === filter.value)) {
@@ -169,7 +170,7 @@ export default function WarehouseDetailMasterPage() {
         XLSX.writeFile(wb, `Stok_Gudang_${data.warehouse.name.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.xlsx`);
     };
 
-    const [isExportingSN, setIsExportingSN] = useState(false);
+
     const exportSNDetail = async () => {
         if (!data?.warehouse) return;
         setIsExportingSN(true);

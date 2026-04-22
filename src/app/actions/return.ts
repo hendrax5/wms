@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
+import { logAudit } from "./audit";
 
 type ReturnItemPayload = {
     itemId: number;
@@ -23,23 +24,28 @@ type ReturnPayload = {
 export async function createReturn(data: ReturnPayload) {
     try {
         if (!data.items || data.items.length === 0) {
+            await logAudit({ action: "RETURN", status: "ERROR", warehouseId: data.targetWarehouseId, message: "Minimal 1 barang harus ditambahkan." });
             return { success: false, error: "Minimal 1 barang harus ditambahkan." };
         }
 
         for (const item of data.items) {
             if (item.qty <= 0) {
+                await logAudit({ action: "RETURN", status: "ERROR", warehouseId: data.targetWarehouseId, message: "Quantity setiap barang harus lebih dari 0." });
                 return { success: false, error: "Quantity setiap barang harus lebih dari 0." };
             }
             if (item.serialNumbers.length > 0 && item.serialNumbers.length !== item.qty) {
+                await logAudit({ action: "RETURN", status: "ERROR", warehouseId: data.targetWarehouseId, message: "Jumlah Serial Number tidak sesuai dengan Qty untuk salah satu barang." });
                 return { success: false, error: `Jumlah Serial Number tidak sesuai dengan Qty untuk salah satu barang.` };
             }
         }
 
         if (data.returnSource === "POP" && !data.sourcePopId) {
+            await logAudit({ action: "RETURN", status: "ERROR", warehouseId: data.targetWarehouseId, message: "POP Asal wajib dipilih." });
             return { success: false, error: "POP Asal wajib dipilih." };
         }
 
         if (data.returnSource === "CUSTOMER" && !data.sourceCustomerName) {
+            await logAudit({ action: "RETURN", status: "ERROR", warehouseId: data.targetWarehouseId, message: "Nama Customer Asal wajib diisi." });
             return { success: false, error: "Nama Customer Asal wajib diisi." };
         }
 
@@ -171,10 +177,25 @@ export async function createReturn(data: ReturnPayload) {
         revalidatePath("/stock");
         revalidatePath("/dashboard");
         revalidatePath("/master");
+        
+        await logAudit({ 
+            action: "RETURN", 
+            status: "SUCCESS", 
+            warehouseId: data.targetWarehouseId, 
+            message: `Berhasil memproses return ${data.items.length} item(s) dari ${data.returnSource}`,
+            details: JSON.stringify({ source: data.returnSource === "POP" ? data.sourcePopId : data.sourceCustomerName })
+        });
+        
         return { success: true, data: results };
 
     } catch (error: any) {
         console.error("Return Error:", error);
+        await logAudit({ 
+            action: "RETURN", 
+            status: "ERROR", 
+            warehouseId: data.targetWarehouseId, 
+            message: error.message || "Gagal memproses barang return." 
+        });
         return { success: false, error: error.message || "Gagal memproses barang return." };
     }
 }

@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
+import { logAudit } from "./audit";
 
 type TransferPayload = {
     sourceWarehouseId: number;
@@ -15,14 +16,17 @@ type TransferPayload = {
 export async function createTransfer(data: TransferPayload) {
     try {
         if (data.sourceWarehouseId === data.targetWarehouseId) {
+            await logAudit({ action: "TRANSFER", status: "ERROR", warehouseId: data.sourceWarehouseId, message: "Gudang asal dan tujuan tidak boleh sama." });
             return { success: false, error: "Gudang asal dan tujuan tidak boleh sama." };
         }
 
         if (data.qty <= 0) {
+            await logAudit({ action: "TRANSFER", status: "ERROR", warehouseId: data.sourceWarehouseId, message: "Quantity transfer harus lebih dari 0." });
             return { success: false, error: "Quantity transfer harus lebih dari 0." };
         }
 
         if (data.serialNumbers.length > 0 && data.serialNumbers.length !== data.qty) {
+            await logAudit({ action: "TRANSFER", status: "ERROR", warehouseId: data.sourceWarehouseId, message: "Jumlah Serial Number tidak sesuai dengan Qty Transfer." });
             return { success: false, error: "Jumlah Serial Number tidak sesuai dengan Qty Transfer." };
         }
 
@@ -146,10 +150,25 @@ export async function createTransfer(data: TransferPayload) {
         revalidatePath("/transfer");
         revalidatePath("/stock");
         revalidatePath("/dashboard");
+        
+        await logAudit({ 
+            action: "TRANSFER", 
+            status: "SUCCESS", 
+            warehouseId: data.sourceWarehouseId, 
+            message: `Berhasil mentransfer ${data.qty} item ke gudang tujuan`,
+            details: JSON.stringify({ targetWarehouseId: data.targetWarehouseId, itemId: data.itemId })
+        });
+        
         return { success: true, data: result };
 
     } catch (error: any) {
         console.error("Transfer Error:", error);
+        await logAudit({ 
+            action: "TRANSFER", 
+            status: "ERROR", 
+            warehouseId: data.sourceWarehouseId, 
+            message: error.message || "Gagal memproses transfer stok." 
+        });
         return { success: false, error: error.message || "Gagal memproses transfer stok." };
     }
 }

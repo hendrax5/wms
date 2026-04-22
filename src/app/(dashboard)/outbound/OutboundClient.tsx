@@ -473,7 +473,7 @@ export default function OutboundClient() {
                                         <thead className="bg-[#020617] text-slate-400">
                                             <tr>
                                                 <th className="px-4 py-3 text-left text-[10px] uppercase tracking-wider font-semibold">Barang</th>
-                                                <th className="px-4 py-3 text-center text-[10px] uppercase tracking-wider font-semibold w-20">Qty</th>
+                                                <th className="px-4 py-3 text-center text-[10px] uppercase tracking-wider font-semibold w-24">Qty</th>
                                                 <th className="px-4 py-3 text-center text-[10px] uppercase tracking-wider font-semibold w-20">SN</th>
                                                 <th className="px-4 py-3 text-center text-[10px] uppercase tracking-wider font-semibold w-20">Status</th>
                                                 <th className="px-2 py-3 w-10"></th>
@@ -503,7 +503,7 @@ export default function OutboundClient() {
                                                                     value={ci.qty}
                                                                     onClick={(e) => e.stopPropagation()}
                                                                     onChange={(e) => updateCartItemQty(idx, Number(e.target.value))}
-                                                                    className="w-16 bg-[#0f172a] border border-[#334155] text-white rounded px-2 py-1 text-center text-xs focus:ring-1 focus:ring-rose-500"
+                                                                    className="w-full min-w-[60px] bg-[#0f172a] border border-[#334155] text-white rounded px-2 py-1 text-center text-xs focus:ring-1 focus:ring-rose-500"
                                                                 />
                                                             )}
                                                         </td>
