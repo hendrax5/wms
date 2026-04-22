@@ -175,6 +175,11 @@ export async function getBranchScope(): Promise<number | null> {
         }
     }
 
-    // Default fallback to the primary assigned warehouse
+    // Default fallback: if they have multiple warehouses, default to global (null)
+    if (session.user.accessibleWarehouseIds && session.user.accessibleWarehouseIds.length > 1) {
+        return null;
+    }
+
+    // Otherwise fallback to their primary assigned warehouse
     return session.user.warehouseId ?? null;
 }

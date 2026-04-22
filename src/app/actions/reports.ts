@@ -15,8 +15,9 @@ async function getContextWarehouseId() {
         return Number(activeBranch);
     }
     
-    // Fallback: If Master, they see all (null). Otherwise, primary warehouseId
+    // Fallback: If Master or has > 1 warehouse, they see all (null). Otherwise, primary warehouseId
     if (session.user.level === "MASTER") return null;
+    if (session.user.accessibleWarehouseIds && session.user.accessibleWarehouseIds.length > 1) return null;
     return session.user.warehouseId ? Number(session.user.warehouseId) : null;
 }
 

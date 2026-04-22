@@ -89,7 +89,7 @@ export default function Header({ accessibleWarehouses = [], activeWarehouseId = 
 
     const activeBranchName = activeWarehouseId 
         ? accessibleWarehouses.find(w => w.id === activeWarehouseId)?.name || "Branch Not Found"
-        : ((session?.user as any)?.level === "MASTER" ? "Semua Cabang (Global)" : "Pilih Cabang");
+        : (((session?.user as any)?.level === "MASTER" || accessibleWarehouses.length > 1) ? "Semua Cabang (Global)" : "Pilih Cabang");
 
     return (
         <header className="h-14 bg-background/90 backdrop-blur-xl border-b border-border flex items-center justify-between px-4 lg:px-6 shrink-0 z-10">
@@ -142,7 +142,7 @@ export default function Header({ accessibleWarehouses = [], activeWarehouseId = 
                                         <p className="text-[10px] uppercase tracking-wider font-bold text-slate-500">Pilih Konteks Cabang</p>
                                     </div>
                                     
-                                    {((session?.user as any)?.level === "MASTER") && (
+                                    {((session?.user as any)?.level === "MASTER" || accessibleWarehouses.length > 1) && (
                                         <button
                                             onClick={() => handleSwitchBranch(null)}
                                             className="w-full text-left flex items-center justify-between px-3 py-2.5 text-sm hover:bg-white/[0.03] transition-colors"
