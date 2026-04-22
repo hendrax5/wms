@@ -50,9 +50,6 @@ export default function TransferClient() {
 
         if (warehouseRes.success && warehouseRes.data) {
             let wList = warehouseRes.data as any;
-            if (userLevel !== "MASTER" && userWarehouseId) {
-                wList = wList.filter((w: any) => w.id === userWarehouseId);
-            }
             setWarehouses(wList);
             if (wList.length === 1) setSourceId(String(wList[0].id));
         }

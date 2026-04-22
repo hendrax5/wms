@@ -11,10 +11,18 @@ export async function getPops() {
             return { success: true, data: [] };
         }
         const session = await auth();
-        const warehouseId = session?.user?.level === "CABANG" ? session.user.warehouseId : null;
+        let warehouseFilter: any = undefined;
+        if (session?.user && session.user.level !== "MASTER") {
+            const accessibleIds = session.user.accessibleWarehouseIds || [];
+            if (accessibleIds.length > 0) {
+                warehouseFilter = { in: accessibleIds };
+            } else if (session.user.warehouseId) {
+                warehouseFilter = session.user.warehouseId;
+            }
+        }
 
         const pops = await prisma.pop.findMany({
-            where: warehouseId ? { warehouseId } : undefined,
+            where: warehouseFilter ? { warehouseId: warehouseFilter } : undefined,
             orderBy: { name: "asc" },
             include: {
                 area: true,
@@ -37,10 +45,18 @@ export async function getWarehousesForSelect() {
             return { success: true, data: [] };
         }
         const session = await auth();
-        const warehouseId = session?.user?.level === "CABANG" ? session.user.warehouseId : null;
+        let warehouseFilter: any = undefined;
+        if (session?.user && session.user.level !== "MASTER") {
+            const accessibleIds = session.user.accessibleWarehouseIds || [];
+            if (accessibleIds.length > 0) {
+                warehouseFilter = { in: accessibleIds };
+            } else if (session.user.warehouseId) {
+                warehouseFilter = session.user.warehouseId;
+            }
+        }
 
         const warehouses = await prisma.warehouse.findMany({
-            where: warehouseId ? { id: warehouseId } : undefined,
+            where: warehouseFilter ? { id: warehouseFilter } : undefined,
             orderBy: { name: "asc" },
             select: { id: true, name: true, type: true }
         });

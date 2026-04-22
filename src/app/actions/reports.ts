@@ -5,9 +5,9 @@ import { unstable_noStore as noStore } from "next/cache";
 import { auth } from "@/lib/auth";
 import { cookies } from "next/headers";
 
-async function getContextWarehouseId() {
+async function getWarehouseFilter() {
     const session = await auth();
-    if (!session?.user) return null;
+    if (!session?.user) return null; // Unauthenticated
     
     const cookieStore = await cookies();
     const activeBranch = cookieStore.get("wms_active_branch")?.value;
@@ -15,20 +15,23 @@ async function getContextWarehouseId() {
         return Number(activeBranch);
     }
     
-    // Fallback: If Master or has > 1 warehouse, they see all (null). Otherwise, primary warehouseId
-    if (session.user.level === "MASTER") return null;
-    if (session.user.accessibleWarehouseIds && session.user.accessibleWarehouseIds.length > 1) return null;
-    return session.user.warehouseId ? Number(session.user.warehouseId) : null;
+    if (session.user.level === "MASTER") return undefined; // Global
+    
+    if (session.user.accessibleWarehouseIds && session.user.accessibleWarehouseIds.length > 0) {
+        return { in: session.user.accessibleWarehouseIds };
+    }
+    
+    return session.user.warehouseId ? Number(session.user.warehouseId) : undefined;
 }
 
 export async function getStockSummaryReport() {
     noStore();
     try {
-        const warehouseId = await getContextWarehouseId();
+        const warehouseFilter = await getWarehouseFilter();
 
         // Get all warehouses and their stock
         const warehouses = await prisma.warehouse.findMany({
-            where: warehouseId ? { id: warehouseId } : undefined,
+            where: warehouseFilter ? { id: warehouseFilter } : undefined,
             include: {
                 warehousestock: {
                     include: {
@@ -80,12 +83,12 @@ export async function getStockSummaryReport() {
 export async function getTransactionHistoryReport(limit = 50) {
     noStore();
     try {
-        const warehouseId = await getContextWarehouseId();
-        const inboundWhere = warehouseId ? { warehouseId } : undefined;
-        const outboundWhere = warehouseId ? {
+        const warehouseFilter = await getWarehouseFilter();
+        const inboundWhere = warehouseFilter ? { warehouseId: warehouseFilter } : undefined;
+        const outboundWhere = warehouseFilter ? {
             OR: [
-                { warehouseId },
-                { targetWarehouseId: warehouseId }
+                { warehouseId: warehouseFilter },
+                { targetWarehouseId: warehouseFilter }
             ]
         } : undefined;
 
@@ -174,9 +177,9 @@ export async function getTransactionHistoryReport(limit = 50) {
 export async function getDamagedItemsReport() {
     noStore();
     try {
-        const warehouseId = await getContextWarehouseId();
+        const warehouseFilter = await getWarehouseFilter();
         const damaged = await (prisma as any).damagedItem.findMany({
-            where: warehouseId ? { warehouseId } : undefined,
+            where: warehouseFilter ? { warehouseId: warehouseFilter } : undefined,
             orderBy: { createdAt: "desc" },
             include: {
                 item: { include: { category: true } },

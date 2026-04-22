@@ -4,6 +4,19 @@ import { prisma } from "@/lib/db";
 import { unstable_noStore as noStore } from "next/cache";
 import { auth, getBranchScope } from "@/lib/auth";
 
+async function getDashboardFilter() {
+    const session = await auth();
+    const branchId = await getBranchScope();
+    
+    if (branchId) return branchId;
+    
+    if (session?.user && session.user.level !== "MASTER" && session.user.accessibleWarehouseIds?.length) {
+        return { in: session.user.accessibleWarehouseIds };
+    }
+    
+    return undefined;
+}
+
 export async function getDashboardStats() {
     noStore();
     try {
@@ -16,7 +29,7 @@ export async function getDashboardStats() {
             };
         }
 
-        const warehouseId = await getBranchScope();
+        const warehouseFilter = await getDashboardFilter();
 
         const now = new Date();
         const todayStart = new Date(now); todayStart.setHours(0, 0, 0, 0);
@@ -30,28 +43,28 @@ export async function getDashboardStats() {
 
         const [stocks, totalSN, stockInToday, stockOutToday, stockInYesterday, stockOutYesterday] = await Promise.all([
             prisma.warehouseStock.findMany({
-                where: warehouseId ? { warehouseId } : undefined,
+                where: warehouseFilter ? { warehouseId: warehouseFilter } : undefined,
                 select: { stockNew: true, stockDismantle: true, stockDamaged: true, itemId: true }
             }),
             prisma.serialNumber.count({
-                where: warehouseId ? { warehouseId } : undefined,
+                where: warehouseFilter ? { warehouseId: warehouseFilter } : undefined,
             }),
             prisma.stockIn.count({
-                where: { ...(warehouseId ? { warehouseId } : {}), createdAt: today }
+                where: { ...(warehouseFilter ? { warehouseId: warehouseFilter } : {}), createdAt: today }
             }),
             prisma.stockOut.count({
-                where: { ...(warehouseId ? { warehouseId } : {}), createdAt: today }
+                where: { ...(warehouseFilter ? { warehouseId: warehouseFilter } : {}), createdAt: today }
             }),
             prisma.stockIn.count({
-                where: { ...(warehouseId ? { warehouseId } : {}), createdAt: yesterday }
+                where: { ...(warehouseFilter ? { warehouseId: warehouseFilter } : {}), createdAt: yesterday }
             }),
             prisma.stockOut.count({
-                where: { ...(warehouseId ? { warehouseId } : {}), createdAt: yesterday }
+                where: { ...(warehouseFilter ? { warehouseId: warehouseFilter } : {}), createdAt: yesterday }
             }),
         ]);
 
         const totalFisik = stocks.reduce((acc, curr) => acc + curr.stockNew + curr.stockDismantle + curr.stockDamaged, 0);
-        const totalItems = warehouseId
+        const totalItems = warehouseFilter
             ? new Set(stocks.map(s => s.itemId)).size
             : await prisma.item.count();
 
@@ -75,12 +88,12 @@ export async function getLowStockAlerts() {
             return { success: true, data: [] };
         }
 
-        const warehouseId = await getBranchScope();
+        const warehouseFilter = await getDashboardFilter();
 
         const stocks = await prisma.warehouseStock.findMany({
             where: {
                 minStock: { gt: 0 },
-                ...(warehouseId ? { warehouseId } : {})
+                ...(warehouseFilter ? { warehouseId: warehouseFilter } : {})
             },
             include: { item: true, warehouse: true }
         });
@@ -103,17 +116,17 @@ export async function getRecentTransactions() {
             return { success: true, data: [] };
         }
 
-        const warehouseId = await getBranchScope();
+        const warehouseFilter = await getDashboardFilter();
 
         const [ins, outsRaw] = await Promise.all([
             prisma.stockIn.findMany({
-                where: warehouseId ? { warehouseId } : undefined,
+                where: warehouseFilter ? { warehouseId: warehouseFilter } : undefined,
                 take: 6,
                 orderBy: { createdAt: 'desc' },
                 include: { item: true, warehouse: true }
             }),
             prisma.stockOut.findMany({
-                where: warehouseId ? { warehouseId } : undefined,
+                where: warehouseFilter ? { warehouseId: warehouseFilter } : undefined,
                 take: 6,
                 orderBy: { createdAt: 'desc' },
                 select: { id: true, createdAt: true, itemId: true, qty: true, warehouseId: true, location: true }
