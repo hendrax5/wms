@@ -503,12 +503,14 @@ export default function ItemDetailClient() {
                             <PaginationBar page={safeSnPage} totalPages={snTotalPages} setPage={setSnPage} total={filteredSNs.length} perPage={PP} label="SN" />
                         </>
                     )}
-                    </div>
-                    <p className="text-center text-[11px] text-slate-600 font-medium">
-                        Menampilkan {filteredSNs.length} Serial Number. Klik pada baris SN untuk melihat riwayat lengkap pergerakan barang.
-                    </p>
-                </>
-            ) : (
+                </div>
+            </div>
+
+            <p className="text-center text-[11px] text-slate-600 font-medium">
+                Menampilkan {filteredSNs.length} Serial Number. Klik pada baris SN untuk melihat riwayat lengkap pergerakan barang.
+            </p>
+        </>
+        ) : (
                 <div className="card !p-0 overflow-hidden border border-[#1E293B]">
                     <div className="p-4 border-b border-[#1E293B] bg-[#0F172A]/50 space-y-3">
                         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
