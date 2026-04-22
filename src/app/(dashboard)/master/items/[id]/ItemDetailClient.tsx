@@ -11,6 +11,7 @@ type ItemDetail = {
     code: string;
     name: string;
     unit: string;
+    hasSN?: boolean;
     category: { name: string } | null;
     totalFisik: number;
     serialNumbers: {
@@ -24,6 +25,7 @@ type ItemDetail = {
     }[];
     warehousestock?: {
         warehouseId: number;
+        warehouse?: { name: string };
         stockNew: number;
         stockDismantle: number;
         stockDamaged: number;
@@ -281,38 +283,78 @@ export default function ItemDetailClient() {
             </div>
 
             {/* Quick Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="card border border-[#1E293B] p-4 flex items-center gap-4 hover:border-green-500/30 transition-colors group">
-                    <div className="w-10 h-10 rounded-lg bg-green-500/10 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
-                        <Building2 size={20} className="text-green-400" />
+            {item.hasSN !== false ? (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="card border border-[#1E293B] p-4 flex items-center gap-4 hover:border-green-500/30 transition-colors group">
+                        <div className="w-10 h-10 rounded-lg bg-green-500/10 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+                            <Building2 size={20} className="text-green-400" />
+                        </div>
+                        <div>
+                            <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Ready (In Stock)</p>
+                            <p className="text-xl font-bold text-white transition-colors group-hover:text-green-400">{availableSNCount} <span className="text-[10px] font-normal text-slate-500">SN</span></p>
+                        </div>
                     </div>
-                    <div>
-                        <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Ready (In Stock)</p>
-                        <p className="text-xl font-bold text-white transition-colors group-hover:text-green-400">{availableSNCount} <span className="text-[10px] font-normal text-slate-500">SN</span></p>
+                    <div className="card border border-[#1E293B] p-4 flex items-center gap-4 hover:border-blue-500/30 transition-colors group">
+                        <div className="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+                            <Activity size={20} className="text-blue-400" />
+                        </div>
+                        <div>
+                            <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Deployed (Dipakai)</p>
+                            <p className="text-xl font-bold text-white transition-colors group-hover:text-blue-400">{installedSNCount} <span className="text-[10px] font-normal text-slate-500">SN</span></p>
+                        </div>
+                    </div>
+                    <div className="card border border-[#1E293B] p-4 flex items-center gap-4 hover:border-red-500/30 transition-colors group">
+                        <div className="w-10 h-10 rounded-lg bg-red-500/10 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+                            <Hash size={20} className="text-red-400" />
+                        </div>
+                        <div>
+                            <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Maintenance (Rusak)</p>
+                            <p className="text-xl font-bold text-white transition-colors group-hover:text-red-400">{damagedSNCount} <span className="text-[10px] font-normal text-slate-500">SN</span></p>
+                        </div>
                     </div>
                 </div>
-                <div className="card border border-[#1E293B] p-4 flex items-center gap-4 hover:border-blue-500/30 transition-colors group">
-                    <div className="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
-                        <Activity size={20} className="text-blue-400" />
+            ) : (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="card border border-[#1E293B] p-4 flex items-center gap-4 hover:border-green-500/30 transition-colors group">
+                        <div className="w-10 h-10 rounded-lg bg-green-500/10 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+                            <Package size={20} className="text-green-400" />
+                        </div>
+                        <div>
+                            <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Total Baru</p>
+                            <p className="text-xl font-bold text-white transition-colors group-hover:text-green-400">
+                                {(item.warehousestock?.reduce((acc, curr) => acc + curr.stockNew, 0) || 0).toLocaleString('id-ID')} <span className="text-[10px] font-normal text-slate-500">{item.unit}</span>
+                            </p>
+                        </div>
                     </div>
-                    <div>
-                        <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Deployed (Dipakai)</p>
-                        <p className="text-xl font-bold text-white transition-colors group-hover:text-blue-400">{installedSNCount} <span className="text-[10px] font-normal text-slate-500">SN</span></p>
+                    <div className="card border border-[#1E293B] p-4 flex items-center gap-4 hover:border-blue-500/30 transition-colors group">
+                        <div className="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+                            <Package size={20} className="text-blue-400" />
+                        </div>
+                        <div>
+                            <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Total Dismantle</p>
+                            <p className="text-xl font-bold text-white transition-colors group-hover:text-blue-400">
+                                {(item.warehousestock?.reduce((acc, curr) => acc + curr.stockDismantle, 0) || 0).toLocaleString('id-ID')} <span className="text-[10px] font-normal text-slate-500">{item.unit}</span>
+                            </p>
+                        </div>
+                    </div>
+                    <div className="card border border-[#1E293B] p-4 flex items-center gap-4 hover:border-red-500/30 transition-colors group">
+                        <div className="w-10 h-10 rounded-lg bg-red-500/10 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+                            <Package size={20} className="text-red-400" />
+                        </div>
+                        <div>
+                            <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Total Rusak</p>
+                            <p className="text-xl font-bold text-white transition-colors group-hover:text-red-400">
+                                {(item.warehousestock?.reduce((acc, curr) => acc + curr.stockDamaged, 0) || 0).toLocaleString('id-ID')} <span className="text-[10px] font-normal text-slate-500">{item.unit}</span>
+                            </p>
+                        </div>
                     </div>
                 </div>
-                <div className="card border border-[#1E293B] p-4 flex items-center gap-4 hover:border-red-500/30 transition-colors group">
-                    <div className="w-10 h-10 rounded-lg bg-red-500/10 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
-                        <Hash size={20} className="text-red-400" />
-                    </div>
-                    <div>
-                        <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Maintenance (Rusak)</p>
-                        <p className="text-xl font-bold text-white transition-colors group-hover:text-red-400">{damagedSNCount} <span className="text-[10px] font-normal text-slate-500">SN</span></p>
-                    </div>
-                </div>
-            </div>
+            )}
 
             {/* SN List Section */}
-            <div className="card !p-0 overflow-hidden border border-[#1E293B]">
+            {item.hasSN !== false ? (
+                <>
+                    <div className="card !p-0 overflow-hidden border border-[#1E293B]">
                 {/* Toolbar */}
                 <div className="p-4 border-b border-[#1E293B] bg-[#0F172A]/50 space-y-3">
                     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
@@ -461,12 +503,59 @@ export default function ItemDetailClient() {
                             <PaginationBar page={safeSnPage} totalPages={snTotalPages} setPage={setSnPage} total={filteredSNs.length} perPage={PP} label="SN" />
                         </>
                     )}
+                    </div>
+                    <p className="text-center text-[11px] text-slate-600 font-medium">
+                        Menampilkan {filteredSNs.length} Serial Number. Klik pada baris SN untuk melihat riwayat lengkap pergerakan barang.
+                    </p>
+                </>
+            ) : (
+                <div className="card !p-0 overflow-hidden border border-[#1E293B]">
+                    <div className="p-4 border-b border-[#1E293B] bg-[#0F172A]/50 space-y-3">
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                            <div className="flex items-center gap-2">
+                                <h3 className="font-semibold text-white">Distribusi Stok per Lokasi</h3>
+                                <span className="badge badge-blue">{item.warehousestock?.length || 0} Gudang</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                            <thead className="sticky top-0 z-10">
+                                <tr className="border-b border-[#1E293B] bg-[#020617]/90 backdrop-blur-sm text-[10px] uppercase tracking-wider text-slate-500 font-semibold text-center">
+                                    <th className="px-4 py-3 text-left">Lokasi Gudang</th>
+                                    <th className="px-4 py-3 text-right">Baru</th>
+                                    <th className="px-4 py-3 text-right">Dismantle</th>
+                                    <th className="px-4 py-3 text-right">Rusak</th>
+                                    <th className="px-4 py-3 text-right text-purple-400">Total Fisik</th>
+                                </tr>
+                            </thead>
+                            <tbody className="text-sm">
+                                {(!item.warehousestock || item.warehousestock.length === 0) ? (
+                                    <tr>
+                                        <td colSpan={5} className="px-4 py-8 text-center text-slate-500">Belum ada stok tersimpan di gudang manapun.</td>
+                                    </tr>
+                                ) : item.warehousestock.map((ws) => {
+                                    const total = ws.stockNew + ws.stockDismantle + ws.stockDamaged;
+                                    return (
+                                        <tr key={ws.warehouseId} className="border-b border-[#1E293B]/50 hover:bg-white/[0.02] transition-colors group">
+                                            <td className="px-4 py-3">
+                                                <div className="flex items-center gap-1.5 text-xs font-medium text-white">
+                                                    <MapPin size={14} className="text-slate-400" />
+                                                    {ws.warehouse?.name || `Gudang ID: ${ws.warehouseId}`}
+                                                </div>
+                                            </td>
+                                            <td className="px-4 py-3 text-right text-xs text-green-400">{ws.stockNew.toLocaleString('id-ID')}</td>
+                                            <td className="px-4 py-3 text-right text-xs text-blue-400">{ws.stockDismantle.toLocaleString('id-ID')}</td>
+                                            <td className="px-4 py-3 text-right text-xs text-red-400">{ws.stockDamaged.toLocaleString('id-ID')}</td>
+                                            <td className="px-4 py-3 text-right text-xs text-purple-400 font-bold">{total.toLocaleString('id-ID')}</td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
-            </div>
-
-            <p className="text-center text-[11px] text-slate-600 font-medium">
-                Menampilkan {filteredSNs.length} Serial Number. Klik pada baris SN untuk melihat riwayat lengkap pergerakan barang.
-            </p>
+            )}
         </div>
     );
 }
