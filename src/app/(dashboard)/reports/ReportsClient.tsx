@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { BarChart3, History, ShieldAlert, Loader2, Download, Package, Search, X, Tags, Building2, Activity, Cpu, ChevronDown, ChevronRight, Eye, ChevronLeft, ChevronsLeft, ChevronsRight } from "lucide-react";
 import { getStockSummaryReport, getTransactionHistoryReport, getDamagedItemsReport, getAssetMutationReport } from "@/app/actions/reports";
 import { useSession } from "next-auth/react";
+import { useSearchParams } from "next/navigation";
 
 type TabType = "STOCK" | "HISTORY" | "DAMAGED" | "ASSET";
 
@@ -50,7 +51,10 @@ function PaginationBar({ page, totalPages, setPage, total, perPage, label }: {
 
 export default function ReportsClient() {
     const { data: session } = useSession();
-    const [activeTab, setActiveTab] = useState<TabType>("STOCK");
+    const searchParams = useSearchParams();
+    const trxId = searchParams.get('trxId');
+
+    const [activeTab, setActiveTab] = useState<TabType>(trxId ? "HISTORY" : "STOCK");
 
     // Data states
     const [stockData, setStockData] = useState<any[]>([]);
@@ -61,10 +65,10 @@ export default function ReportsClient() {
     const [loading, setLoading] = useState(true);
 
     // Search & Filter State
-    const [searchInput, setSearchInput] = useState("");
+    const [searchInput, setSearchInput] = useState(trxId || "");
     const [isSuggestionsOpen, setIsSuggestionsOpen] = useState(false);
     const [activeFilters, setActiveFilters] = useState<{ type: string; value: string; label: string }[]>([]);
-    const [expandedRowId, setExpandedRowId] = useState<string | null>(null);
+    const [expandedRowId, setExpandedRowId] = useState<string | null>(trxId);
 
     const addFilter = (filter: { type: string; value: string; label: string }) => {
         if (!activeFilters.some(f => f.type === filter.type && f.value === filter.value)) {
@@ -78,8 +82,15 @@ export default function ReportsClient() {
         setActiveFilters(prev => prev.filter(f => !(f.type === filter.type && f.value === filter.value)));
     };
 
+    // Skip reset search on first render to preserve trxId filter
+    const isFirstRender = useRef(true);
+
     // Reset search when switching tabs
     useEffect(() => {
+        if (isFirstRender.current) {
+            isFirstRender.current = false;
+            return;
+        }
         setSearchInput("");
         setActiveFilters([]);
     }, [activeTab]);

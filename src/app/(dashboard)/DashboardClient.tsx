@@ -260,9 +260,10 @@ export default function DashboardClient({
                             </div>
                         ) : (
                             recentTrx.map((trx, idx) => (
-                                <div
+                                <Link
+                                    href={`/reports?trxId=${trx.id}`}
                                     key={trx.id}
-                                    className="flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-white/[0.025] transition-colors"
+                                    className="flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-white/[0.025] transition-colors cursor-pointer"
                                 >
                                     <div className="flex items-center gap-3 min-w-0">
                                         <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border ${trx.type === 'IN'
@@ -284,7 +285,7 @@ export default function DashboardClient({
                                         </p>
                                         <p className="text-[10px] text-slate-600 mt-0.5">{relativeTime(trx.date)}</p>
                                     </div>
-                                </div>
+                                </Link>
                             ))
                         )}
                     </div>

@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import ReportsClient from "./ReportsClient";
 
 export default function ReportsPage() {
@@ -10,7 +11,9 @@ export default function ReportsPage() {
                 </div>
             </div>
 
-            <ReportsClient />
+            <Suspense fallback={<div className="p-8 text-center text-slate-500">Memuat laporan...</div>}>
+                <ReportsClient />
+            </Suspense>
         </div>
     );
 }
