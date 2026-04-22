@@ -274,11 +274,19 @@ export async function searchBySerialNumber(code: string) {
         let whereClause: any = { code: { contains: code } };
 
         if (session?.user && session.user.level !== "MASTER") {
-            const accessibleIds = session.user.accessibleWarehouseIds || [];
+            let accessibleIds = session.user.accessibleWarehouseIds || [];
+            
+            // Backward compatibility: if JWT token is old and doesn't have accessibleWarehouseIds, fetch from DB
+            if (accessibleIds.length === 0 && session.user.warehouseId) {
+                const userAccesses = await (prisma as any).userWarehouseAccess.findMany({
+                    where: { userId: session.user.id },
+                    select: { warehouseId: true }
+                });
+                accessibleIds = [session.user.warehouseId, ...userAccesses.map((a: any) => a.warehouseId)];
+            }
+
             if (accessibleIds.length > 0) {
                 whereClause.warehouseId = { in: accessibleIds };
-            } else if (session.user.warehouseId) {
-                whereClause.warehouseId = session.user.warehouseId;
             }
         }
 
