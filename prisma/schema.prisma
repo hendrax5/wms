@@ -12,7 +12,7 @@ model Area {
   name      String      @unique(map: "Area_name_key")
   adminId   Int?
   createdAt DateTime    @default(now())
-  updatedAt DateTime
+  updatedAt DateTime @updatedAt
   user      User?       @relation(fields: [adminId], references: [id], map: "Area_adminId_fkey")
   pop       Pop[]
   warehouse Warehouse[]
@@ -28,7 +28,7 @@ model Category {
   hasSN     Boolean    @default(true)
   companyId Int?
   createdAt DateTime   @default(now())
-  updatedAt DateTime
+  updatedAt DateTime @updatedAt
   company   Company?   @relation(fields: [companyId], references: [id], map: "Category_companyId_fkey")
   item      Item[]
   stockin   StockIn[]
@@ -44,7 +44,7 @@ model Company {
   brand        String?
   address      String?
   createdAt    DateTime       @default(now())
-  updatedAt    DateTime
+  updatedAt DateTime @updatedAt
   category     Category[]
   item         Item[]
   stockin      StockIn[]
@@ -113,7 +113,7 @@ model Distributor {
   phone         String?
   mobile        String?
   createdAt     DateTime        @default(now())
-  updatedAt     DateTime
+  updatedAt DateTime @updatedAt
   purchaseorder PurchaseOrder[]
   stockin       StockIn[]
 
@@ -131,7 +131,7 @@ model Item {
   companyId             Int?
   categoryId            Int?
   createdAt             DateTime                @default(now())
-  updatedAt             DateTime
+  updatedAt DateTime @updatedAt
   customerinstallation  CustomerInstallation[]
   damageditem           DamagedItem[]
   category              Category?               @relation(fields: [categoryId], references: [id], map: "Item_categoryId_fkey")
@@ -181,7 +181,7 @@ model Pop {
   areaId          Int?
   warehouseId     Int?
   createdAt       DateTime          @default(now())
-  updatedAt       DateTime
+  updatedAt DateTime @updatedAt
   area            Area?             @relation(fields: [areaId], references: [id], map: "Pop_areaId_fkey")
   warehouse       Warehouse?        @relation(fields: [warehouseId], references: [id], map: "Pop_warehouseId_fkey")
   popinstallation PopInstallation[]
@@ -224,7 +224,7 @@ model PurchaseOrder {
   tax               Float               @default(0)
   date              DateTime            @default(now())
   createdAt         DateTime            @default(now())
-  updatedAt         DateTime
+  updatedAt DateTime @updatedAt
   distributor       Distributor         @relation(fields: [distributorId], references: [id], map: "PurchaseOrder_distributorId_fkey")
   purchaseorderitem PurchaseOrderItem[]
 
@@ -260,7 +260,7 @@ model SerialNumber {
   popId                Int?
   customerId           Int?
   createdAt            DateTime               @default(now())
-  updatedAt            DateTime
+  updatedAt DateTime @updatedAt
   customerinstallation CustomerInstallation[]
   damagedserial        DamagedSerial[]
   popinstallation      PopInstallation[]
@@ -385,7 +385,7 @@ model StockRequest {
   status             String?
   createdBy          Int?
   createdAt          DateTime             @default(now())
-  updatedAt          DateTime
+  updatedAt DateTime @updatedAt
   company            Company?             @relation(fields: [companyId], references: [id], map: "StockRequest_companyId_fkey")
   warehouse          Warehouse            @relation(fields: [warehouseId], references: [id], map: "StockRequest_warehouseId_fkey")
   stockrequestdetail StockRequestDetail[]
@@ -418,7 +418,7 @@ model StockTransfer {
   status                                             stocktransfer_status @default(PENDING)
   createdBy                                          Int?
   createdAt                                          DateTime             @default(now())
-  updatedAt                                          DateTime
+  updatedAt DateTime @updatedAt
   warehouse_stocktransfer_fromWarehouseIdTowarehouse Warehouse            @relation("stocktransfer_fromWarehouseIdTowarehouse", fields: [fromWarehouseId], references: [id], map: "StockTransfer_fromWarehouseId_fkey")
   item                                               Item                 @relation(fields: [itemId], references: [id], map: "StockTransfer_itemId_fkey")
   warehouse_stocktransfer_toWarehouseIdTowarehouse   Warehouse            @relation("stocktransfer_toWarehouseIdTowarehouse", fields: [toWarehouseId], references: [id], map: "StockTransfer_toWarehouseId_fkey")
@@ -441,7 +441,7 @@ model User {
   isActive                 Boolean               @default(true)
   warehouseId              Int?
   createdAt                DateTime              @default(now())
-  updatedAt                DateTime
+  updatedAt DateTime @updatedAt
   area                     Area[]
   warehouse                Warehouse?            @relation(fields: [warehouseId], references: [id], map: "User_warehouseId_fkey")
   stockadjustment_created  StockAdjustment[]     @relation("adjustment_createdBy")
@@ -451,6 +451,9 @@ model User {
   asset                    Asset[]
   assetmaintenancelog      AssetMaintenanceLog[]
   assetlocationlog         AssetLocationLog[]
+
+    userWarehouseAccesses    UserWarehouseAccess[]
+  warehouseAssignments     UserWarehouseAccess[] @relation("warehouse_assignedBy")
 
   @@index([warehouseId], map: "User_warehouseId_idx")
   @@map("user")
@@ -463,7 +466,7 @@ model Warehouse {
   type                                                   warehouse_type    @default(CABANG)
   areaId                                                 Int?
   createdAt                                              DateTime          @default(now())
-  updatedAt                                              DateTime
+  updatedAt DateTime @updatedAt
   damageditem                                            DamagedItem[]
   pop                                                    Pop[]
   serialnumber                                           SerialNumber[]
@@ -481,6 +484,8 @@ model Warehouse {
   stockopname                                            StockOpname[]
   inventorylog                                           InventoryLog[]
 
+    userWarehouseAccesses    UserWarehouseAccess[]
+
   @@index([areaId], map: "Warehouse_areaId_idx")
   @@map("warehouse")
 }
@@ -494,7 +499,7 @@ model WarehouseStock {
   stockDismantle Int       @default(0)
   stockDamaged   Int       @default(0)
   minStock       Int       @default(0)
-  updatedAt      DateTime
+  updatedAt DateTime @updatedAt
   item           Item      @relation(fields: [itemId], references: [id], map: "WarehouseStock_itemId_fkey")
   warehouse      Warehouse @relation(fields: [warehouseId], references: [id], map: "WarehouseStock_warehouseId_fkey")
   rack           Rack?     @relation(fields: [rackId], references: [id])
@@ -796,4 +801,22 @@ model AppConfig {
   logo        String?
   updatedAt   DateTime @updatedAt
   @@map("app_config")
+}
+
+model UserWarehouseAccess {
+  id          Int       @id @default(autoincrement())
+  userId      Int
+  warehouseId Int
+  assignedBy  Int?      // The MASTER user who assigned it
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  warehouse   Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+  assigner    User?     @relation("warehouse_assignedBy", fields: [assignedBy], references: [id], onDelete: SetNull)
+
+  @@unique([userId, warehouseId])
+  @@index([userId])
+  @@index([warehouseId])
+  @@map("userwarehouseaccess")
 }

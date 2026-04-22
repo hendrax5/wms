@@ -13,8 +13,8 @@
     "@prisma/client": "^6.19.2",
     "bcryptjs": "^3.0.3",
     "date-fns": "^4.1.0",
-    "dotenv": "^17.3.1",
     "html5-qrcode": "^2.3.8",
+    "js-cookie": "^3.0.5",
     "lucide-react": "^0.577.0",
     "mysql2": "^3.18.2",
     "next": "16.1.6",
@@ -23,6 +23,8 @@
     "puppeteer": "^24.38.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
+    "ssh2": "^1.17.0",
+    "xlsx": "^0.18.5",
     "zod": "^4.3.6"
   },
   "devDependencies": {
@@ -32,6 +34,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "autoprefixer": "^10.4.27",
+    "dotenv": "^17.4.2",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
     "postcss": "^8.5.8",
