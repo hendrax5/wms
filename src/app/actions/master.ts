@@ -163,8 +163,7 @@ export async function getItemDetails(id: number) {
                         pop: true,
                         itemtype: true
                     },
-                    orderBy: { id: 'desc' } as any,
-                    take: 500
+                    orderBy: { id: 'desc' } as any
                 }
             }
         });

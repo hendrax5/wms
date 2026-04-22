@@ -22,6 +22,12 @@ type ItemDetail = {
         pop: { id: number; name: string } | null;
         updatedAt: Date;
     }[];
+    warehousestock?: {
+        warehouseId: number;
+        stockNew: number;
+        stockDismantle: number;
+        stockDamaged: number;
+    }[];
 };
 
 type ActiveFilter = { type: 'lokasi' | 'status'; value: string; label: string };
@@ -205,7 +211,18 @@ export default function ItemDetailClient() {
     const pagedSNs = filteredSNs.slice((safeSnPage - 1) * PP, safeSnPage * PP);
 
     const displayFisik = activeLocations.length > 0
-        ? availableSNCount + damagedSNCount
+        ? activeLocations.reduce((total, loc) => {
+            if (loc.startsWith("W-")) {
+                const wid = Number(loc.split('-')[1]);
+                const ws = item.warehousestock?.find(w => w.warehouseId === wid);
+                return total + (ws ? ws.stockNew + ws.stockDismantle + ws.stockDamaged : 0);
+            }
+            if (loc.startsWith("P-")) {
+                const pid = Number(loc.split('-')[1]);
+                return total + item.serialNumbers.filter(sn => sn.pop?.id === pid).length;
+            }
+            return total;
+        }, 0)
         : item.totalFisik;
 
     const warehouseNameFilter = activeLocations.length === 1 ? uniqueLocs.find(l => l.id === activeLocations[0])?.name : (activeLocations.length > 1 ? `${activeLocations.length} Lokasi` : null);
