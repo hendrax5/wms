@@ -1,13 +1,14 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Package, ScanLine, X, Loader2, Save, AlertCircle, Building2, Plus, Trash2, CheckCircle2, Download } from "lucide-react";
+import { Package, ScanLine, X, Loader2, Save, AlertCircle, Building2, Plus, Trash2, CheckCircle2, Download, Upload } from "lucide-react";
 import { createStockIn } from "@/app/actions/inbound";
 import { getItems } from "@/app/actions/item";
 import { getWarehousesForSelect } from "@/app/actions/pop";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import SearchableSelect from "@/components/SearchableSelect";
+import * as XLSX from "xlsx";
 
 type CartItem = {
     id: string;
@@ -18,6 +19,7 @@ type CartItem = {
     qty: number;
     price: number;
     serialNumbers: string[];
+    condition: "Baru" | "Bekas";
 };
 
 export default function InboundClient() {
@@ -32,7 +34,7 @@ export default function InboundClient() {
 
     // Lookups
     const [warehouses, setWarehouses] = useState<{ id: number; name: string }[]>([]);
-    const [items, setItems] = useState<{ id: number; name: string; code: string; hasSN: boolean; category: { name: string } | null }[]>([]);
+    const [items, setItems] = useState<{ id: number; name: string; code: string; hasSN: boolean; category: { name: string } | null; company: { name: string } | null }[]>([]);
 
     // Form General
     const [selectedWarehouseId, setSelectedWarehouseId] = useState("");
@@ -45,6 +47,8 @@ export default function InboundClient() {
     // Barcode Scanning for active cart item
     const [currentScan, setCurrentScan] = useState("");
     const scannerInputRef = useRef<HTMLInputElement>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null); // For active item single import
+    const globalFileInputRef = useRef<HTMLInputElement>(null); // For batch import
 
     // Item adder
     const [addingItemId, setAddingItemId] = useState("");
@@ -107,6 +111,7 @@ export default function InboundClient() {
             qty: item.hasSN ? 0 : addingQty,
             price: addingPrice,
             serialNumbers: [],
+            condition: "Baru",
         };
 
         const newCart = [...cartItems, newCartItem];
@@ -139,6 +144,12 @@ export default function InboundClient() {
     const updateCartItemPrice = (idx: number, newPrice: number) => {
         const newCart = [...cartItems];
         newCart[idx].price = newPrice;
+        setCartItems(newCart);
+    };
+
+    const updateCartItemCondition = (idx: number, newCondition: "Baru" | "Bekas") => {
+        const newCart = [...cartItems];
+        newCart[idx].condition = newCondition;
         setCartItems(newCart);
     };
 
@@ -183,6 +194,202 @@ export default function InboundClient() {
         setCartItems(newCart);
     };
 
+    const handleImportExcel = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file || activeCartIdx === null) return;
+
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+            try {
+                const bstr = evt.target?.result;
+                const wb = XLSX.read(bstr, { type: 'binary' });
+                const wsname = wb.SheetNames[0];
+                const ws = wb.Sheets[wsname];
+                const data = XLSX.utils.sheet_to_json(ws, { header: 1 }) as any[][];
+
+                const importedSNs: string[] = [];
+                for (let i = 0; i < data.length; i++) {
+                    const sn = data[i][0]; // Assume SN is in the first column
+                    if (sn && typeof sn === 'string' && sn.trim() !== '') {
+                        importedSNs.push(sn.trim());
+                    } else if (sn && typeof sn === 'number') {
+                        importedSNs.push(sn.toString().trim());
+                    }
+                }
+
+                if (importedSNs.length === 0) {
+                    setError("Tidak ada Serial Number yang valid ditemukan di file Excel.");
+                    return;
+                }
+
+                const cart = cartItems[activeCartIdx];
+                let addedCount = 0;
+                let duplicateCount = 0;
+                const newSNs = [...cart.serialNumbers];
+
+                for (const sn of importedSNs) {
+                    // Check if already in current item
+                    if (newSNs.includes(sn)) {
+                        duplicateCount++;
+                        continue;
+                    }
+                    
+                    // Check globally
+                    let globalDup = false;
+                    for (const ci of cartItems) {
+                        if (ci.serialNumbers.includes(sn)) {
+                            globalDup = true;
+                            break;
+                        }
+                    }
+
+                    if (globalDup) {
+                        duplicateCount++;
+                        continue;
+                    }
+
+                    newSNs.push(sn);
+                    addedCount++;
+                }
+
+                const newCart = [...cartItems];
+                newCart[activeCartIdx].serialNumbers = newSNs;
+                newCart[activeCartIdx].qty = newSNs.length;
+                setCartItems(newCart);
+                
+                if (duplicateCount > 0) {
+                    setError(`Berhasil import ${addedCount} SN. ${duplicateCount} SN dilewati karena duplikat.`);
+                } else {
+                    setError("");
+                    setSuccessMsg(`Berhasil import ${addedCount} SN dari Excel.`);
+                    setTimeout(() => setSuccessMsg(""), 4000);
+                }
+            } catch (err) {
+                console.error(err);
+                setError("Gagal memproses file Excel.");
+            }
+        };
+        reader.readAsBinaryString(file);
+        
+        // Reset file input
+        if (fileInputRef.current) fileInputRef.current.value = "";
+    };
+
+    const handleBatchImportExcel = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+            try {
+                const bstr = evt.target?.result;
+                const wb = XLSX.read(bstr, { type: 'binary' });
+                const wsname = wb.SheetNames[0];
+                const ws = wb.Sheets[wsname];
+                const data = XLSX.utils.sheet_to_json(ws) as any[];
+
+                if (data.length === 0) {
+                    setError("File Excel kosong.");
+                    return;
+                }
+
+                let addedItems = 0;
+                let addedSNs = 0;
+                let errors: string[] = [];
+                const newCartItems = [...cartItems];
+
+                data.forEach((row, rowIndex) => {
+                    const sn = row['Serial Number'] || row['SN'] || row['serial number'] || row['sn'];
+                    const type = row['Type'] || row['Tipe'] || row['type'] || row['Item Name'] || row['Nama Barang'] || row['Item Code'];
+                    const merk = row['Merk'] || row['Brand'] || row['merk'] || row['brand'];
+
+                    if (!sn) return;
+
+                    const snStr = String(sn).trim();
+                    const typeStr = type ? String(type).trim().toLowerCase() : '';
+                    const merkStr = merk ? String(merk).trim().toLowerCase() : '';
+
+                    // Match item by Item Name, Item Code, or Category Name + Company Name
+                    let matchedItem = items.find(i => 
+                        i.name.toLowerCase() === typeStr || 
+                        i.code.toLowerCase() === typeStr ||
+                        (i.category?.name?.toLowerCase() === typeStr && i.company?.name?.toLowerCase() === merkStr)
+                    );
+
+                    if (!matchedItem) {
+                        errors.push(`Baris ${rowIndex + 2}: Barang tidak dikenali (Type: ${type}, Merk: ${merk})`);
+                        return;
+                    }
+
+                    if (!matchedItem.hasSN) {
+                        errors.push(`Baris ${rowIndex + 2}: Barang ${matchedItem.name} tidak membutuhkan SN.`);
+                        return;
+                    }
+
+                    // Check duplicate globally
+                    let isDuplicate = false;
+                    for (const ci of newCartItems) {
+                        if (ci.serialNumbers.includes(snStr)) {
+                            isDuplicate = true;
+                            break;
+                        }
+                    }
+                    if (isDuplicate) {
+                        errors.push(`Baris ${rowIndex + 2}: SN ${snStr} duplikat di daftar.`);
+                        return;
+                    }
+
+                    // Find or create cart item
+                    let cartItemIdx = newCartItems.findIndex(ci => ci.itemId === matchedItem?.id.toString());
+                    if (cartItemIdx === -1) {
+                        newCartItems.push({
+                            id: `${Date.now()}-${matchedItem.id}`,
+                            itemId: matchedItem.id.toString(),
+                            itemName: matchedItem.name,
+                            itemCode: matchedItem.code,
+                            hasSN: matchedItem.hasSN,
+                            qty: 0,
+                            price: 0,
+                            serialNumbers: [],
+                            condition: "Baru",
+                        });
+                        cartItemIdx = newCartItems.length - 1;
+                        addedItems++;
+                    }
+
+                    newCartItems[cartItemIdx].serialNumbers.push(snStr);
+                    newCartItems[cartItemIdx].qty = newCartItems[cartItemIdx].serialNumbers.length;
+                    addedSNs++;
+                });
+
+                setCartItems(newCartItems);
+
+                if (errors.length > 0) {
+                    setError(`Berhasil import ${addedSNs} SN. Ada beberapa error:\n${errors.slice(0, 5).join('\n')}${errors.length > 5 ? '\n...dan lainnya' : ''}`);
+                } else {
+                    setError("");
+                    setSuccessMsg(`Berhasil import ${addedSNs} SN dari ${addedItems > 0 ? addedItems : 'beberapa'} jenis barang.`);
+                    setTimeout(() => setSuccessMsg(""), 5000);
+                }
+            } catch (err) {
+                console.error(err);
+                setError("Gagal memproses file Excel.");
+            }
+        };
+        reader.readAsBinaryString(file);
+        if (globalFileInputRef.current) globalFileInputRef.current.value = "";
+    };
+
+    const downloadTemplate = () => {
+        const ws = XLSX.utils.json_to_sheet([
+            { "Serial Number": "SN123456", "Type": "F609", "Merk": "ZTE" },
+            { "Serial Number": "SN654321", "Type": "HG8245H", "Merk": "Huawei" }
+        ]);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Template Inbound");
+        XLSX.writeFile(wb, "Template_Inbound_WMS.xlsx");
+    };
+
     const totalQty = cartItems.reduce((sum, ci) => sum + ci.qty, 0);
     const totalPrice = cartItems.reduce((sum, ci) => sum + (ci.price * ci.qty), 0);
 
@@ -220,6 +427,7 @@ export default function InboundClient() {
                 qty: ci.qty,
                 price: ci.price,
                 serialNumbers: ci.serialNumbers,
+                condition: ci.condition,
             })),
             description,
         };
@@ -345,7 +553,7 @@ export default function InboundClient() {
                             {/* Add item row */}
                             <div className="flex gap-3 items-end flex-wrap">
                                 <div className="flex-1 min-w-[200px]">
-                                    <label className="text-xs text-slate-500 mb-1 block">Tambah Barang</label>
+                                    <label className="text-xs text-slate-500 mb-1 block">Tambah Barang (Manual)</label>
                                     <SearchableSelect
                                         options={items
                                             .filter(i => !cartItems.some(ci => ci.itemId === i.id.toString()))
@@ -357,41 +565,61 @@ export default function InboundClient() {
                                         icon={<Package size={14} />}
                                     />
                                 </div>
-                                {addingItemId && !items.find(i => i.id.toString() === addingItemId)?.hasSN && (
-                                    <div className="w-20">
+                                {!items.find(i => i.id.toString() === addingItemId)?.hasSN && addingItemId && (
+                                    <div className="w-24">
                                         <label className="text-xs text-slate-500 mb-1 block">Qty</label>
                                         <input
                                             type="number"
                                             min="1"
                                             value={addingQty}
                                             onChange={(e) => setAddingQty(Number(e.target.value))}
-                                            className="w-full bg-[#0f172a] border border-[#334155] text-white rounded-lg px-3 py-2.5 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                                            className="w-full bg-[#0f172a] border border-[#334155] text-white rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
                                         />
                                     </div>
                                 )}
-
-                                {addingItemId && (
-                                    <div className="w-32">
-                                        <label className="text-xs text-slate-500 mb-1 block">Harga/unit (Rp)</label>
-                                        <input
-                                            type="number"
-                                            min="0"
-                                            value={addingPrice}
-                                            onChange={(e) => setAddingPrice(Number(e.target.value))}
-                                            className="w-full bg-[#0f172a] border border-[#334155] text-white rounded-lg px-3 py-2.5 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-sm"
-                                            placeholder="0"
-                                        />
-                                    </div>
-                                )}
-
+                                <div className="w-32">
+                                    <label className="text-xs text-slate-500 mb-1 block">Harga (Opsional)</label>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        value={addingPrice}
+                                        onChange={(e) => setAddingPrice(Number(e.target.value))}
+                                        className="w-full bg-[#0f172a] border border-[#334155] text-white rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                                    />
+                                </div>
                                 <button
                                     type="button"
                                     onClick={addItemToCart}
                                     disabled={!addingItemId}
-                                    className="bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white px-4 py-2.5 rounded-lg flex items-center gap-1.5 font-medium transition-colors text-sm shrink-0"
+                                    className="bg-blue-600 hover:bg-blue-500 disabled:bg-[#334155] disabled:text-slate-500 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 h-[38px]"
                                 >
                                     <Plus size={16} /> Tambah
                                 </button>
+                                
+                                {/* Batch Excel Import */}
+                                <div className="flex-1 min-w-[200px] flex gap-2 items-center justify-end">
+                                    <input 
+                                        type="file" 
+                                        accept=".xlsx,.xls" 
+                                        ref={globalFileInputRef} 
+                                        onChange={handleBatchImportExcel} 
+                                        className="hidden" 
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={downloadTemplate}
+                                        className="text-[11px] font-medium text-slate-400 hover:text-white bg-slate-800/50 hover:bg-slate-700 px-3 py-2 rounded-lg transition-colors flex items-center gap-2"
+                                    >
+                                        <Download size={14} /> Unduh Template
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => globalFileInputRef.current?.click()}
+                                        className="text-[11px] font-medium text-emerald-400 hover:text-white bg-emerald-500/10 hover:bg-emerald-500/30 border border-emerald-500/30 px-3 py-2 rounded-lg transition-colors flex items-center gap-2"
+                                    >
+                                        <Upload size={14} /> Import Batch Excel
+                                    </button>
+                                </div>
                             </div>
 
                             {/* Cart items table */}
@@ -401,10 +629,11 @@ export default function InboundClient() {
                                         <thead className="bg-[#020617] text-slate-400">
                                             <tr>
                                                 <th className="px-4 py-3 text-left text-[10px] uppercase tracking-wider font-semibold">Barang</th>
-                                                <th className="px-4 py-3 text-center text-[10px] uppercase tracking-wider font-semibold w-20">Qty</th>
+                                                <th className="px-4 py-3 text-center text-[10px] uppercase tracking-wider font-semibold w-32 whitespace-nowrap">Qty</th>
                                                 <th className="px-4 py-3 text-left text-[10px] uppercase tracking-wider font-semibold w-36">Harga/unit (Rp)</th>
-                                                <th className="px-4 py-3 text-center text-[10px] uppercase tracking-wider font-semibold w-16">SN</th>
-                                                <th className="px-4 py-3 text-center text-[10px] uppercase tracking-wider font-semibold w-20">Status</th>
+                                                <th className="px-4 py-3 text-center text-[10px] uppercase tracking-wider font-semibold w-28">Kondisi</th>
+                                                <th className="px-4 py-3 text-center text-[10px] uppercase tracking-wider font-semibold w-20">SN</th>
+                                                <th className="px-4 py-3 text-center text-[10px] uppercase tracking-wider font-semibold w-24">Status</th>
                                                 <th className="px-2 py-3 w-10"></th>
                                             </tr>
                                         </thead>
@@ -426,14 +655,14 @@ export default function InboundClient() {
                                                             {ci.hasSN ? (
                                                                 <span className="font-mono text-blue-300 font-bold">{ci.qty}</span>
                                                             ) : (
-                                                                <input
-                                                                    type="number"
-                                                                    min="1"
-                                                                    value={ci.qty}
-                                                                    onClick={(e) => e.stopPropagation()}
-                                                                    onChange={(e) => updateCartItemQty(idx, Number(e.target.value))}
-                                                                    className="w-16 bg-[#0f172a] border border-[#334155] text-white rounded px-2 py-1 text-center text-xs focus:ring-1 focus:ring-blue-500"
-                                                                />
+                                                                    <input
+                                                                        type="number"
+                                                                        min="1"
+                                                                        value={ci.qty}
+                                                                        onClick={(e) => e.stopPropagation()}
+                                                                        onChange={(e) => updateCartItemQty(idx, Number(e.target.value))}
+                                                                        className="w-24 bg-[#0f172a] border border-[#334155] text-white rounded px-2 py-1 text-center text-xs focus:ring-1 focus:ring-blue-500"
+                                                                    />
                                                             )}
                                                         </td>
 
@@ -446,6 +675,17 @@ export default function InboundClient() {
                                                                 className="w-full bg-[#0f172a] border border-[#334155] text-white rounded px-2 py-1 text-xs focus:ring-1 focus:ring-blue-500"
                                                                 placeholder="0"
                                                             />
+                                                        </td>
+
+                                                        <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                                                            <select
+                                                                value={ci.condition}
+                                                                onChange={(e) => updateCartItemCondition(idx, e.target.value as "Baru" | "Bekas")}
+                                                                className="w-full bg-[#0f172a] border border-[#334155] text-white rounded px-2 py-1 text-xs focus:ring-1 focus:ring-blue-500"
+                                                            >
+                                                                <option value="Baru">Baru</option>
+                                                                <option value="Bekas">Bekas</option>
+                                                            </select>
                                                         </td>
 
                                                         <td className="px-4 py-3 text-center">
@@ -543,7 +783,7 @@ export default function InboundClient() {
                 </div>
 
                 {activeItem?.hasSN && (
-                    <div className="p-4 bg-slate-900/80">
+                    <div className="p-4 bg-slate-900/80 space-y-3">
                         <input
                             ref={scannerInputRef}
                             type="text"
@@ -554,6 +794,19 @@ export default function InboundClient() {
                             placeholder="Scan Serial Number..."
                             className="w-full bg-black/50 border border-blue-500/50 focus:border-blue-400 shadow-[0_0_15px_rgba(59,130,246,0.2)] text-white rounded-lg px-4 py-3 font-mono text-center focus:outline-none transition-all"
                         />
+                        <div className="flex items-center gap-2">
+                            <div className="h-px bg-[#334155] flex-1"></div>
+                            <span className="text-[10px] text-slate-500 font-medium uppercase tracking-wider">ATAU</span>
+                            <div className="h-px bg-[#334155] flex-1"></div>
+                        </div>
+                        <input type="file" accept=".xlsx,.xls,.csv" className="hidden" ref={fileInputRef} onChange={handleImportExcel} />
+                        <button 
+                            type="button" 
+                            onClick={() => fileInputRef.current?.click()}
+                            className="w-full flex items-center justify-center gap-2 py-2 rounded-lg bg-green-500/10 text-green-400 border border-green-500/20 hover:bg-green-500/20 hover:border-green-500/40 text-xs font-semibold transition-all"
+                        >
+                            <Upload size={14} /> Import SN dari Excel
+                        </button>
                     </div>
                 )}
 

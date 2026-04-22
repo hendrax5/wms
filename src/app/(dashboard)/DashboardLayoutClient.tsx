@@ -7,7 +7,7 @@ import MobileNav from "@/components/MobileNav";
 
 const STORAGE_KEY = "wms:sidebar-collapsed";
 
-export default function DashboardLayoutClient({ children, appConfig }: { children: React.ReactNode, appConfig?: any }) {
+export default function DashboardLayoutClient({ children, appConfig, accessibleWarehouses = [], activeWarehouseId = null }: { children: React.ReactNode, appConfig?: any, accessibleWarehouses?: any[], activeWarehouseId?: number | null }) {
     // Initialize from localStorage to avoid layout flash
     const [collapsed, setCollapsed] = useState(() => {
         if (typeof window === "undefined") return false;
@@ -25,7 +25,7 @@ export default function DashboardLayoutClient({ children, appConfig }: { childre
             <div className="flex h-screen w-full bg-background overflow-hidden">
                 <Sidebar appConfig={appConfig} />
                 <div className="flex-1 flex flex-col h-full overflow-hidden">
-                    <Header />
+                    <Header accessibleWarehouses={accessibleWarehouses} activeWarehouseId={activeWarehouseId} />
                     <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 pb-24 md:pb-8">
                         {children}
                     </main>

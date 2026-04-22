@@ -3,7 +3,8 @@
 import { prisma } from "@/lib/db";
 import { revalidatePath, unstable_noStore as noStore } from "next/cache";
 import bcrypt from "bcryptjs";
-
+import { cookies } from "next/headers";
+import { auth } from "@/lib/auth";
 export async function getUsers() {
     noStore();
     try {
@@ -13,7 +14,10 @@ export async function getUsers() {
         const users = await prisma.user.findMany({
             orderBy: { name: "asc" },
             include: {
-                warehouse: true
+                warehouse: true,
+                userWarehouseAccesses: {
+                    include: { warehouse: true }
+                }
             }
         });
 
@@ -36,7 +40,8 @@ export async function createUser(formData: FormData) {
     const level = formData.get("level") as any;
     const jabatan = formData.get("jabatan") as string;
     const phone = formData.get("phone") as string;
-    const warehouseId = formData.get("warehouseId") ? Number(formData.get("warehouseId")) : null;
+    const warehouseId = formData.get("warehouseId") ? Number(formData.get("warehouseId")) : null; // Legacy single assignment
+    const warehouseIdsStr = formData.get("warehouseIds") as string; // Multi-select assignment "1,2,3"
     const isActive = formData.get("isActive") === "on";
 
     if (!name || !username || !password) {
@@ -52,6 +57,8 @@ export async function createUser(formData: FormData) {
 
         const hashedPassword = await bcrypt.hash(password, 10);
 
+        const warehouseIds = warehouseIdsStr ? warehouseIdsStr.split(',').filter(x => x).map(Number) : [];
+
         await prisma.user.create({
             data: {
                 name,
@@ -60,9 +67,14 @@ export async function createUser(formData: FormData) {
                 level: level || "STAFF",
                 jabatan: jabatan || null,
                 phone: phone || null,
-                warehouseId,
+                warehouseId: warehouseIds.length > 0 ? warehouseIds[0] : warehouseId, // Fallback legacy
                 isActive,
-                updatedAt: new Date()
+                updatedAt: new Date(),
+                userWarehouseAccesses: {
+                    create: warehouseIds.map(wId => ({
+                        warehouseId: wId
+                    }))
+                }
             },
         });
 
@@ -82,6 +94,7 @@ export async function updateUser(id: number, formData: FormData) {
     const jabatan = formData.get("jabatan") as string;
     const phone = formData.get("phone") as string;
     const warehouseId = formData.get("warehouseId") ? Number(formData.get("warehouseId")) : null;
+    const warehouseIdsStr = formData.get("warehouseIds") as string; // Multi-select assignment "1,2,3"
     const isActive = formData.get("isActive") === "on";
 
     if (!name || !username) {
@@ -95,13 +108,15 @@ export async function updateUser(id: number, formData: FormData) {
             return { success: false, error: "Username sudah digunakan oleh user lain" };
         }
 
+        const warehouseIds = warehouseIdsStr ? warehouseIdsStr.split(',').filter(x => x).map(Number) : [];
+
         const updateData: any = {
             name,
             username,
             level: level || "STAFF",
             jabatan: jabatan || null,
             phone: phone || null,
-            warehouseId,
+            warehouseId: warehouseIds.length > 0 ? warehouseIds[0] : warehouseId,
             isActive,
             updatedAt: new Date()
         };
@@ -111,9 +126,26 @@ export async function updateUser(id: number, formData: FormData) {
             updateData.password = await bcrypt.hash(password, 10);
         }
 
-        await prisma.user.update({
-            where: { id },
-            data: updateData,
+        await prisma.$transaction(async (tx) => {
+            await tx.user.update({
+                where: { id },
+                data: updateData,
+            });
+
+            // Update accesses if warehouseIds are provided
+            if (warehouseIdsStr !== null) {
+                await tx.userWarehouseAccess.deleteMany({
+                    where: { userId: id }
+                });
+                if (warehouseIds.length > 0) {
+                    await tx.userWarehouseAccess.createMany({
+                        data: warehouseIds.map(wId => ({
+                            userId: id,
+                            warehouseId: wId
+                        }))
+                    });
+                }
+            }
         });
 
         revalidatePath("/master/users");
@@ -135,4 +167,35 @@ export async function deleteUser(id: number) {
     } catch (error) {
         return { success: false, error: "Gagal menghapus pengguna." };
     }
+}
+
+export async function getAccessibleWarehouses() {
+    const session = await auth();
+    if (!session?.user) return { success: false, data: [] };
+
+    try {
+        if (session.user.level === "MASTER") {
+            const warehouses = await prisma.warehouse.findMany({ select: { id: true, name: true } });
+            return { success: true, data: warehouses };
+        } else {
+            const ids = session.user.accessibleWarehouseIds || [];
+            if (ids.length === 0) return { success: true, data: [] };
+            const warehouses = await prisma.warehouse.findMany({
+                where: { id: { in: ids } },
+                select: { id: true, name: true }
+            });
+            return { success: true, data: warehouses };
+        }
+    } catch (error) {
+        return { success: false, data: [] };
+    }
+}
+
+export async function setActiveBranch(warehouseId: number | null) {
+    if (warehouseId === null) {
+        cookies().delete("wms_active_branch");
+    } else {
+        cookies().set("wms_active_branch", warehouseId.toString(), { path: "/", maxAge: 60 * 60 * 24 * 7 });
+    }
+    return { success: true };
 }

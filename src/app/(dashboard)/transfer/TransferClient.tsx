@@ -266,8 +266,8 @@ export default function TransferClient() {
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mt-4">
-                            <div className="space-y-2">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mt-4">
+                            <div className="md:col-span-2 space-y-2">
                                 <label className="text-sm font-medium text-slate-300">Pilih Barang yang Dikirim <span className="text-red-400">*</span></label>
                                 <SearchableSelect
                                     options={items.map(i => ({ value: i.id.toString(), label: `${i.code} - ${i.name}` }))}

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, createContext, useContext } from "react";
+import { useSession } from "next-auth/react";
 import {
     LayoutDashboard,
     ArrowRightLeft,
@@ -42,6 +43,22 @@ const assetLinks = [
 export default function Sidebar({ appConfig }: { appConfig?: any }) {
     const pathname = usePathname();
     const { collapsed, toggle } = useSidebar();
+    const { data: session } = useSession();
+    const userLevel = (session?.user as any)?.level || "";
+
+    const visibleLinks = links.filter(link => {
+        if (link.href === "/pop" || link.href === "/master") {
+            return userLevel === "MASTER";
+        }
+        return true;
+    });
+
+    const visibleAssetLinks = assetLinks.filter(link => {
+        if (link.href === "/assets") {
+            return userLevel === "MASTER" || userLevel === "TECHNICIAN" || userLevel === "SPV";
+        }
+        return userLevel === "MASTER" || userLevel === "TECHNICIAN";
+    });
 
     return (
         <aside className={`bg-[#020617] border-r border-[#1E293B] hidden md:flex flex-col h-full shrink-0 transition-all duration-300 ease-in-out ${collapsed ? "w-[68px]" : "w-60"}`}>
@@ -65,7 +82,7 @@ export default function Sidebar({ appConfig }: { appConfig?: any }) {
             {/* Navigation */}
             <nav className="flex-1 overflow-y-auto py-4 px-2 flex flex-col gap-0.5">
                 {!collapsed && <p className="text-[10px] font-semibold text-slate-600 uppercase tracking-widest px-3 mb-2">Menu</p>}
-                {links.map((link) => {
+                {visibleLinks.map((link) => {
                     const isActive = pathname === link.href || (link.href !== "/" && pathname.startsWith(link.href));
                     return (
                         <Link
@@ -94,35 +111,39 @@ export default function Sidebar({ appConfig }: { appConfig?: any }) {
                     );
                 })}
 
-                {!collapsed && <p className="text-[10px] font-semibold text-slate-600 uppercase tracking-widest px-3 mb-2 mt-4">Asset Management</p>}
-                {collapsed && <div className="border-t border-[#1E293B] my-3 mx-2" />}
-                {assetLinks.map((link) => {
-                    const isActive = pathname === link.href || (link.href !== "/" && pathname.startsWith(link.href));
-                    return (
-                        <Link
-                            key={link.href}
-                            href={link.href}
-                            title={collapsed ? link.label : undefined}
-                            className={`flex items-center gap-2.5 rounded-xl transition-all duration-200 group relative ${
-                                collapsed ? "justify-center px-0 py-2.5 mx-auto w-11 h-11" : "px-3 py-2.5"
-                            } ${isActive
-                                ? "bg-blue-500/10 text-blue-400 border border-blue-500/20"
-                                : "text-slate-400 hover:text-white hover:bg-white/[0.04] border border-transparent"
-                            }`}
-                        >
-                            <link.icon size={18} className="shrink-0" />
-                            {!collapsed && <span className="text-sm font-medium whitespace-nowrap">{link.label}</span>}
-                            {!collapsed && isActive && (
-                                <span className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse-glow" />
-                            )}
-                            {collapsed && (
-                                <span className="absolute left-full ml-2 px-2.5 py-1 bg-[#1E293B] text-white text-xs font-medium rounded-lg whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-150 z-50 shadow-xl pointer-events-none">
-                                    {link.label}
-                                </span>
-                            )}
-                        </Link>
-                    );
-                })}
+                {visibleAssetLinks.length > 0 && (
+                    <>
+                        {!collapsed && <p className="text-[10px] font-semibold text-slate-600 uppercase tracking-widest px-3 mb-2 mt-4">Asset Management</p>}
+                        {collapsed && <div className="border-t border-[#1E293B] my-3 mx-2" />}
+                        {visibleAssetLinks.map((link) => {
+                            const isActive = pathname === link.href || (link.href !== "/" && pathname.startsWith(link.href));
+                            return (
+                                <Link
+                                    key={link.href}
+                                    href={link.href}
+                                    title={collapsed ? link.label : undefined}
+                                    className={`flex items-center gap-2.5 rounded-xl transition-all duration-200 group relative ${
+                                        collapsed ? "justify-center px-0 py-2.5 mx-auto w-11 h-11" : "px-3 py-2.5"
+                                    } ${isActive
+                                        ? "bg-blue-500/10 text-blue-400 border border-blue-500/20"
+                                        : "text-slate-400 hover:text-white hover:bg-white/[0.04] border border-transparent"
+                                    }`}
+                                >
+                                    <link.icon size={18} className="shrink-0" />
+                                    {!collapsed && <span className="text-sm font-medium whitespace-nowrap">{link.label}</span>}
+                                    {!collapsed && isActive && (
+                                        <span className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse-glow" />
+                                    )}
+                                    {collapsed && (
+                                        <span className="absolute left-full ml-2 px-2.5 py-1 bg-[#1E293B] text-white text-xs font-medium rounded-lg whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-150 z-50 shadow-xl pointer-events-none">
+                                            {link.label}
+                                        </span>
+                                    )}
+                                </Link>
+                            );
+                        })}
+                    </>
+                )}
             </nav>
 
             {/* Collapse toggle + Footer */}

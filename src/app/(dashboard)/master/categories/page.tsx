@@ -10,7 +10,7 @@ type Category = {
     name: string;
     code: string | null;
     hasSN: boolean;
-    _count?: { items: number };
+    _count?: { item: number };
 };
 
 type ActiveFilter = { type: 'kode'; value: string; label: string };
@@ -256,7 +256,7 @@ export default function CategoryMasterPage() {
                                         </td>
                                         <td className="px-5 py-3.5 text-center">
                                             <span className="bg-slate-800 text-slate-300 px-2 py-0.5 rounded-full text-xs">
-                                                {cat._count?.items || 0} item
+                                                {cat._count?.item || 0} item
                                             </span>
                                         </td>
                                         <td className="px-5 py-3.5 text-right">

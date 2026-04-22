@@ -2,12 +2,13 @@
 
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { getWarehouseDetails } from "@/app/actions/master";
+import { getWarehouseDetails, getWarehouseSerialNumbers } from "@/app/actions/master";
 import {
     ArrowLeft, Building2, Package, Search, Loader2, ArrowUpRight,
-    ArrowDownLeft, Clock, MapPin, Hash, X, Tags
+    ArrowDownLeft, Clock, MapPin, Hash, X, Tags, Download
 } from "lucide-react";
 import Link from "next/link";
+import * as XLSX from "xlsx";
 
 type StockDetail = {
     id: number;
@@ -145,7 +146,63 @@ export default function WarehouseDetailMasterPage() {
     });
 
     const totalFisik = stocks.reduce((acc, curr) => acc + curr.stockNew + curr.stockDismantle + curr.stockDamaged, 0);
+    const totalNonSN = stocks.filter(s => !s.item?.hasSN).reduce((acc, curr) => acc + curr.stockNew + curr.stockDismantle + curr.stockDamaged, 0);
     const totalJenis = stocks.length;
+
+    const exportToExcel = () => {
+        if (filteredStocks.length === 0) return;
+
+        const exportData = filteredStocks.map(stock => ({
+            "Kode Barang": stock.item.code,
+            "Nama Barang": stock.item.name,
+            "Kategori": stock.item.category?.name || "Tanpa Kategori",
+            "Baru": stock.stockNew,
+            "Dismantle": stock.stockDismantle,
+            "Rusak": stock.stockDamaged,
+            "Total Fisik": stock.stockNew + stock.stockDismantle + stock.stockDamaged,
+            "Satuan": stock.item.unit
+        }));
+
+        const ws = XLSX.utils.json_to_sheet(exportData);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Stok Gudang");
+        XLSX.writeFile(wb, `Stok_Gudang_${data.warehouse.name.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    };
+
+    const [isExportingSN, setIsExportingSN] = useState(false);
+    const exportSNDetail = async () => {
+        if (!data?.warehouse) return;
+        setIsExportingSN(true);
+        try {
+            const res = await getWarehouseSerialNumbers(data.warehouse.id);
+            if (res.success && res.data) {
+                if (res.data.length === 0) {
+                    alert("Tidak ada data Serial Number di gudang ini.");
+                    return;
+                }
+                const exportData = res.data.map((sn: any) => ({
+                    "Kode Barang": sn.item.code,
+                    "Nama Barang / Merk": sn.item.name,
+                    "Kategori": sn.item.category?.name || "Tanpa Kategori",
+                    "Serial Number": sn.code,
+                    "Tipe / Kondisi": sn.itemtype?.name || "Baru",
+                    "Status": sn.itemstatus?.name || "Tersedia",
+                    "Harga": sn.price || 0
+                }));
+                const ws = XLSX.utils.json_to_sheet(exportData);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, "Detail SN");
+                XLSX.writeFile(wb, `Detail_SN_${data.warehouse.name.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.xlsx`);
+            } else {
+                alert("Gagal memuat data SN");
+            }
+        } catch (error) {
+            console.error(error);
+            alert("Terjadi kesalahan saat export SN");
+        } finally {
+            setIsExportingSN(false);
+        }
+    };
 
     return (
         <div className="space-y-6 animate-fade-in custom-scrollbar">
@@ -186,11 +243,18 @@ export default function WarehouseDetailMasterPage() {
                     </div>
                 </div>
 
-                <div className="flex gap-8 relative z-10 md:min-w-[300px]">
+                <div className="flex gap-8 relative z-10 md:min-w-[400px]">
                     <div className="flex flex-col gap-1 w-full">
                         <p className="text-[11px] text-slate-500 font-medium uppercase tracking-wider">Total Fisik</p>
                         <div className="flex items-end gap-2">
                             <span className="text-3xl font-bold font-mono text-green-400 leading-none">{totalFisik.toLocaleString('id-ID')}</span>
+                            <span className="text-xs text-slate-500 mb-1">Unit</span>
+                        </div>
+                    </div>
+                    <div className="flex flex-col gap-1 w-full">
+                        <p className="text-[11px] text-slate-500 font-medium uppercase tracking-wider">Total Non-SN</p>
+                        <div className="flex items-end gap-2">
+                            <span className="text-3xl font-bold font-mono text-blue-400 leading-none">{totalNonSN.toLocaleString('id-ID')}</span>
                             <span className="text-xs text-slate-500 mb-1">Unit</span>
                         </div>
                     </div>
@@ -268,6 +332,15 @@ export default function WarehouseDetailMasterPage() {
                                     </>
                                 )}
                             </div>
+                            
+                            {/* Export Button */}
+                            <button 
+                                onClick={exportToExcel}
+                                disabled={filteredStocks.length === 0}
+                                className="flex items-center justify-center gap-2 px-4 py-2 bg-green-500/10 text-green-400 border border-green-500/20 hover:bg-green-500/20 hover:border-green-500/40 rounded-lg text-xs font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed shrink-0 whitespace-nowrap"
+                            >
+                                <Download size={14} /> Export Excel
+                            </button>
                         </div>
 
                         {/* Active Filter Badges */}
@@ -290,6 +363,25 @@ export default function WarehouseDetailMasterPage() {
                                 </button>
                             </div>
                         )}
+                        
+                        {/* Action Buttons */}
+                        <div className="flex items-center gap-2 mt-3 sm:mt-0 w-full sm:w-auto">
+                            <button
+                                onClick={exportToExcel}
+                                className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 transition-all font-medium text-sm border border-slate-700"
+                            >
+                                <Download size={14} />
+                                <span>Export Stok</span>
+                            </button>
+                            <button
+                                onClick={exportSNDetail}
+                                disabled={isExportingSN}
+                                className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-blue-500/10 text-blue-400 hover:text-blue-300 hover:bg-blue-500/20 transition-all font-medium text-sm border border-blue-500/20 disabled:opacity-50"
+                            >
+                                {isExportingSN ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+                                <span>Export SN</span>
+                            </button>
+                        </div>
                     </div>
 
                     <div className="card !p-0 overflow-hidden border border-[#1E293B]">
@@ -303,10 +395,10 @@ export default function WarehouseDetailMasterPage() {
                                     <thead className="sticky top-0 z-10">
                                         <tr className="border-b border-[#1E293B] bg-[#020617]/90 backdrop-blur-sm text-[10px] uppercase tracking-wider text-slate-500 font-semibold">
                                             <th className="px-4 py-3">Nama & Kode</th>
-                                            <th className="px-4 py-3 text-right">Baru</th>
-                                            <th className="px-4 py-3 text-right">Dismantle</th>
-                                            <th className="px-4 py-3 text-right">Rusak</th>
-                                            <th className="px-4 py-3 text-right">Total Fisik</th>
+                                            <th className="px-4 py-3 text-right w-32 whitespace-nowrap">Baru</th>
+                                            <th className="px-4 py-3 text-right w-32 whitespace-nowrap">Dismantle</th>
+                                            <th className="px-4 py-3 text-right w-32 whitespace-nowrap">Rusak</th>
+                                            <th className="px-4 py-3 text-right w-48 whitespace-nowrap">Total Fisik</th>
                                         </tr>
                                     </thead>
                                     <tbody className="text-sm">
@@ -322,6 +414,9 @@ export default function WarehouseDetailMasterPage() {
                                                             <p className="font-semibold text-white group-hover:text-green-400">{stock.item.name}</p>
                                                             <div className="flex items-center gap-2 mt-1">
                                                                 <span className="font-mono text-[10px] text-slate-400 bg-slate-800/50 px-1.5 rounded">{stock.item.code}</span>
+                                                                {!stock.item.hasSN && (
+                                                                    <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-blue-500/10 text-blue-400 border border-blue-500/20">Non-SN</span>
+                                                                )}
                                                             </div>
                                                         </Link>
                                                     </td>

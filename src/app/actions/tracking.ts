@@ -14,31 +14,35 @@ export async function getSerialNumberHistory(serialCode: string) {
                 item: {
                     include: { category: true }
                 },
-                type: true,
-                status: true,
+                itemtype: true,
+                itemstatus: true,
                 warehouse: true,
                 pop: true,
-                stockInLogs: {
+                stockinserial: {
                     include: {
-                        stockIn: {
+                        stockin: {
                             include: { warehouse: true }
                         }
                     }
                 },
-                stockOutLogs: {
+                stockoutserial: {
                     include: {
-                        stockOut: {
-                            include: { warehouse: true, targetWarehouse: true }
+                        stockout: {
+                            include: { 
+                                warehouse_stockout_warehouseIdTowarehouse: true, 
+                                warehouse_stockout_targetWarehouseIdTowarehouse: true,
+                                pop: true
+                            }
                         }
                     }
                 },
-                popInstalls: {
+                popinstallation: {
                     include: { pop: true }
                 },
-                custInstalls: true,
-                damagedLogs: {
+                customerinstallation: true,
+                damagedserial: {
                     include: {
-                        damagedItem: {
+                        damageditem: {
                             include: { warehouse: true }
                         }
                     }
@@ -53,75 +57,97 @@ export async function getSerialNumberHistory(serialCode: string) {
         const timeline: any[] = [];
 
         // 1. Stock Ins
-        sn.stockInLogs.forEach((inLog: any) => {
+        sn.stockinserial.forEach((inLog: any) => {
             timeline.push({
-                date: inLog.stockIn.createdAt,
+                date: inLog.stockin.createdAt,
                 type: "INBOUND",
                 title: "Barang Masuk",
-                location: inLog.stockIn.warehouse?.name || "Unknown",
-                description: inLog.stockIn.description || "Penerimaan barang baru",
+                location: inLog.stockin.warehouse?.name || "Unknown",
+                description: inLog.stockin.description || "Penerimaan barang baru",
                 user: "System/Admin"
             });
         });
 
-        // 2. Stock Outs (Transfers primarily, as installs are tracked separately via sn.popInstalls)
-        sn.stockOutLogs.forEach((outLog: any) => {
-            if (outLog.stockOut.outType === "TRANSFER") {
+        // 2. Stock Outs (Transfers primarily, as installs are tracked separately via sn.popinstallation)
+        sn.stockoutserial.forEach((outLog: any) => {
+            const out = outLog.stockout;
+            if (out.outType === "TRANSFER") {
                 timeline.push({
-                    date: outLog.stockOut.createdAt,
+                    date: out.createdAt,
                     type: "TRANSFER",
                     title: "Transfer Antar Gudang",
-                    location: outLog.stockOut.warehouse?.name || "Unknown",
-                    target: outLog.stockOut.targetWarehouse?.name || "Unknown",
-                    description: outLog.stockOut.description || "Transfer Stok",
-                    user: "System/Admin"
+                    location: out.warehouse_stockout_warehouseIdTowarehouse?.name || "Unknown",
+                    target: out.warehouse_stockout_targetWarehouseIdTowarehouse?.name || "Unknown",
+                    description: out.description || `Dikirim via ${out.techName1 || 'Teknisi'}`,
+                    user: out.techName1 || "System"
+                });
+            } else if (out.outType === "POP_INSTALL") {
+                timeline.push({
+                    date: out.createdAt,
+                    type: "POP_INSTALL",
+                    title: "Dikeluarkan untuk Instalasi POP",
+                    location: out.warehouse_stockout_warehouseIdTowarehouse?.name || "Unknown",
+                    target: out.pop?.name || out.location || "Unknown POP",
+                    description: out.description || `Dibawa oleh teknisi ${out.techName1 || '-'}`,
+                    user: out.techName1 || "System"
+                });
+            } else if (out.outType === "CUSTOMER_INSTALL") {
+                timeline.push({
+                    date: out.createdAt,
+                    type: "CUSTOMER_INSTALL",
+                    title: "Dikeluarkan untuk Instalasi Customer",
+                    location: out.warehouse_stockout_warehouseIdTowarehouse?.name || "Unknown",
+                    target: out.customerName || out.location || "Unknown Customer",
+                    description: out.description || `Dibawa oleh teknisi ${out.techName1 || '-'}`,
+                    user: out.techName1 || "System"
                 });
             } else {
                 timeline.push({
-                    date: outLog.stockOut.createdAt,
-                    type: outLog.stockOut.outType,
-                    title: "Barang Keluar (" + outLog.stockOut.outType + ")",
-                    location: outLog.stockOut.warehouse?.name || "Unknown",
-                    description: outLog.stockOut.description || "",
-                    user: "System/Admin"
+                    date: out.createdAt,
+                    type: out.outType,
+                    title: "Barang Keluar",
+                    location: out.warehouse_stockout_warehouseIdTowarehouse?.name || "Unknown",
+                    description: out.description || "-",
+                    user: out.techName1 || "System"
                 });
             }
         });
 
+        // POP and Customer installations push their own detailed completion logs
         // 3. POP Installations
-        sn.popInstalls.forEach((install: any) => {
+        sn.popinstallation.forEach((install: any) => {
             timeline.push({
                 date: install.installedAt,
                 type: "POP_INSTALL",
-                title: "Instalasi POP",
-                location: "Warehouse", // Could map where it came from if we wanted
-                target: install.pop?.name || "Unknown",
-                description: `Pemasangan di POP. Teknisi: ${install.installedBy || '-'}. ${install.description || ''}`,
-                user: "System/Admin"
+                title: "Penyelesaian Instalasi POP",
+                location: install.pop?.name || "Unknown POP",
+                target: "-",
+                description: `Pemasangan selesai. Keterangan: ${install.description || '-'}`,
+                user: install.installedBy || "System/Admin"
             });
         });
 
         // 4. Customer Installations
-        sn.custInstalls.forEach((install: any) => {
+        sn.customerinstallation.forEach((install: any) => {
             timeline.push({
                 date: install.installedAt,
                 type: "CUSTOMER_INSTALL",
-                title: "Instalasi Customer",
-                location: "Warehouse",
-                target: install.customerName,
-                description: `Pemasangan di Customer (${install.customerAddress || '-'}). Teknisi: ${install.installedBy || '-'}. ${install.description || ''}`,
-                user: "System/Admin"
+                title: "Penyelesaian Instalasi Customer",
+                location: install.customerName || "Unknown Customer",
+                target: "-",
+                description: `Alamat: ${install.customerAddress || '-'}. Keterangan: ${install.description || '-'}`,
+                user: install.installedBy || "System/Admin"
             });
         });
 
         // 5. Damaged Logs
-        sn.damagedLogs.forEach((dmgLog: any) => {
+        sn.damagedserial.forEach((dmgLog: any) => {
             timeline.push({
-                date: dmgLog.damagedItem.createdAt,
+                date: dmgLog.damageditem.createdAt,
                 type: "DAMAGED",
                 title: "Laporan Kerusakan",
-                location: dmgLog.damagedItem.warehouse?.name || "Unknown",
-                description: dmgLog.damagedItem.description || "Dilaporkan rusak",
+                location: dmgLog.damageditem.warehouse?.name || "Unknown",
+                description: dmgLog.damageditem.description || "Dilaporkan rusak",
                 user: "System/Admin"
             });
         });
@@ -136,8 +162,8 @@ export async function getSerialNumberHistory(serialCode: string) {
                     itemName: sn.item?.name || "Unknown",
                     itemCode: sn.item?.code || "Unknown",
                     category: sn.item?.category?.name || "Unknown",
-                    status: sn.status?.name || "Unknown",
-                    type: sn.type?.name || "Baru",
+                    status: sn.itemstatus?.name || "Unknown",
+                    type: sn.itemtype?.name || "Baru",
                     currentLocation: sn.warehouse?.name || sn.pop?.name || "Customer / Lainnya",
                     purchasePrice: sn.price
                 },

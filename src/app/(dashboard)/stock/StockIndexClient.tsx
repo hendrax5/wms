@@ -5,9 +5,10 @@ import { getWarehouseList, createWarehouse, updateWarehouse, deleteWarehouse } f
 import {
     Building2, Package, Search, ArrowRight, X, Plus, Pencil, Trash2,
     AlertTriangle, Loader2, MapPin, LayoutGrid, List, AlertCircle,
-    ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight
+    ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Download
 } from "lucide-react";
 import Link from "next/link";
+import * as XLSX from "xlsx";
 
 /* ────────────── Types ────────────── */
 type WarehouseData = {
@@ -16,6 +17,7 @@ type WarehouseData = {
     location: string | null;
     type: string;
     totalFisik: number;
+    totalNonSN: number;
     lowStockCount: number;
 };
 
@@ -105,6 +107,7 @@ export default function StockIndexClient() {
     /* ────────────── Computed ────────────── */
     const totalGudang = warehouses.length;
     const totalStok = warehouses.reduce((s, w) => s + (w.totalFisik || 0), 0);
+    const totalNonSN = warehouses.reduce((s, w) => s + (w.totalNonSN || 0), 0);
     const totalLowStock = warehouses.reduce((s, w) => s + (w.lowStockCount || 0), 0);
 
     const filtered = warehouses.filter(w => {
@@ -115,6 +118,24 @@ export default function StockIndexClient() {
         }
         return true;
     });
+
+    const exportToExcel = () => {
+        if (filtered.length === 0) return;
+
+        const exportData = filtered.map(w => ({
+            "Nama Gudang": w.name,
+            "Tipe": w.type,
+            "Lokasi": w.location || "-",
+            "Total Fisik": w.totalFisik || 0,
+            "Total Non-SN": w.totalNonSN || 0,
+            "Low Stock Count": w.lowStockCount || 0
+        }));
+
+        const ws = XLSX.utils.json_to_sheet(exportData);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Direktori Gudang");
+        XLSX.writeFile(wb, `Direktori_Gudang_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    };
 
     // Pagination
     const CARDS_PP = 6;
@@ -177,9 +198,14 @@ export default function StockIndexClient() {
                     </h2>
                     <p className="text-[12px] sm:text-[13px] text-slate-400 mt-0.5 truncate">Pilih gudang untuk melihat stok & aktivitas</p>
                 </div>
-                <button type="button" onClick={() => openModal()} className="btn btn-primary text-xs sm:text-sm px-3 sm:px-4 h-8 sm:h-9 flex items-center gap-1.5 shrink-0">
-                    <Plus size={14} /> Tambah Gudang
-                </button>
+                <div className="flex items-center gap-2">
+                    <button type="button" onClick={exportToExcel} disabled={filtered.length === 0} className="px-3 sm:px-4 h-8 sm:h-9 rounded-lg bg-green-500/10 text-green-400 border border-green-500/20 hover:bg-green-500/20 hover:border-green-500/40 text-xs sm:text-sm font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 shrink-0">
+                        <Download size={14} /> Export
+                    </button>
+                    <button type="button" onClick={() => openModal()} className="btn btn-primary text-xs sm:text-sm px-3 sm:px-4 h-8 sm:h-9 flex items-center gap-1.5 shrink-0">
+                        <Plus size={14} /> Tambah Gudang
+                    </button>
+                </div>
             </div>
 
             {/* ── SEARCH & FILTER ── */}
@@ -201,10 +227,11 @@ export default function StockIndexClient() {
             </div>
 
             {/* ── OVERVIEW ── */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
                 {[
                     { label: "Total Gudang", value: totalGudang, color: "text-white", bg: "bg-slate-800" },
                     { label: "Total Stok", value: totalStok, color: "text-green-400", bg: "bg-green-500/10" },
+                    { label: "Total Non-SN", value: totalNonSN, color: "text-blue-400", bg: "bg-blue-500/10" },
                     { label: "Low Stock", value: totalLowStock, color: totalLowStock > 0 ? "text-red-400" : "text-slate-500", bg: totalLowStock > 0 ? "bg-red-500/10" : "bg-slate-800" },
                 ].map((s, i) => (
                     <div key={i} className={`card !p-3 sm:!p-4 border border-[#1E293B] ${s.bg} flex flex-col`}>
@@ -241,13 +268,17 @@ export default function StockIndexClient() {
                                         </p>
                                     )}
                                 </div>
-                                <div className="px-4 sm:px-5 py-3 grid grid-cols-2 gap-3">
+                                <div className="px-4 sm:px-5 py-3 grid grid-cols-3 gap-3">
                                     <div>
-                                        <span className="text-[10px] text-slate-500 flex items-center gap-1"><Package size={10} /> Total Stok</span>
+                                        <span className="text-[10px] text-slate-500 flex items-center gap-1"><Package size={10} /> Stok</span>
                                         <span className={`font-mono font-bold text-lg sm:text-xl leading-none mt-1 block ${(wh.totalFisik || 0) === 0 ? "text-slate-600" : "text-green-400"}`}>{(wh.totalFisik || 0).toLocaleString("id-ID")}</span>
                                     </div>
                                     <div>
-                                        <span className="text-[10px] text-slate-500 flex items-center gap-1"><AlertCircle size={10} /> Low Stock</span>
+                                        <span className="text-[10px] text-slate-500 flex items-center gap-1"><Package size={10} /> Non-SN</span>
+                                        <span className={`font-mono font-bold text-lg sm:text-xl leading-none mt-1 block ${(wh.totalNonSN || 0) === 0 ? "text-slate-600" : "text-blue-400"}`}>{(wh.totalNonSN || 0).toLocaleString("id-ID")}</span>
+                                    </div>
+                                    <div>
+                                        <span className="text-[10px] text-slate-500 flex items-center gap-1"><AlertCircle size={10} /> Low</span>
                                         <span className={`font-mono font-bold text-lg sm:text-xl leading-none mt-1 block ${(wh.lowStockCount || 0) > 0 ? "text-amber-400" : "text-slate-600"}`}>{wh.lowStockCount || 0}</span>
                                     </div>
                                 </div>
@@ -279,9 +310,10 @@ export default function StockIndexClient() {
                                 <tr className="border-b border-[#1E293B] text-[10px] uppercase tracking-wider text-slate-500 font-semibold bg-[#020617]/50">
                                     <th className="px-4 py-3">Nama Gudang</th>
                                     <th className="px-4 py-3 text-center">Tipe</th>
-                                    <th className="px-4 py-3 text-right">Total Stok</th>
-                                    <th className="px-4 py-3 text-center">Status</th>
-                                    <th className="px-4 py-3 text-center">Aksi</th>
+                                    <th className="px-4 py-3 text-right w-40 whitespace-nowrap">Total Stok</th>
+                                    <th className="px-4 py-3 text-right w-40 whitespace-nowrap">Non-SN</th>
+                                    <th className="px-4 py-3 text-center w-24">Status</th>
+                                    <th className="px-4 py-3 text-center w-28">Aksi</th>
                                 </tr>
                             </thead>
                             <tbody className="text-xs">
@@ -300,6 +332,7 @@ export default function StockIndexClient() {
                                             <span className={`text-[9px] font-bold px-2 py-0.5 rounded border ${wh.type === "PUSAT" ? "bg-purple-500/10 text-purple-400 border-purple-500/20" : "bg-blue-500/10 text-blue-400 border-blue-500/20"}`}>{wh.type}</span>
                                         </td>
                                         <td className={`px-4 py-3 text-right font-mono font-bold ${(wh.totalFisik || 0) === 0 ? "text-slate-600" : "text-green-400"}`}>{(wh.totalFisik || 0).toLocaleString("id-ID")}</td>
+                                        <td className={`px-4 py-3 text-right font-mono font-bold ${(wh.totalNonSN || 0) === 0 ? "text-slate-600" : "text-blue-400"}`}>{(wh.totalNonSN || 0).toLocaleString("id-ID")}</td>
                                         <td className="px-4 py-3 text-center">
                                             <span className="inline-flex items-center gap-1 text-[10px] text-green-400 font-medium">
                                                 <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>Active
@@ -329,6 +362,7 @@ export default function StockIndexClient() {
                                 </div>
                                 <div className="flex items-center gap-4 text-xs text-slate-500 mb-2">
                                     <span>Stok: <span className={`font-mono font-bold ${(wh.totalFisik || 0) === 0 ? "text-slate-600" : "text-green-400"}`}>{(wh.totalFisik || 0).toLocaleString("id-ID")}</span></span>
+                                    <span>Non-SN: <span className={`font-mono font-bold ${(wh.totalNonSN || 0) === 0 ? "text-slate-600" : "text-blue-400"}`}>{(wh.totalNonSN || 0).toLocaleString("id-ID")}</span></span>
                                     <span className="inline-flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-green-500"></span>Active</span>
                                 </div>
                                 <div className="flex items-center gap-2">

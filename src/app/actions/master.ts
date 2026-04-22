@@ -2,15 +2,7 @@
 
 import { prisma } from "@/lib/db";
 import { revalidatePath, unstable_noStore as noStore } from "next/cache";
-import { auth } from "@/lib/auth";
-
-// Returns warehouseId if user should be scoped to a branch, null if global access
-async function getBranchScope(): Promise<number | null> {
-    const session = await auth();
-    if (!session?.user) return null;
-    if (session.user.level === "MASTER") return null;  // MASTER sees all
-    return session.user.warehouseId ?? null;           // anyone else with warehouseId is scoped
-}
+import { auth, getBranchScope } from "@/lib/auth";
 
 // ------------------------------------------------------------------
 // CATEGORIES
@@ -155,14 +147,14 @@ export async function getItemDetails(id: number) {
     try {
         const warehouseId = await getBranchScope();
 
-        const item = await prisma.item.findUnique({
+        const item: any = await prisma.item.findUnique({
             where: { id },
             include: {
                 category: true,
                 warehousestock: {
                     where: warehouseId ? { warehouseId } : undefined,
                     include: { warehouse: true }
-                } as any,
+                },
                 serialnumber: {
                     where: warehouseId ? { warehouseId } : undefined,
                     include: {
@@ -173,9 +165,9 @@ export async function getItemDetails(id: number) {
                     },
                     orderBy: { id: 'desc' } as any,
                     take: 500
-                } as any
+                }
             }
-        } as any);
+        });
 
         if (!item) throw new Error("Item not found");
 
@@ -456,14 +448,18 @@ export async function getWarehouseList() {
         // Count total stock (new + dismantle + damaged) per warehouse
         const rawStocks = await (prisma as any).warehouseStock.findMany({
             where: warehouseId ? { warehouseId } : undefined,
-            select: { warehouseId: true, stockNew: true, stockDamaged: true, stockDismantle: true, minStock: true, itemId: true }
+            select: { warehouseId: true, stockNew: true, stockDamaged: true, stockDismantle: true, minStock: true, itemId: true, item: { select: { hasSN: true } } }
         });
 
         const stockMap: Record<number, number> = {};
+        const nonSNStockMap: Record<number, number> = {};
         const lowStockMap: Record<number, number> = {};
         for (const s of rawStocks) {
             const total = (s.stockNew || 0) + (s.stockDismantle || 0) + (s.stockDamaged || 0);
             stockMap[s.warehouseId] = (stockMap[s.warehouseId] || 0) + total;
+            if (!s.item?.hasSN) {
+                nonSNStockMap[s.warehouseId] = (nonSNStockMap[s.warehouseId] || 0) + total;
+            }
             if (total <= 0) {
                 lowStockMap[s.warehouseId] = (lowStockMap[s.warehouseId] || 0) + 1;
             }
@@ -472,6 +468,7 @@ export async function getWarehouseList() {
         const fullList = warehouses.map(w => ({
             ...w,
             totalFisik: stockMap[w.id] || 0,
+            totalNonSN: nonSNStockMap[w.id] || 0,
             lowStockCount: lowStockMap[w.id] || 0,
         }));
 
@@ -570,4 +567,18 @@ export async function getWarehouseDetails(id: number) {
         return { success: false, error: e.message };
     }
 }
-
+export async function getWarehouseSerialNumbers(warehouseId: number) {
+    try {
+        const sns = await prisma.serialNumber.findMany({
+            where: { warehouseId },
+            include: {
+                item: { include: { category: true } },
+                itemtype: true,
+                itemstatus: true
+            }
+        });
+        return { success: true, data: sns };
+    } catch (e: any) {
+        return { success: false, error: e.message };
+    }
+}

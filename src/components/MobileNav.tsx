@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useSession } from "next-auth/react";
 import {
     LayoutDashboard, Download, Upload, Package,
     ArrowRightLeft, Server, FileBarChart, Database, Grid2X2, X
@@ -30,6 +31,15 @@ const allLinks = [
 export default function MobileNav() {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const pathname = usePathname();
+    const { data: session } = useSession();
+    const userLevel = (session?.user as any)?.level || "";
+
+    const visibleLinks = allLinks.filter(link => {
+        if (link.href === "/pop" || link.href === "/master") {
+            return userLevel === "MASTER";
+        }
+        return true;
+    });
 
     return (
         <>
@@ -53,7 +63,7 @@ export default function MobileNav() {
 
                     <nav className="flex-1 overflow-y-auto py-5 px-4 flex flex-col gap-1">
                         <p className="text-[10px] font-semibold text-slate-600 uppercase tracking-widest px-3 mb-2">Navigasi</p>
-                        {allLinks.map((link) => {
+                        {visibleLinks.map((link) => {
                             const isActive = pathname === link.href || (link.href !== "/" && pathname.startsWith(link.href));
                             return (
                                 <Link

@@ -3,8 +3,9 @@
 import { useState, useEffect, useRef } from "react";
 import { getItems, searchBySerialNumber } from "@/app/actions/master";
 import { createItem, updateItem, deleteItem, getCategoriesForSelect } from "@/app/actions/item";
-import { Package, Search, Loader2, ArrowLeft, ArrowRight, X, Tags, Hash, Plus, Pencil, Trash2, AlertTriangle, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
+import { Package, Search, Loader2, ArrowLeft, ArrowRight, X, Tags, Hash, Plus, Pencil, Trash2, AlertTriangle, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Download } from "lucide-react";
 import Link from "next/link";
+import * as XLSX from "xlsx";
 import { useRouter, useSearchParams } from "next/navigation";
 
 type ItemProp = {
@@ -254,12 +255,37 @@ export default function ItemsClient() {
                         <p className="text-[13px] text-slate-400 mt-0.5">Kelola master barang, kategori, dan cek Serial Number.</p>
                     </div>
                 </div>
-                <button
-                    onClick={() => handleOpenModal()}
-                    className="btn btn-primary text-sm px-4 h-9 flex items-center gap-2"
-                >
-                    <Plus size={16} /> Tambah Barang
-                </button>
+                    <div className="flex items-center gap-2">
+                        <button 
+                            type="button" 
+                            onClick={() => {
+                                if (filtered.length === 0) return;
+                                const exportData = filtered.map(item => ({
+                                    "Kode Barang": item.code,
+                                    "Nama Barang": item.name,
+                                    "Kategori": item.category?.name || "Tanpa Kategori",
+                                    "Tipe": item.hasSN ? "SN" : "Non-SN",
+                                    "Total Stok Fisik": item.totalFisik,
+                                    "Total SN Tercatat": item.snCount,
+                                    "Satuan": item.unit
+                                }));
+                                const ws = XLSX.utils.json_to_sheet(exportData);
+                                const wb = XLSX.utils.book_new();
+                                XLSX.utils.book_append_sheet(wb, ws, "Data Barang");
+                                XLSX.writeFile(wb, `Data_Barang_${new Date().toISOString().slice(0, 10)}.xlsx`);
+                            }}
+                            disabled={filtered.length === 0} 
+                            className="px-3 sm:px-4 h-9 rounded-lg bg-green-500/10 text-green-400 border border-green-500/20 hover:bg-green-500/20 hover:border-green-500/40 text-xs sm:text-sm font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 shrink-0"
+                        >
+                            <Download size={14} /> Export
+                        </button>
+                        <button
+                            onClick={() => handleOpenModal()}
+                            className="btn btn-primary text-sm px-4 h-9 flex items-center gap-2"
+                        >
+                            <Plus size={16} /> Tambah Barang
+                        </button>
+                    </div>
             </div>
 
             {/* Content Card */}

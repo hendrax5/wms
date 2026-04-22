@@ -167,7 +167,7 @@ export default function SearchableSelect({
                                 Tidak ditemukan hasil untuk &quot;{search}&quot;
                             </div>
                         ) : (
-                            filtered.slice(0, 50).map((opt) => (
+                            filtered.slice(0, 100).map((opt) => (
                                 <button
                                     key={opt.value}
                                     type="button"
@@ -184,11 +184,11 @@ export default function SearchableSelect({
                                     }}
                                 >
                                     <div className="flex-1 min-w-0">
-                                        <p className={`truncate ${opt.value === value ? "text-white font-semibold" : "text-slate-300"}`}>
+                                        <p className={`${opt.value === value ? "text-white font-semibold" : "text-slate-300"}`}>
                                             {opt.label}
                                         </p>
                                         {opt.subLabel && (
-                                            <p className="text-[10px] text-slate-500 truncate mt-0.5">{opt.subLabel}</p>
+                                            <p className="text-[10px] text-slate-500 mt-0.5">{opt.subLabel}</p>
                                         )}
                                     </div>
                                     {opt.value === value && (
@@ -203,9 +203,9 @@ export default function SearchableSelect({
                     </div>
 
                     {/* Footer count */}
-                    {filtered.length > 50 && (
-                        <div className="px-4 py-2 border-t border-[#1E293B] text-[10px] text-slate-500 text-center">
-                            Menampilkan 50 dari {filtered.length} hasil. Ketik lebih spesifik untuk mempersempit.
+                    {filtered.length > 100 && (
+                        <div className="px-4 py-2 border-t border-[#1E293B] text-[10px] text-slate-500 text-center bg-[#020617]">
+                            Menampilkan 100 dari {filtered.length} hasil. Ketik lebih spesifik untuk mempersempit.
                         </div>
                     )}
                 </div>

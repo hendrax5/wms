@@ -2,7 +2,7 @@
 
 import { prisma } from "@/lib/db";
 import { revalidatePath, unstable_noStore as noStore } from "next/cache";
-import { WarehouseType } from "@prisma/client";
+import { warehouse_type } from "@prisma/client";
 
 export async function getWarehouses() {
     noStore();
@@ -15,7 +15,7 @@ export async function getWarehouses() {
             include: {
                 area: true,
                 _count: {
-                    select: { users: true, pops: true }
+                    select: { user: true, pop: true }
                 }
             }
         });
@@ -44,7 +44,7 @@ export async function getAreasForSelect() {
 export async function createWarehouse(formData: FormData) {
     const name = formData.get("name") as string;
     const location = formData.get("location") as string;
-    const type = formData.get("type") as WarehouseType;
+    const type = formData.get("type") as warehouse_type;
     const areaId = formData.get("areaId") ? Number(formData.get("areaId")) : null;
 
     if (!name) {
@@ -71,7 +71,7 @@ export async function createWarehouse(formData: FormData) {
 export async function updateWarehouse(id: number, formData: FormData) {
     const name = formData.get("name") as string;
     const location = formData.get("location") as string;
-    const type = formData.get("type") as WarehouseType;
+    const type = formData.get("type") as warehouse_type;
     const areaId = formData.get("areaId") ? Number(formData.get("areaId")) : null;
 
     if (!name) {

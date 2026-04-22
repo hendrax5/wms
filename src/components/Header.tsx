@@ -1,10 +1,11 @@
 "use client";
 
-import { Bell, Search, ChevronRight, AlertTriangle, PackageMinus, Cpu, X, ExternalLink, Users, Settings, LogOut } from "lucide-react";
+import { Bell, Search, ChevronRight, AlertTriangle, PackageMinus, Cpu, X, ExternalLink, Users, Settings, LogOut, Building2, Check } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useTransition } from "react";
 import Link from "next/link";
+import { setActiveBranch } from "@/app/actions/user";
 
 const pathLabels: Record<string, string> = {
     "/": "Dashboard",
@@ -39,10 +40,12 @@ const SEVERITY_STYLE = {
     info:     { icon: Cpu,          color: 'text-blue-400',   bg: 'bg-blue-500/10',   border: 'border-blue-500/20'   },
 };
 
-export default function Header() {
+export default function Header({ accessibleWarehouses = [], activeWarehouseId = null }: { accessibleWarehouses?: { id: number; name: string }[], activeWarehouseId?: number | null }) {
     const pathname = usePathname();
     const { data: session } = useSession();
     const [showDropdown, setShowDropdown] = useState(false);
+    const [showBranchDropdown, setShowBranchDropdown] = useState(false);
+    const [isPending, startTransition] = useTransition();
     const [showNotifications, setShowNotifications] = useState(false);
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [criticalCount, setCriticalCount] = useState(0);
@@ -76,6 +79,18 @@ export default function Header() {
 
     const totalCount = notifications.length;
 
+    const handleSwitchBranch = async (id: number | null) => {
+        setShowBranchDropdown(false);
+        startTransition(async () => {
+            await setActiveBranch(id);
+            window.location.reload();
+        });
+    };
+
+    const activeBranchName = activeWarehouseId 
+        ? accessibleWarehouses.find(w => w.id === activeWarehouseId)?.name || "Branch Not Found"
+        : ((session?.user as any)?.level === "MASTER" ? "Semua Cabang (Global)" : "Pilih Cabang");
+
     return (
         <header className="h-14 bg-background/90 backdrop-blur-xl border-b border-border flex items-center justify-between px-4 lg:px-6 shrink-0 z-10">
             {/* Left: Breadcrumb */}
@@ -106,6 +121,53 @@ export default function Header() {
 
             {/* Right: Actions */}
             <div className="flex items-center gap-2">
+                {/* Branch Switcher (if has multiple) */}
+                {accessibleWarehouses.length > 0 && (
+                    <div className="relative hidden sm:block">
+                        <button
+                            onClick={() => setShowBranchDropdown(prev => !prev)}
+                            className="flex items-center gap-2 pl-3 pr-2 py-1.5 rounded-lg border border-border bg-surface/50 hover:bg-surface hover:border-primary/50 transition-all cursor-pointer mr-1"
+                        >
+                            <Building2 size={14} className="text-primary" />
+                            <span className="text-[11px] font-medium text-slate-300 max-w-[120px] truncate">
+                                {activeBranchName}
+                            </span>
+                        </button>
+
+                        {showBranchDropdown && (
+                            <>
+                                <div className="fixed inset-0 z-40" onClick={() => setShowBranchDropdown(false)} />
+                                <div className="absolute right-0 mt-2 w-56 glass-card border border-border py-1 z-50 shadow-xl rounded-xl overflow-hidden max-h-80 overflow-y-auto custom-scrollbar">
+                                    <div className="px-3 py-2 border-b border-border bg-surface/50">
+                                        <p className="text-[10px] uppercase tracking-wider font-bold text-slate-500">Pilih Konteks Cabang</p>
+                                    </div>
+                                    
+                                    {((session?.user as any)?.level === "MASTER") && (
+                                        <button
+                                            onClick={() => handleSwitchBranch(null)}
+                                            className="w-full text-left flex items-center justify-between px-3 py-2.5 text-sm hover:bg-white/[0.03] transition-colors"
+                                        >
+                                            <span className={`text-sm ${activeWarehouseId === null ? "text-primary font-bold" : "text-slate-300"}`}>Semua Cabang (Global)</span>
+                                            {activeWarehouseId === null && <Check size={14} className="text-primary" />}
+                                        </button>
+                                    )}
+
+                                    {accessibleWarehouses.map(w => (
+                                        <button
+                                            key={w.id}
+                                            onClick={() => handleSwitchBranch(w.id)}
+                                            className="w-full text-left flex items-center justify-between px-3 py-2.5 text-sm hover:bg-white/[0.03] transition-colors"
+                                        >
+                                            <span className={`text-sm ${activeWarehouseId === w.id ? "text-primary font-bold" : "text-slate-300"}`}>{w.name}</span>
+                                            {activeWarehouseId === w.id && <Check size={14} className="text-primary" />}
+                                        </button>
+                                    ))}
+                                </div>
+                            </>
+                        )}
+                    </div>
+                )}
+
                 {/* Notification Bell */}
                 <div ref={bellRef} className="relative">
                     <button

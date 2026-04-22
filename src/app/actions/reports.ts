@@ -2,12 +2,31 @@
 
 import { prisma } from "@/lib/db";
 import { unstable_noStore as noStore } from "next/cache";
+import { auth } from "@/lib/auth";
+import { cookies } from "next/headers";
+
+async function getContextWarehouseId() {
+    const session = await auth();
+    if (!session?.user) return null;
+    
+    const activeBranch = cookies().get("wms_active_branch")?.value;
+    if (activeBranch) {
+        return Number(activeBranch);
+    }
+    
+    // Fallback: If Master, they see all (null). Otherwise, primary warehouseId
+    if (session.user.level === "MASTER") return null;
+    return session.user.warehouseId ? Number(session.user.warehouseId) : null;
+}
 
 export async function getStockSummaryReport() {
     noStore();
     try {
+        const warehouseId = await getContextWarehouseId();
+
         // Get all warehouses and their stock
         const warehouses = await prisma.warehouse.findMany({
+            where: warehouseId ? { id: warehouseId } : undefined,
             include: {
                 warehousestock: {
                     include: {
@@ -59,8 +78,18 @@ export async function getStockSummaryReport() {
 export async function getTransactionHistoryReport(limit = 50) {
     noStore();
     try {
+        const warehouseId = await getContextWarehouseId();
+        const inboundWhere = warehouseId ? { warehouseId } : undefined;
+        const outboundWhere = warehouseId ? {
+            OR: [
+                { warehouseId },
+                { targetWarehouseId: warehouseId }
+            ]
+        } : undefined;
+
         const [inbounds, outbounds] = await Promise.all([
             (prisma as any).stockIn.findMany({
+                where: inboundWhere,
                 take: limit,
                 orderBy: { createdAt: "desc" },
                 include: {
@@ -70,6 +99,7 @@ export async function getTransactionHistoryReport(limit = 50) {
                 }
             }),
             (prisma as any).stockOut.findMany({
+                where: outboundWhere,
                 take: limit,
                 orderBy: { createdAt: "desc" },
                 include: {
@@ -142,7 +172,9 @@ export async function getTransactionHistoryReport(limit = 50) {
 export async function getDamagedItemsReport() {
     noStore();
     try {
+        const warehouseId = await getContextWarehouseId();
         const damaged = await (prisma as any).damagedItem.findMany({
+            where: warehouseId ? { warehouseId } : undefined,
             orderBy: { createdAt: "desc" },
             include: {
                 item: { include: { category: true } },

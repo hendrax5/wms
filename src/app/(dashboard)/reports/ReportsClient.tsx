@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { BarChart3, History, ShieldAlert, Loader2, Download, Package, Search, X, Tags, Building2, Activity, Cpu, ChevronDown, ChevronRight, Eye, ChevronLeft, ChevronsLeft, ChevronsRight } from "lucide-react";
 import { getStockSummaryReport, getTransactionHistoryReport, getDamagedItemsReport, getAssetMutationReport } from "@/app/actions/reports";
+import { useSession } from "next-auth/react";
 
 type TabType = "STOCK" | "HISTORY" | "DAMAGED" | "ASSET";
 
@@ -48,6 +49,7 @@ function PaginationBar({ page, totalPages, setPage, total, perPage, label }: {
 }
 
 export default function ReportsClient() {
+    const { data: session } = useSession();
     const [activeTab, setActiveTab] = useState<TabType>("STOCK");
 
     // Data states
@@ -84,6 +86,7 @@ export default function ReportsClient() {
 
     const loadData = async () => {
         setLoading(true);
+
         const [stockRes, histRes, dmgRes, assetRes] = await Promise.all([
             getStockSummaryReport(),
             getTransactionHistoryReport(100),
@@ -100,8 +103,10 @@ export default function ReportsClient() {
     };
 
     useEffect(() => {
-        loadData();
-    }, []);
+        if (session?.user) {
+            loadData();
+        }
+    }, [session?.user]);
 
     // Pagination
     const PP = 10;

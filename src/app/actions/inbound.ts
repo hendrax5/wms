@@ -8,6 +8,7 @@ type InboundItemPayload = {
     qty: number;
     price: number;
     serialNumbers: string[];
+    condition: "Baru" | "Bekas";
 };
 
 type StockInPayload = {
@@ -32,11 +33,17 @@ export async function createStockIn(data: StockInPayload) {
             }
         }
 
-        // Determine IDs for ItemType (Baru) and ItemStatus (In Stock)
+        // Determine IDs for ItemType (Baru/Bekas) and ItemStatus (In Stock)
         const typeBaru = await prisma.itemType.upsert({
             where: { name: "Baru" },
             update: {},
             create: { name: "Baru" }
+        });
+
+        const typeBekas = await prisma.itemType.upsert({
+            where: { name: "Bekas" },
+            update: {},
+            create: { name: "Bekas" }
         });
 
         const statusInStock = await prisma.itemStatus.upsert({
@@ -75,7 +82,7 @@ export async function createStockIn(data: StockInPayload) {
                                 code: snCode,
                                 price: itemPayload.price,
                                 itemId: itemPayload.itemId,
-                                typeId: typeBaru.id,
+                                typeId: itemPayload.condition === "Baru" ? typeBaru.id : typeBekas.id,
                                 statusId: statusInStock.id,
                                 warehouseId: data.warehouseId,
                                 updatedAt: new Date(),

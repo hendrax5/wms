@@ -2,18 +2,7 @@
 
 import { prisma } from "@/lib/db";
 import { unstable_noStore as noStore } from "next/cache";
-import { auth } from "@/lib/auth";
-
-// Returns warehouseId if user should be scoped to a branch, null if global access
-async function getBranchScope(): Promise<number | null> {
-    const session = await auth();
-    if (!session?.user) return null;
-    const level = session.user.level;
-    // MASTER always sees everything
-    if (level === "MASTER") return null;
-    // Any other role with a warehouseId is scoped to that branch
-    return session.user.warehouseId ?? null;
-}
+import { auth, getBranchScope } from "@/lib/auth";
 
 export async function getDashboardStats() {
     noStore();

@@ -130,13 +130,13 @@ export async function createTransfer(data: TransferPayload) {
                 });
             }
 
-            // 5. Create Transfer Record Log
             await tx.stockTransfer.create({
                 data: {
-                    stockOutId: stockOut.id,
-                    sourceWarehouseId: data.sourceWarehouseId,
-                    targetWarehouseId: data.targetWarehouseId,
-                    status: "COMPLETED", // Automatically completed for now, could be PENDING later if approval needed
+                    fromWarehouseId: data.sourceWarehouseId,
+                    toWarehouseId: data.targetWarehouseId,
+                    itemId: data.itemId,
+                    qty: data.qty,
+                    status: "RECEIVED",
                 }
             });
 

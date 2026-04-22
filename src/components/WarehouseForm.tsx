@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { X, Save, Building2 } from "lucide-react";
-import { WarehouseType } from "@prisma/client";
+import { warehouse_type } from "@prisma/client";
 
 export type WarehouseData = {
     id?: number;
     name: string;
     location: string | null;
-    type: WarehouseType;
+    type: warehouse_type;
     areaId: number | null;
 };
 

@@ -17,6 +17,7 @@ type User = {
     phone: string | null;
     warehouseId: number | null;
     warehouse: { id: number; name: string } | null;
+    userWarehouseAccesses?: { warehouseId: number, warehouse: { id: number, name: string } }[];
     isActive: boolean;
 };
 
@@ -30,12 +31,13 @@ type FormState = {
     jabatan: string;
     phone: string;
     warehouseId: string;
+    warehouseIds: string[];
     isActive: boolean;
 };
 
 const emptyForm: FormState = {
     name: "", username: "", password: "", level: "STAFF",
-    jabatan: "", phone: "", warehouseId: "", isActive: true,
+    jabatan: "", phone: "", warehouseId: "", warehouseIds: [], isActive: true,
 };
 
 type AlertMsg = { type: "success" | "error"; text: string } | null;
@@ -102,6 +104,7 @@ export default function UsersClient({ initialUsers, warehouses }: { initialUsers
                 name: user.name, username: user.username, password: "",
                 level: user.level, jabatan: user.jabatan || "",
                 phone: user.phone || "", warehouseId: user.warehouseId?.toString() || "",
+                warehouseIds: user.userWarehouseAccesses ? user.userWarehouseAccesses.map(a => a.warehouseId.toString()) : (user.warehouseId ? [user.warehouseId.toString()] : []),
                 isActive: user.isActive,
             });
             setEditingUser(user);
@@ -146,6 +149,7 @@ export default function UsersClient({ initialUsers, warehouses }: { initialUsers
         formData.append("jabatan", form.jabatan);
         formData.append("phone", form.phone);
         formData.append("warehouseId", form.warehouseId);
+        formData.append("warehouseIds", form.warehouseIds.join(","));
         if (form.isActive) formData.append("isActive", "on");
         const res = editingUser ? await updateUser(editingUser.id, formData) : await createUser(formData);
         if (res.success) {
@@ -238,6 +242,14 @@ export default function UsersClient({ initialUsers, warehouses }: { initialUsers
                                             </div>
                                             {user.level === "MASTER" ? (
                                                 <p className="text-[10px] text-green-400 font-medium">Global Access</p>
+                                            ) : (user.userWarehouseAccesses && user.userWarehouseAccesses.length > 0) ? (
+                                                <div className="flex flex-wrap gap-1 mt-1">
+                                                    {user.userWarehouseAccesses.map(access => (
+                                                        <span key={access.warehouseId} className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[9px] flex items-center gap-1">
+                                                            <Building2 size={8} /> {access.warehouse.name}
+                                                        </span>
+                                                    ))}
+                                                </div>
                                             ) : user.warehouse ? (
                                                 <p className="text-[10px] text-amber-400 flex items-center gap-1"><Building2 size={9} /> {user.warehouse.name}</p>
                                             ) : (
@@ -368,9 +380,19 @@ export default function UsersClient({ initialUsers, warehouses }: { initialUsers
                                 </div>
                                 <div className="space-y-1.5">
                                     <label className="text-[11px] font-medium text-slate-400 uppercase tracking-wider">Akses Cabang</label>
-                                    <select className="w-full bg-[#020617] border border-[#1E293B] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-purple-500/50 transition-all" value={form.warehouseId} onChange={e => setField("warehouseId", e.target.value)}>
-                                        <option value="">Global (Semua)</option>
-                                        {warehouses.map(w => (<option key={w.id} value={w.id}>{w.name}</option>))}
+                                    <select 
+                                        multiple 
+                                        className="w-full h-[100px] bg-[#020617] border border-[#1E293B] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-purple-500/50 transition-all scrollbar-thin" 
+                                        value={form.warehouseIds} 
+                                        onChange={e => {
+                                            const selected = Array.from(e.target.selectedOptions).map(opt => opt.value);
+                                            setField("warehouseIds", selected);
+                                            // Fallback for single-select compatibility:
+                                            if (selected.length > 0) setField("warehouseId", selected[0]);
+                                        }}
+                                    >
+                                        <option value="" disabled className="text-slate-500 italic">-- Tahan CTRL/CMD untuk multi-pilih --</option>
+                                        {warehouses.map(w => (<option key={w.id} value={w.id} className="py-1">{w.name}</option>))}
                                     </select>
                                 </div>
                             </div>
