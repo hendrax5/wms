@@ -162,7 +162,8 @@ export async function getBranchScope(): Promise<number | null> {
 
     // First try to use the selected branch from cookie
     const { cookies } = await import("next/headers");
-    const activeBranchCookie = cookies().get("wms_active_branch")?.value;
+    const cookieStore = await cookies();
+    const activeBranchCookie = cookieStore.get("wms_active_branch")?.value;
     
     if (activeBranchCookie) {
         const branchId = parseInt(activeBranchCookie, 10);
