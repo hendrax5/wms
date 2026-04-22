@@ -41,6 +41,9 @@ export const authOptions = {
                 const user = await prisma.user.findUnique({
                     where: {
                         username: credentials.username as string
+                    },
+                    include: {
+                        userWarehouseAccesses: true
                     }
                 });
 
@@ -61,6 +64,13 @@ export const authOptions = {
                     return null;
                 }
 
+                // Extract accessible warehouse IDs for SPVs and others
+                const accessibleIds = new Set<number>();
+                if (user.warehouseId) accessibleIds.add(user.warehouseId);
+                if (user.userWarehouseAccesses) {
+                    user.userWarehouseAccesses.forEach((acc: any) => accessibleIds.add(acc.warehouseId));
+                }
+
                 return {
                     id: user.id.toString(),
                     name: user.name,
@@ -68,6 +78,7 @@ export const authOptions = {
                     level: user.level,
                     warehouseId: user.warehouseId,
                     jabatan: user.jabatan,
+                    accessibleWarehouseIds: Array.from(accessibleIds)
                 };
             }
         })
@@ -80,42 +91,19 @@ export const authOptions = {
                 token.level = user.level;
                 token.warehouseId = user.warehouseId;
                 token.jabatan = user.jabatan;
+                token.accessibleWarehouseIds = user.accessibleWarehouseIds;
             }
             return token;
         },
         async session({ session, token }: { session: any, token: any }) {
             if (token && session.user) {
-                // Always re-fetch from DB to get the latest warehouseId and level
-                try {
-                    const { prisma } = await import("@/lib/db");
-                    const freshUser = await prisma.user.findUnique({
-                        where: { id: Number(token.id) },
-                        include: { userWarehouseAccesses: true }
-                    });
-                    if (freshUser && freshUser.isActive) {
-                        session.user.id = freshUser.id.toString();
-                        session.user.username = freshUser.username;
-                        session.user.level = freshUser.level;
-                        session.user.warehouseId = freshUser.warehouseId;
-                        session.user.jabatan = freshUser.jabatan;
-
-                        // Extract accessible warehouse IDs for SPVs and others
-                        const accessibleIds = new Set<number>();
-                        if (freshUser.warehouseId) accessibleIds.add(freshUser.warehouseId);
-                        if (freshUser.userWarehouseAccesses) {
-                            freshUser.userWarehouseAccesses.forEach((acc: any) => accessibleIds.add(acc.warehouseId));
-                        }
-                        session.user.accessibleWarehouseIds = Array.from(accessibleIds);
-                    }
-                } catch {
-                    // Fallback to token data if DB fetch fails
-                    session.user.id = token.id as string;
-                    session.user.username = token.username as string;
-                    session.user.level = token.level as string;
-                    session.user.warehouseId = token.warehouseId as number | null;
-                    session.user.jabatan = token.jabatan as string | null;
-                    session.user.accessibleWarehouseIds = session.user.warehouseId ? [session.user.warehouseId] : [];
-                }
+                // Read from token (persistent, no DB fetch needed on every session check)
+                session.user.id = token.id as string;
+                session.user.username = token.username as string;
+                session.user.level = token.level as string;
+                session.user.warehouseId = token.warehouseId as number | null;
+                session.user.jabatan = token.jabatan as string | null;
+                session.user.accessibleWarehouseIds = token.accessibleWarehouseIds as number[] || (token.warehouseId ? [token.warehouseId] : []);
             }
             return session;
         }

@@ -270,11 +270,16 @@ export async function getAllSerialNumbers() {
 
 export async function searchBySerialNumber(code: string) {
     try {
-        const warehouseFilter = await getWarehouseFilter();
+        const session = await auth();
         let whereClause: any = { code: { contains: code } };
 
-        if (warehouseFilter) {
-            whereClause.warehouseId = warehouseFilter;
+        if (session?.user && session.user.level !== "MASTER") {
+            const accessibleIds = session.user.accessibleWarehouseIds || [];
+            if (accessibleIds.length > 0) {
+                whereClause.warehouseId = { in: accessibleIds };
+            } else if (session.user.warehouseId) {
+                whereClause.warehouseId = session.user.warehouseId;
+            }
         }
 
         const sn = await (prisma as any).serialNumber.findMany({
