@@ -136,6 +136,7 @@ export default function ReportsClient() {
         const activeTypes = activeFilters.filter(f => f.type === 'transaksi').map(f => f.value);
         const matchesType = activeTypes.length === 0 || activeTypes.includes(h.type);
         const matchesSearch = searchInput === '' ||
+            h.id.toLowerCase().includes(searchInput.toLowerCase()) ||
             h.item.toLowerCase().includes(searchInput.toLowerCase()) ||
             h.location.toLowerCase().includes(searchInput.toLowerCase()) ||
             (h.target || '').toLowerCase().includes(searchInput.toLowerCase());
@@ -473,7 +474,7 @@ export default function ReportsClient() {
                     <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 z-20" />
                     <input
                         type="text"
-                        placeholder={activeTab === "STOCK" ? "Cari gudang, filter tipe..." : activeTab === "HISTORY" ? "Cari barang, lokasi, jenis transaksi..." : "Cari barang, gudang, keterangan..."}
+                        placeholder={activeTab === "STOCK" ? "Cari gudang, filter tipe..." : activeTab === "HISTORY" ? "Cari ID transaksi, barang, lokasi..." : "Cari barang, gudang, keterangan..."}
                         value={searchInput}
                         onChange={(e) => { setSearchInput(e.target.value); setIsSuggestionsOpen(true); }}
                         onFocus={() => { if (searchInput.trim().length > 0) setIsSuggestionsOpen(true); }}
