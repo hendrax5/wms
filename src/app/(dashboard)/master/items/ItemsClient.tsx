@@ -68,9 +68,29 @@ export default function ItemsClient() {
     const [snResults, setSnResults] = useState<{ id: number; code: string; itemId: number; item: { id: number; name: string; code: string }; itemstatus: { name: string }; warehouse: { name: string } | null }[]>([]);
     const [snSearching, setSnSearching] = useState(false);
     const snSearchTimer = useRef<NodeJS.Timeout | null>(null);
-    const [activeFilters, setActiveFilters] = useState<ActiveFilter[]>(
-        searchParams.get('search') ? [{ type: 'kategori', value: searchParams.get('search')!, label: searchParams.get('search')! }] : []
-    );
+    const [activeFilters, setActiveFilters] = useState<ActiveFilter[]>([]);
+
+    useEffect(() => {
+        const query = searchParams.get('search');
+        if (query) {
+            // Trigger the search directly instead of incorrectly setting it as a category filter
+            setSearchInput(query);
+            setIsSuggestionsOpen(true);
+            if (snSearchTimer.current) clearTimeout(snSearchTimer.current);
+            if (query.trim().length >= 3) {
+                setSnSearching(true);
+                snSearchTimer.current = setTimeout(async () => {
+                    const res = await searchBySerialNumber(query.trim());
+                    if (res.success && res.data) {
+                        setSnResults(res.data as any);
+                    } else {
+                        setSnResults([]);
+                    }
+                    setSnSearching(false);
+                }, 400);
+            }
+        }
+    }, [searchParams]);
 
     // Modal State
     const [isModalOpen, setIsModalOpen] = useState(false);
