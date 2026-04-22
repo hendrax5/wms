@@ -9,7 +9,8 @@ async function getContextWarehouseId() {
     const session = await auth();
     if (!session?.user) return null;
     
-    const activeBranch = cookies().get("wms_active_branch")?.value;
+    const cookieStore = await cookies();
+    const activeBranch = cookieStore.get("wms_active_branch")?.value;
     if (activeBranch) {
         return Number(activeBranch);
     }

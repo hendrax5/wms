@@ -445,7 +445,7 @@ export default function OutboundClient() {
                                     />
                                 </div>
                                 {addingItemId && !items.find(i => i.id.toString() === addingItemId)?.hasSN && (
-                                    <div className="w-24">
+                                    <div className="w-full min-w-[80px]">
                                         <label className="text-xs text-slate-500 mb-1 block">Qty</label>
                                         <input
                                             type="number"
@@ -473,7 +473,7 @@ export default function OutboundClient() {
                                         <thead className="bg-[#020617] text-slate-400">
                                             <tr>
                                                 <th className="px-4 py-3 text-left text-[10px] uppercase tracking-wider font-semibold">Barang</th>
-                                                <th className="px-4 py-3 text-center text-[10px] uppercase tracking-wider font-semibold w-24">Qty</th>
+                                                <th className="px-4 py-3 text-center text-[10px] uppercase tracking-wider font-semibold whitespace-nowrap">Qty</th>
                                                 <th className="px-4 py-3 text-center text-[10px] uppercase tracking-wider font-semibold w-20">SN</th>
                                                 <th className="px-4 py-3 text-center text-[10px] uppercase tracking-wider font-semibold w-20">Status</th>
                                                 <th className="px-2 py-3 w-10"></th>

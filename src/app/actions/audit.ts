@@ -42,7 +42,7 @@ export async function getAuditLogs(params?: { limit?: number; offset?: number; s
             skip: offset,
             orderBy: { createdAt: "desc" },
             include: {
-                user: { select: { name: true, email: true } },
+                user: { select: { name: true, username: true } },
                 warehouse: { select: { name: true } },
             }
         });

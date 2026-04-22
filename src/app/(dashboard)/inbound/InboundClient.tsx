@@ -566,7 +566,7 @@ export default function InboundClient() {
                                     />
                                 </div>
                                 {!items.find(i => i.id.toString() === addingItemId)?.hasSN && addingItemId && (
-                                    <div className="w-24">
+                                    <div className="w-full min-w-[80px]">
                                         <label className="text-xs text-slate-500 mb-1 block">Qty</label>
                                         <input
                                             type="number"
@@ -629,7 +629,7 @@ export default function InboundClient() {
                                         <thead className="bg-[#020617] text-slate-400">
                                             <tr>
                                                 <th className="px-4 py-3 text-left text-[10px] uppercase tracking-wider font-semibold">Barang</th>
-                                                <th className="px-4 py-3 text-center text-[10px] uppercase tracking-wider font-semibold w-32 whitespace-nowrap">Qty</th>
+                                                <th className="px-4 py-3 text-center text-[10px] uppercase tracking-wider font-semibold whitespace-nowrap">Qty</th>
                                                 <th className="px-4 py-3 text-left text-[10px] uppercase tracking-wider font-semibold w-36">Harga/unit (Rp)</th>
                                                 <th className="px-4 py-3 text-center text-[10px] uppercase tracking-wider font-semibold w-28">Kondisi</th>
                                                 <th className="px-4 py-3 text-center text-[10px] uppercase tracking-wider font-semibold w-20">SN</th>
@@ -661,7 +661,7 @@ export default function InboundClient() {
                                                                         value={ci.qty}
                                                                         onClick={(e) => e.stopPropagation()}
                                                                         onChange={(e) => updateCartItemQty(idx, Number(e.target.value))}
-                                                                        className="w-24 bg-[#0f172a] border border-[#334155] text-white rounded px-2 py-1 text-center text-xs focus:ring-1 focus:ring-blue-500"
+                                                                        className="w-full min-w-[60px] bg-[#0f172a] border border-[#334155] text-white rounded px-2 py-1 text-center text-xs focus:ring-1 focus:ring-blue-500"
                                                                     />
                                                             )}
                                                         </td>

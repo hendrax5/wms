@@ -192,10 +192,11 @@ export async function getAccessibleWarehouses() {
 }
 
 export async function setActiveBranch(warehouseId: number | null) {
+    const cookieStore = await cookies();
     if (warehouseId === null) {
-        cookies().delete("wms_active_branch");
+        cookieStore.delete("wms_active_branch");
     } else {
-        cookies().set("wms_active_branch", warehouseId.toString(), { path: "/", maxAge: 60 * 60 * 24 * 7 });
+        cookieStore.set("wms_active_branch", warehouseId.toString(), { path: "/", maxAge: 60 * 60 * 24 * 7 });
     }
     return { success: true };
 }
