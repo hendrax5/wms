@@ -17,26 +17,29 @@ async function main() {
     })
 
     // 2. Setup Warehouse Pusat
-    const warehousePusat = await prisma.warehouse.create({
-        data: {
-            name: 'Gudang Pusat Jakarta',
-            type: 'PUSAT',
-            areaId: areaPusat.id,
-            location: 'Jakarta',
-            updatedAt: new Date(),
-        },
-    })
+    let warehousePusat = await prisma.warehouse.findFirst({ where: { name: 'Gudang Pusat Jakarta' } })
+    if (!warehousePusat) {
+        warehousePusat = await prisma.warehouse.create({
+            data: {
+                name: 'Gudang Pusat Jakarta',
+                type: 'PUSAT',
+                areaId: areaPusat.id,
+                location: 'Jakarta',
+                updatedAt: new Date(),
+            },
+        })
+    }
 
     // 3. Setup Master Admin User
     const passwordHash = await bcrypt.hash('!Tahun2026', 10)
 
     const masterUser = await prisma.user.upsert({
-        where: { username: 'hendra@servicex.id' },
+        where: { username: 'admin' },
         update: {},
         create: {
-            username: 'hendra@servicex.id',
+            username: 'admin',
             password: passwordHash,
-            name: 'Hendra',
+            name: 'Administrator',
             level: 'MASTER',
             isActive: true,
             warehouseId: warehousePusat.id,

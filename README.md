@@ -7,9 +7,11 @@ Sistem manajemen gudang dan aset terpadu untuk operasional multi-lokasi. Dibangu
 ### 📦 Warehouse Management
 - **Barang Masuk (Inbound)** — penerimaan barang dari vendor dengan tracking serial number
 - **Barang Keluar (Outbound)** — pengeluaran ke pelanggan, POP, atau transfer antar gudang
-- **Transfer Stok** — perpindahan barang antar cabang dengan status In-Transit
+- **Transfer Stok** — perpindahan barang antar cabang dengan status In-Transit & Delivery Manifest
 - **Tracking Serial Number** — lacak riwayat lengkap setiap unit berdasarkan SN
-- **Laporan** — Stok Gudang, Histori Transaksi, Barang Rusak, Mutasi Aset
+- **Stock Opname** — pencocokan stok fisik vs sistem dengan workflow Draft → Frozen → Completed
+- **Stock Adjustment** — koreksi stok manual dengan approval workflow
+- **Laporan** — Stok Gudang, Histori Transaksi, Barang Rusak, Mutasi Aset, Inventory Log
 
 ### 🖥️ Asset Management
 - **Daftar Aset** — semua aset yang sedang ter-deploy di lapangan
@@ -17,11 +19,13 @@ Sistem manajemen gudang dan aset terpadu untuk operasional multi-lokasi. Dibangu
 - **Return Aset** — kembalikan aset dari lapangan ke gudang (Dismantle / Rusak)
 - **Jadwal Maintenance** — buat jadwal, catat temuan, mark complete
 - **Depresiasi Aset** — kalkulator nilai buku metode Garis Lurus (Straight-Line)
+- **Location Tracking** — riwayat perpindahan aset antar POP/lokasi
 
 ### 🔔 Dashboard & Notifikasi
 - **Dashboard KPI** — stok gudang, total SN, transaksi hari ini, aset aktif, maintenance overdue
 - **Notification Bell** — alert real-time: stok rendah, maintenance overdue, aset baru
-- **Multi-lokasi** — support gudang pusat + cabang
+- **Multi-lokasi** — support gudang pusat + cabang dengan branch context switcher
+- **Audit Log** — pencatatan seluruh aktivitas operasional
 
 ---
 
@@ -34,6 +38,34 @@ Sistem manajemen gudang dan aset terpadu untuk operasional multi-lokasi. Dibangu
 | Auth | NextAuth.js v5 (Credentials + JWT) |
 | Database | MySQL 8 via Prisma ORM |
 | Deployment | Docker + Docker Compose |
+
+---
+
+## 🔐 Default User & Kredensial
+
+Saat pertama kali deploy via Docker, database otomatis di-seed dengan user default:
+
+| Field | Nilai |
+|---|---|
+| **Username** | `admin` |
+| **Password** | `!Tahun2026` |
+| **Nama** | Administrator |
+| **Level** | `MASTER` (akses penuh) |
+| **Jabatan** | System Administrator |
+
+> ⚠️ **PENTING:** Segera ganti password default setelah login pertama kali via menu **Master Data → Kelola User**.
+
+### Role & Level Akses (RBAC)
+
+Sistem menggunakan 5 level user dengan hak akses berbeda:
+
+| Level | Hak Akses |
+|---|---|
+| `MASTER` | Akses penuh ke semua gudang, semua fitur, kelola user & konfigurasi |
+| `CABANG` | Admin cabang — akses penuh untuk gudang yang di-assign |
+| `SPV` | Supervisor — akses multi-gudang sesuai assignment via `UserWarehouseAccess` |
+| `STAFF` | Operasional harian — inbound/outbound/transfer di gudang yang di-assign |
+| `USER` | Read-only / akses terbatas |
 
 ---
 
@@ -50,6 +82,16 @@ docker compose up -d --build
 Selesai. Tidak ada konfigurasi tambahan.
 
 > **Prasyarat:** Docker & Git terinstall. Pastikan menggunakan `docker compose` (v2), bukan `docker-compose` (v1).
+
+### Apa yang terjadi saat pertama kali deploy?
+
+1. Docker build image Next.js + Prisma
+2. MySQL 8 container berjalan & healthcheck ready
+3. `entrypoint.sh` menjalankan `prisma db push` (sync schema ke database)
+4. **Auto-seed** — buat user default `admin`, kategori, tipe barang, dll (hanya jika belum ada user)
+5. Next.js server start di port `3000`
+
+> **Login langsung** dengan `admin` / `!Tahun2026` setelah deploy selesai.
 
 ---
 
@@ -92,23 +134,84 @@ chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
 
 ---
 
+## Seeding Database
+
+Seed otomatis berjalan saat pertama kali container start (via `entrypoint.sh`). Jika database sudah memiliki user, seed akan **di-skip** secara otomatis.
+
+### Data yang di-seed
+
+| Data | Detail |
+|---|---|
+| **Area** | `JABODETABEK` |
+| **Warehouse** | `Gudang Pusat Jakarta` (tipe: PUSAT) |
+| **User Master** | `admin` / `!Tahun2026` (level: MASTER) |
+| **Kategori** | SWITCH, ROUTER, SFP, ONT, CABLE, ACCESSORY |
+| **Tipe Barang** | Baru, Dismantle, Rusak, Return, Awal |
+| **Status Barang** | Belum disetujui, Disetujui, Ditolak, On Progress, Di Return, In Stock, Dipakai, Rusak |
+| **Sample Item** | Mikrotik RB4011 (code: `SW-RB4011`, hasSN: true) |
+
+### Cara Menjalankan Seed Manual
+
+**Development (lokal):**
+```bash
+npm run seed
+# atau
+npx tsx prisma/seed.ts
+```
+
+**Production (Docker):**
+```bash
+# Seed otomatis saat container pertama kali start.
+# Jika ingin re-seed manual (misal setelah reset database):
+docker exec -it wms-app node scripts/seed-prod.js
+```
+
+> **Note:** Seed menggunakan guard `user.count() > 0` — hanya berjalan jika belum ada user di database.
+
+---
+
 ## Development Lokal
+
+### Prasyarat
+- Node.js 20+
+- MySQL 8 berjalan
+- npm / pnpm
+
+### Setup
 
 ```bash
 # Install dependencies
 npm install
 
-# Setup database (pastikan MySQL berjalan)
+# Setup environment
 cp .env.example .env
-# Edit .env — isi DATABASE_URL
+# Edit .env — sesuaikan DATABASE_URL
+```
 
+### Environment Variables
+
+| Variable | Deskripsi | Contoh |
+|---|---|---|
+| `DATABASE_URL` | Koneksi MySQL | `mysql://root:password@localhost:3306/wms_2026` |
+| `NEXTAUTH_SECRET` | Secret untuk JWT signing | `openssl rand -base64 32` |
+| `NEXTAUTH_URL` | Base URL aplikasi | `http://localhost:3000` |
+| `AUTH_TRUST_HOST` | Izinkan akses tanpa HTTPS | `1` (production tanpa SSL) |
+
+### Jalankan
+
+```bash
 # Generate Prisma client & migrate
 npx prisma generate
 npx prisma migrate dev
 
+# Seed database (pertama kali)
+npm run seed
+
 # Jalankan dev server
 npm run dev
 ```
+
+Akses di `http://localhost:3000` → Login dengan kredensial default di atas.
 
 ---
 
@@ -117,13 +220,69 @@ npm run dev
 ```
 src/
 ├── app/
-│   ├── (dashboard)/        # Halaman utama: stock, reports, assets, dll
+│   ├── (dashboard)/        # Halaman utama: stock, reports, assets, transfer, dll
+│   │   └── master/         # Master Data: users, warehouses, categories, items
 │   ├── api/                # API routes (REST)
-│   ├── actions/            # Server Actions (data fetching)
-│   └── dashboard/          # Halaman teknisi: deploy, return
-├── components/             # Shared: Sidebar, Header, AuthProvider
-└── lib/                    # Prisma client, auth config
+│   ├── actions/            # Server Actions (data fetching & mutations)
+│   ├── dashboard/          # Halaman teknisi: deploy, return
+│   └── login/              # Halaman login
+├── components/             # Shared: Sidebar, Header, AuthProvider, BranchSelector
+└── lib/                    # Prisma client, auth config, RBAC utilities
 prisma/
-├── schema.prisma           # Database schema
-└── migrations/             # Auto-generated migrations
+├── schema.prisma           # Database schema (850+ lines, 25+ models)
+├── seed.ts                 # Database seeder (TypeScript)
+└── seed.js                 # Compiled seeder (auto-generated)
+scripts/
+├── fix-dates.js            # Fix invalid MySQL datetime values
+├── migrateLegacy.ts        # Migrasi data dari sistem lama
+└── deploy_remote.js        # Remote deployment helper
 ```
+
+---
+
+## Docker Environment
+
+Default environment di `docker-compose.yml`:
+
+| Variable | Default Value |
+|---|---|
+| `DATABASE_URL` | `mysql://root:wmspassword@wms-db:3306/wms_2026` |
+| `MYSQL_ROOT_PASSWORD` | `wmspassword` |
+| `MYSQL_DATABASE` | `wms_2026` |
+| `AUTH_SECRET` | `wms2026-default-secret-changeme` |
+| `AUTH_TRUST_HOST` | `1` |
+| `PORT` | `3000` |
+
+> ⚠️ Untuk production, **wajib** ganti `AUTH_SECRET` dan `MYSQL_ROOT_PASSWORD` dengan nilai yang aman.
+
+---
+
+## Operasional
+
+### Update Aplikasi
+```bash
+cd /opt/wms
+git pull origin main
+docker compose up -d --build
+```
+
+### Lihat Log
+```bash
+docker compose logs -f wms-app
+```
+
+### Backup Database
+```bash
+docker exec wms-db mysqldump -u root -pwmspassword wms_2026 > backup_$(date +%Y%m%d).sql
+```
+
+### Restore Database
+```bash
+docker exec -i wms-db mysql -u root -pwmspassword wms_2026 < backup.sql
+```
+
+---
+
+## License
+
+Private — Internal use only.
