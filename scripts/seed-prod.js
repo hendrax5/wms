@@ -15,8 +15,8 @@ const bcrypt = require('bcryptjs');
 
 const prisma = new PrismaClient();
 
-const DEFAULT_USERNAME = 'admin';
-const DEFAULT_PASSWORD = '!Tahun2026';
+const DEFAULT_USERNAME = process.env.SEED_ADMIN_USERNAME || 'admin';
+const DEFAULT_PASSWORD = process.env.SEED_ADMIN_PASSWORD || '!Tahun2026';
 
 async function main() {
     console.log('==> Running production seed...');
