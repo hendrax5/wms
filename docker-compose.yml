@@ -1,6 +1,6 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # WMS-2026 — Docker Compose
-# Deploy: git clone <repo> && cd wms && docker compose up -d --build
+# Env vars loaded automatically from .env file in the same directory.
 # ─────────────────────────────────────────────────────────────────────────────
 
 services:
@@ -11,13 +11,9 @@ services:
     container_name: wms-app
     restart: always
     ports:
-      - "3000:3000"
+      - "${APP_PORT:-3000}:3000"
+    env_file: .env
     environment:
-      - DATABASE_URL=mysql://root:wmspassword@wms-db:3306/wms_2026
-      - NODE_ENV=production
-      # AUTH_SECRET wajib diisi — generate: openssl rand -base64 32
-      - AUTH_SECRET=wms2026-default-secret-changeme
-      # AUTH_TRUST_HOST=1 → izinkan akses via IP/domain apapun tanpa HTTPS
       - AUTH_TRUST_HOST=1
     depends_on:
       wms-db:
@@ -27,13 +23,11 @@ services:
     image: mysql:8.0
     container_name: wms-db
     restart: always
-    environment:
-      - MYSQL_ROOT_PASSWORD=wmspassword
-      - MYSQL_DATABASE=wms_2026
+    env_file: .env
     volumes:
       - wms_db_data:/var/lib/mysql
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-pwmspassword"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       interval: 10s
       timeout: 10s
       retries: 10
