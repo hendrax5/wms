@@ -217,10 +217,16 @@ else
     ok "File .env sudah ada, menggunakan konfigurasi existing"
 
     # Baca APP_PORT dari .env jika ada
-    ENV_PORT=$(grep -E "^APP_PORT=" .env 2>/dev/null | cut -d= -f2)
+    ENV_PORT=$(grep -E "^APP_PORT=" .env 2>/dev/null | cut -d= -f2 | tr -d '\r')
     if [ -n "$ENV_PORT" ]; then
         APP_PORT="$ENV_PORT"
     fi
+fi
+
+# Sanitize .env: strip Windows CRLF line endings
+if grep -qP '\r' .env 2>/dev/null; then
+    sed -i 's/\r$//' .env
+    ok ".env: CRLF line endings diperbaiki"
 fi
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -228,7 +234,7 @@ fi
 # ═══════════════════════════════════════════════════════════════════════════
 
 # Baca APP_PORT dari .env (hanya untuk port mapping)
-ENV_APP_PORT=$(grep -E "^APP_PORT=" .env 2>/dev/null | cut -d= -f2)
+ENV_APP_PORT=$(grep -E "^APP_PORT=" .env 2>/dev/null | cut -d= -f2 | tr -d '\r')
 APP_PORT="${ENV_APP_PORT:-3000}"
 
 cat > docker-compose.yml <<COMPOSE_EOF
@@ -300,8 +306,8 @@ echo ""
 LOCAL_IP=$(hostname -I 2>/dev/null | awk '{print $1}' || echo "localhost")
 
 # Baca kredensial dari .env untuk display
-SHOW_USER=$(grep -E "^SEED_ADMIN_USERNAME=" .env 2>/dev/null | cut -d= -f2)
-SHOW_PASS=$(grep -E "^SEED_ADMIN_PASSWORD=" .env 2>/dev/null | cut -d= -f2)
+SHOW_USER=$(grep -E "^SEED_ADMIN_USERNAME=" .env 2>/dev/null | cut -d= -f2 | tr -d '\r')
+SHOW_PASS=$(grep -E "^SEED_ADMIN_PASSWORD=" .env 2>/dev/null | cut -d= -f2 | tr -d '\r')
 SHOW_USER="${SHOW_USER:-admin}"
 SHOW_PASS="${SHOW_PASS:-!Tahun2026}"
 
