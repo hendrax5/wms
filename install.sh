@@ -223,11 +223,9 @@ else
     fi
 fi
 
-# Sanitize .env: strip Windows CRLF line endings
-if grep -qP '\r' .env 2>/dev/null; then
-    sed -i 's/\r$//' .env
-    ok ".env: CRLF line endings diperbaiki"
-fi
+# Sanitize .env: always strip Windows CRLF (sed is safe if no \r exists)
+sed -i 's/\r$//' .env 2>/dev/null
+ok ".env sanitized"
 
 # ═══════════════════════════════════════════════════════════════════════════
 #  Step 4: docker-compose.yml reads .env natively — no generation needed
