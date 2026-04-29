@@ -133,6 +133,7 @@ async function main() {
 main()
     .catch((e) => {
         console.error('==> [ERROR] Seed failed:', e.message);
+        console.error(e.stack || e);
         // Non-fatal — don't crash the container
     })
     .finally(async () => {
