@@ -166,10 +166,10 @@ export default function ReturnClient() {
             setIsVerifying(true);
             setError("");
 
-            // For return, we just verify the SN exists in the system (it should be deployed)
+            // For return, we just verify the SN exists in the system
             try {
-                const { searchBySerialNumber } = await import("@/app/actions/master");
-                const res = await searchBySerialNumber(scannedSN);
+                const { verifySerialNumberForReturn } = await import("@/app/actions/return");
+                const res = await verifySerialNumberForReturn(scannedSN);
 
                 if (res.success && res.data) {
                     const snData = res.data as any;

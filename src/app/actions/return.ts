@@ -21,6 +21,30 @@ type ReturnPayload = {
     description?: string;
 };
 
+export async function verifySerialNumberForReturn(code: string) {
+    try {
+        const sn = await prisma.serialNumber.findUnique({
+            where: { code },
+            select: {
+                id: true,
+                code: true,
+                itemId: true,
+                item: { select: { id: true, name: true, code: true } },
+                itemstatus: { select: { name: true } },
+                warehouse: { select: { name: true } },
+            }
+        });
+
+        if (!sn) {
+            return { success: false, error: `Serial Number ${code} tidak ditemukan di sistem.` };
+        }
+
+        return { success: true, data: sn };
+    } catch (e: any) {
+        return { success: false, error: e.message };
+    }
+}
+
 export async function createReturn(data: ReturnPayload) {
     try {
         if (!data.items || data.items.length === 0) {
