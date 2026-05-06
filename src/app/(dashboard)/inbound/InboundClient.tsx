@@ -19,7 +19,7 @@ type CartItem = {
     qty: number;
     price: number;
     serialNumbers: string[];
-    condition: "Baru" | "Bekas";
+    condition: "NEW" | "DISMANTLE" | "DAMAGED";
 };
 
 export default function InboundClient() {
@@ -108,7 +108,7 @@ export default function InboundClient() {
             qty: item.hasSN ? 0 : addingQty,
             price: addingPrice,
             serialNumbers: [],
-            condition: "Baru",
+            condition: "NEW",
         };
 
         const newCart = [...cartItems, newCartItem];
@@ -144,7 +144,7 @@ export default function InboundClient() {
         setCartItems(newCart);
     };
 
-    const updateCartItemCondition = (idx: number, newCondition: "Baru" | "Bekas") => {
+    const updateCartItemCondition = (idx: number, newCondition: "NEW" | "DISMANTLE" | "DAMAGED") => {
         const newCart = [...cartItems];
         newCart[idx].condition = newCondition;
         setCartItems(newCart);
@@ -348,7 +348,7 @@ export default function InboundClient() {
                             qty: 0,
                             price: 0,
                             serialNumbers: [],
-                            condition: "Baru",
+                            condition: "NEW",
                         });
                         cartItemIdx = newCartItems.length - 1;
                         addedItems++;
@@ -677,11 +677,12 @@ export default function InboundClient() {
                                                         <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                                                             <select
                                                                 value={ci.condition}
-                                                                onChange={(e) => updateCartItemCondition(idx, e.target.value as "Baru" | "Bekas")}
+                                                                onChange={(e) => updateCartItemCondition(idx, e.target.value as "NEW" | "DISMANTLE" | "DAMAGED")}
                                                                 className="w-full bg-[#0f172a] border border-[#334155] text-white rounded px-2 py-1 text-xs focus:ring-1 focus:ring-blue-500"
                                                             >
-                                                                <option value="Baru">Baru</option>
-                                                                <option value="Bekas">Bekas</option>
+                                                                <option value="NEW">Baru</option>
+                                                                <option value="DISMANTLE">Dismantle</option>
+                                                                <option value="DAMAGED">Rusak</option>
                                                             </select>
                                                         </td>
 

@@ -424,13 +424,13 @@ export default function WarehouseDetailMasterPage() {
                                                     </td>
                                                     <td className="px-4 py-3">
                                                         <div className="flex flex-col items-end">
-                                                            <span className="font-mono font-bold text-sm text-green-400">{stock.stockNew.toLocaleString('id-ID')}</span>
+                                                            <span className="font-mono font-bold text-sm text-blue-400">{stock.stockNew.toLocaleString('id-ID')}</span>
                                                             <span className="text-[10px] text-slate-500">{stock.item.unit}</span>
                                                         </div>
                                                     </td>
                                                     <td className="px-4 py-3">
                                                         <div className="flex flex-col items-end">
-                                                            <span className="font-mono font-bold text-sm text-blue-400">{stock.stockDismantle.toLocaleString('id-ID')}</span>
+                                                            <span className="font-mono font-bold text-sm text-purple-400">{stock.stockDismantle.toLocaleString('id-ID')}</span>
                                                             <span className="text-[10px] text-slate-500">{stock.item.unit}</span>
                                                         </div>
                                                     </td>
@@ -442,7 +442,7 @@ export default function WarehouseDetailMasterPage() {
                                                     </td>
                                                     <td className="px-4 py-3 bg-[#0F172A]/30">
                                                         <div className="flex flex-col items-end">
-                                                            <span className="font-mono font-bold text-sm text-white">{itemTotal.toLocaleString('id-ID')}</span>
+                                                            <span className="font-mono font-bold text-sm text-green-400">{itemTotal.toLocaleString('id-ID')}</span>
                                                             <span className="text-[10px] text-slate-500">{stock.item.unit}</span>
                                                         </div>
                                                     </td>

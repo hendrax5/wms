@@ -484,11 +484,17 @@ export async function getWarehouseList() {
         });
 
         const stockMap: Record<number, number> = {};
+        const stockNewMap: Record<number, number> = {};
+        const stockDismantleMap: Record<number, number> = {};
+        const stockDamagedMap: Record<number, number> = {};
         const nonSNStockMap: Record<number, number> = {};
         const lowStockMap: Record<number, number> = {};
         for (const s of rawStocks) {
             const total = (s.stockNew || 0) + (s.stockDismantle || 0) + (s.stockDamaged || 0);
             stockMap[s.warehouseId] = (stockMap[s.warehouseId] || 0) + total;
+            stockNewMap[s.warehouseId] = (stockNewMap[s.warehouseId] || 0) + (s.stockNew || 0);
+            stockDismantleMap[s.warehouseId] = (stockDismantleMap[s.warehouseId] || 0) + (s.stockDismantle || 0);
+            stockDamagedMap[s.warehouseId] = (stockDamagedMap[s.warehouseId] || 0) + (s.stockDamaged || 0);
             if (!s.item?.hasSN) {
                 nonSNStockMap[s.warehouseId] = (nonSNStockMap[s.warehouseId] || 0) + total;
             }
@@ -500,6 +506,9 @@ export async function getWarehouseList() {
         const fullList = warehouses.map(w => ({
             ...w,
             totalFisik: stockMap[w.id] || 0,
+            totalNew: stockNewMap[w.id] || 0,
+            totalDismantle: stockDismantleMap[w.id] || 0,
+            totalDamaged: stockDamagedMap[w.id] || 0,
             totalNonSN: nonSNStockMap[w.id] || 0,
             lowStockCount: lowStockMap[w.id] || 0,
         }));

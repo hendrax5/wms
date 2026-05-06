@@ -16,13 +16,19 @@ type CartItem = {
     itemCode: string;
     hasSN: boolean;
     qty: number;
-    qty: number;
+
     qtyNew?: number;
     qtyDismantle?: number;
     qtyDamaged?: number;
     condition?: "NEW" | "DISMANTLE" | "DAMAGED";
     serialNumbers: string[];
 };
+
+const CONDITION_OPTIONS = [
+    { value: "NEW", color: "text-blue-400 border-blue-400/30", bg: "hover:bg-blue-400/10" },
+    { value: "DISMANTLE", color: "text-purple-400 border-purple-400/30", bg: "hover:bg-purple-400/10" },
+    { value: "DAMAGED", color: "text-red-400 border-red-400/30", bg: "hover:bg-red-400/10" }
+];
 
 export default function ReturnClient() {
     const router = useRouter();

@@ -18,6 +18,9 @@ type WarehouseData = {
     location: string | null;
     type: string;
     totalFisik: number;
+    totalNew: number;
+    totalDismantle: number;
+    totalDamaged: number;
     totalNonSN: number;
     lowStockCount: number;
 };
@@ -129,6 +132,9 @@ export default function StockIndexClient() {
             "Tipe": w.type,
             "Lokasi": w.location || "-",
             "Total Fisik": w.totalFisik || 0,
+            "Total Baru": w.totalNew || 0,
+            "Total Dismantle": w.totalDismantle || 0,
+            "Total Rusak": w.totalDamaged || 0,
             "Total Non-SN": w.totalNonSN || 0,
             "Low Stock Count": w.lowStockCount || 0
         }));
@@ -291,18 +297,25 @@ export default function StockIndexClient() {
                                         </p>
                                     )}
                                 </div>
-                                <div className="px-4 sm:px-5 py-3 grid grid-cols-3 gap-3">
+                                <div className="px-4 sm:px-5 py-3 grid grid-cols-2 gap-3">
                                     <div>
-                                        <span className="text-[10px] text-slate-500 flex items-center gap-1"><Package size={10} /> Stok</span>
+                                        <span className="text-[10px] text-slate-500 flex items-center gap-1"><Package size={10} /> Stok Total</span>
                                         <span className={`font-mono font-bold text-lg sm:text-xl leading-none mt-1 block ${(wh.totalFisik || 0) === 0 ? "text-slate-600" : "text-green-400"}`}>{(wh.totalFisik || 0).toLocaleString("id-ID")}</span>
+                                        <div className="flex items-center gap-2 mt-1 text-[9px] font-mono">
+                                            <span className="text-blue-400" title="Baru">B: {wh.totalNew || 0}</span>
+                                            <span className="text-purple-400" title="Dismantle">D: {wh.totalDismantle || 0}</span>
+                                            <span className="text-red-400" title="Rusak">R: {wh.totalDamaged || 0}</span>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <span className="text-[10px] text-slate-500 flex items-center gap-1"><Package size={10} /> Non-SN</span>
-                                        <span className={`font-mono font-bold text-lg sm:text-xl leading-none mt-1 block ${(wh.totalNonSN || 0) === 0 ? "text-slate-600" : "text-blue-400"}`}>{(wh.totalNonSN || 0).toLocaleString("id-ID")}</span>
-                                    </div>
-                                    <div>
-                                        <span className="text-[10px] text-slate-500 flex items-center gap-1"><AlertCircle size={10} /> Low</span>
-                                        <span className={`font-mono font-bold text-lg sm:text-xl leading-none mt-1 block ${(wh.lowStockCount || 0) > 0 ? "text-amber-400" : "text-slate-600"}`}>{wh.lowStockCount || 0}</span>
+                                    <div className="flex flex-col gap-2">
+                                        <div>
+                                            <span className="text-[10px] text-slate-500 flex items-center gap-1"><Package size={10} /> Non-SN</span>
+                                            <span className={`font-mono font-bold text-sm sm:text-base leading-none mt-0.5 block ${(wh.totalNonSN || 0) === 0 ? "text-slate-600" : "text-slate-300"}`}>{(wh.totalNonSN || 0).toLocaleString("id-ID")}</span>
+                                        </div>
+                                        <div>
+                                            <span className="text-[10px] text-slate-500 flex items-center gap-1"><AlertCircle size={10} /> Low Stock</span>
+                                            <span className={`font-mono font-bold text-sm sm:text-base leading-none mt-0.5 block ${(wh.lowStockCount || 0) > 0 ? "text-amber-400" : "text-slate-600"}`}>{wh.lowStockCount || 0}</span>
+                                        </div>
                                     </div>
                                 </div>
                                 <div className="px-4 sm:px-5 py-3 border-t border-[#1E293B] flex items-center justify-between">
@@ -333,10 +346,13 @@ export default function StockIndexClient() {
                                 <tr className="border-b border-[#1E293B] text-[10px] uppercase tracking-wider text-slate-500 font-semibold bg-[#020617]/50">
                                     <th className="px-4 py-3">Nama Gudang</th>
                                     <th className="px-4 py-3 text-center">Tipe</th>
-                                    <th className="px-4 py-3 text-right w-40 whitespace-nowrap">Total Stok</th>
-                                    <th className="px-4 py-3 text-right w-40 whitespace-nowrap">Non-SN</th>
-                                    <th className="px-4 py-3 text-center w-24">Status</th>
-                                    <th className="px-4 py-3 text-center w-28">Aksi</th>
+                                    <th className="px-4 py-3 text-right w-28 whitespace-nowrap">Stok Total</th>
+                                    <th className="px-4 py-3 text-right w-20 whitespace-nowrap">Baru</th>
+                                    <th className="px-4 py-3 text-right w-20 whitespace-nowrap">Dsm</th>
+                                    <th className="px-4 py-3 text-right w-20 whitespace-nowrap">Rsk</th>
+                                    <th className="px-4 py-3 text-right w-28 whitespace-nowrap">Non-SN</th>
+                                    <th className="px-4 py-3 text-center w-20">Status</th>
+                                    <th className="px-4 py-3 text-center w-24">Aksi</th>
                                 </tr>
                             </thead>
                             <tbody className="text-xs">
@@ -355,7 +371,10 @@ export default function StockIndexClient() {
                                             <span className={`text-[9px] font-bold px-2 py-0.5 rounded border ${wh.type === "PUSAT" ? "bg-purple-500/10 text-purple-400 border-purple-500/20" : "bg-blue-500/10 text-blue-400 border-blue-500/20"}`}>{wh.type}</span>
                                         </td>
                                         <td className={`px-4 py-3 text-right font-mono font-bold ${(wh.totalFisik || 0) === 0 ? "text-slate-600" : "text-green-400"}`}>{(wh.totalFisik || 0).toLocaleString("id-ID")}</td>
-                                        <td className={`px-4 py-3 text-right font-mono font-bold ${(wh.totalNonSN || 0) === 0 ? "text-slate-600" : "text-blue-400"}`}>{(wh.totalNonSN || 0).toLocaleString("id-ID")}</td>
+                                        <td className={`px-4 py-3 text-right font-mono text-xs ${(wh.totalNew || 0) === 0 ? "text-slate-600" : "text-blue-400"}`}>{(wh.totalNew || 0).toLocaleString("id-ID")}</td>
+                                        <td className={`px-4 py-3 text-right font-mono text-xs ${(wh.totalDismantle || 0) === 0 ? "text-slate-600" : "text-purple-400"}`}>{(wh.totalDismantle || 0).toLocaleString("id-ID")}</td>
+                                        <td className={`px-4 py-3 text-right font-mono text-xs ${(wh.totalDamaged || 0) === 0 ? "text-slate-600" : "text-red-400"}`}>{(wh.totalDamaged || 0).toLocaleString("id-ID")}</td>
+                                        <td className={`px-4 py-3 text-right font-mono font-bold ${(wh.totalNonSN || 0) === 0 ? "text-slate-600" : "text-slate-300"}`}>{(wh.totalNonSN || 0).toLocaleString("id-ID")}</td>
                                         <td className="px-4 py-3 text-center">
                                             <span className="inline-flex items-center gap-1 text-[10px] text-green-400 font-medium">
                                                 <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>Active
@@ -383,10 +402,12 @@ export default function StockIndexClient() {
                                     </h3>
                                     <span className={`text-[9px] font-bold px-2 py-0.5 rounded border shrink-0 ${wh.type === "PUSAT" ? "bg-purple-500/10 text-purple-400 border-purple-500/20" : "bg-blue-500/10 text-blue-400 border-blue-500/20"}`}>{wh.type}</span>
                                 </div>
-                                <div className="flex items-center gap-4 text-xs text-slate-500 mb-2">
+                                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500 mb-2">
                                     <span>Stok: <span className={`font-mono font-bold ${(wh.totalFisik || 0) === 0 ? "text-slate-600" : "text-green-400"}`}>{(wh.totalFisik || 0).toLocaleString("id-ID")}</span></span>
-                                    <span>Non-SN: <span className={`font-mono font-bold ${(wh.totalNonSN || 0) === 0 ? "text-slate-600" : "text-blue-400"}`}>{(wh.totalNonSN || 0).toLocaleString("id-ID")}</span></span>
-                                    <span className="inline-flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-green-500"></span>Active</span>
+                                    <span>B: <span className={`font-mono font-bold ${(wh.totalNew || 0) === 0 ? "text-slate-600" : "text-blue-400"}`}>{(wh.totalNew || 0).toLocaleString("id-ID")}</span></span>
+                                    <span>D: <span className={`font-mono font-bold ${(wh.totalDismantle || 0) === 0 ? "text-slate-600" : "text-purple-400"}`}>{(wh.totalDismantle || 0).toLocaleString("id-ID")}</span></span>
+                                    <span>R: <span className={`font-mono font-bold ${(wh.totalDamaged || 0) === 0 ? "text-slate-600" : "text-red-400"}`}>{(wh.totalDamaged || 0).toLocaleString("id-ID")}</span></span>
+                                    <span>Non-SN: <span className={`font-mono font-bold ${(wh.totalNonSN || 0) === 0 ? "text-slate-600" : "text-slate-300"}`}>{(wh.totalNonSN || 0).toLocaleString("id-ID")}</span></span>
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <Link href={`/stock/warehouse/${wh.id}`} className="flex-1 text-center py-1.5 rounded-lg bg-[#020617] border border-[#1E293B] text-[11px] font-medium text-slate-400 hover:text-amber-400 transition-all">Detail</Link>

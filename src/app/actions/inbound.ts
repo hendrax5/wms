@@ -11,7 +11,7 @@ const InboundItemSchema = z.object({
     qty: z.number().int().positive("Quantity setiap barang harus lebih dari 0."),
     price: z.number().nonnegative(),
     serialNumbers: z.array(z.string()),
-    condition: z.enum(["Baru", "Bekas"])
+    condition: z.enum(["NEW", "DISMANTLE", "DAMAGED"])
 }).refine(data => data.serialNumbers.length === 0 || data.serialNumbers.length === data.qty, {
     message: "Jumlah Serial Number tidak sesuai dengan Qty untuk salah satu barang.",
     path: ["serialNumbers"]
@@ -38,17 +38,23 @@ export async function createStockIn(rawData: StockInPayload) {
         
         const data = parsed.data;
 
-        // Determine IDs for ItemType (Baru/Bekas) and ItemStatus (In Stock)
+        // Determine IDs for ItemType
         const typeBaru = await prisma.itemType.upsert({
             where: { name: "Baru" },
             update: {},
             create: { name: "Baru" }
         });
 
-        const typeBekas = await prisma.itemType.upsert({
-            where: { name: "Bekas" },
+        const typeDismantle = await prisma.itemType.upsert({
+            where: { name: "Dismantle" },
             update: {},
-            create: { name: "Bekas" }
+            create: { name: "Dismantle" }
+        });
+        
+        const typeRusak = await prisma.itemType.upsert({
+            where: { name: "Rusak" },
+            update: {},
+            create: { name: "Rusak" }
         });
 
         const statusInStock = await prisma.itemStatus.upsert({
@@ -87,7 +93,7 @@ export async function createStockIn(rawData: StockInPayload) {
                                 code: snCode,
                                 price: itemPayload.price,
                                 itemId: itemPayload.itemId,
-                                typeId: itemPayload.condition === "Baru" ? typeBaru.id : typeBekas.id,
+                                typeId: itemPayload.condition === "NEW" ? typeBaru.id : itemPayload.condition === "DISMANTLE" ? typeDismantle.id : typeRusak.id,
                                 statusId: statusInStock.id,
                                 warehouseId: data.warehouseId,
                                 updatedAt: new Date(),
@@ -118,7 +124,9 @@ export async function createStockIn(rawData: StockInPayload) {
                     await tx.warehouseStock.update({
                         where: { id: currentStock.id },
                         data: {
-                            stockNew: { increment: itemPayload.qty },
+                            stockNew: itemPayload.condition === "NEW" ? { increment: itemPayload.qty } : undefined,
+                            stockDismantle: itemPayload.condition === "DISMANTLE" ? { increment: itemPayload.qty } : undefined,
+                            stockDamaged: itemPayload.condition === "DAMAGED" ? { increment: itemPayload.qty } : undefined,
                             updatedAt: new Date(),
                         }
                     });
@@ -127,7 +135,9 @@ export async function createStockIn(rawData: StockInPayload) {
                         data: {
                             itemId: itemPayload.itemId,
                             warehouseId: data.warehouseId,
-                            stockNew: itemPayload.qty,
+                            stockNew: itemPayload.condition === "NEW" ? itemPayload.qty : 0,
+                            stockDismantle: itemPayload.condition === "DISMANTLE" ? itemPayload.qty : 0,
+                            stockDamaged: itemPayload.condition === "DAMAGED" ? itemPayload.qty : 0,
                             updatedAt: new Date(),
                         }
                     });
