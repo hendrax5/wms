@@ -26,15 +26,15 @@ export default async function AuditLogsPage({
     const totalPages = Math.ceil(total / limit);
 
     return (
-        <div className="space-y-6">
-            <div>
-                <h1 className="text-2xl font-bold tracking-tight">System Logs</h1>
-                <p className="text-muted-foreground">
-                    Riwayat aktivitas sistem dan hasil transaksi.
-                </p>
+        <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-6">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div>
+                    <h1 className="text-2xl font-bold text-white">System Logs</h1>
+                    <p className="text-slate-400 mt-1">Riwayat aktivitas sistem dan hasil transaksi.</p>
+                </div>
             </div>
 
-            <Suspense fallback={<div>Loading logs...</div>}>
+            <Suspense fallback={<div className="p-8 text-center text-slate-500">Loading logs...</div>}>
                 <AuditLogsClient 
                     initialData={logs} 
                     totalPages={totalPages} 
