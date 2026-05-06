@@ -30,6 +30,9 @@ export async function createTransfer(data: TransferPayload) {
             return { success: false, error: "Jumlah Serial Number tidak sesuai dengan Qty Transfer." };
         }
 
+        const typeBaru = await prisma.itemType.upsert({ where: { name: "Baru" }, update: {}, create: { name: "Baru" } });
+        const typeDismantle = await prisma.itemType.upsert({ where: { name: "Dismantle" }, update: {}, create: { name: "Dismantle" } });
+
         const result = await prisma.$transaction(async (tx) => {
             // Validate Source Warehouse Stock
             const sourceStock = await tx.warehouseStock.findUnique({
@@ -41,10 +44,30 @@ export async function createTransfer(data: TransferPayload) {
                 }
             });
 
-            if (!sourceStock || sourceStock.stockNew < data.qty) {
-                // Determine actual available
-                const available = sourceStock ? sourceStock.stockNew : 0;
-                throw new Error(`Stok Unit Baru di gudang asal tidak mencukupi. Tersedia: ${available}, Diminta: ${data.qty}`);
+            let qtyNew = 0;
+            let qtyDismantle = 0;
+            let qtyDamaged = 0;
+
+            if (data.serialNumbers.length > 0) {
+                for (const snCode of data.serialNumbers) {
+                    const existingSn = await tx.serialNumber.findUnique({
+                        where: { code: snCode }
+                    });
+
+                    if (!existingSn) throw new Error(`Serial Number ${snCode} tidak ditemukan di sistem.`);
+                    if (existingSn.warehouseId !== data.sourceWarehouseId) throw new Error(`Serial Number ${snCode} tidak berada di gudang asal yang dipilih.`);
+
+                    if (existingSn.typeId === typeBaru.id) qtyNew++;
+                    else if (existingSn.typeId === typeDismantle.id) qtyDismantle++;
+                    else qtyDamaged++;
+                }
+            } else {
+                qtyNew = data.qty;
+            }
+
+            if (!sourceStock || sourceStock.stockNew < qtyNew || sourceStock.stockDismantle < qtyDismantle || sourceStock.stockDamaged < qtyDamaged) {
+                const itemInfo = await tx.item.findUnique({ where: { id: data.itemId } });
+                throw new Error(`Stok "${itemInfo?.name || data.itemId}" di gudang asal tidak mencukupi untuk jenis/kondisi SN yang dipilih.`);
             }
 
             // 1. Create StockOut record with TRANSFER type
@@ -67,45 +90,45 @@ export async function createTransfer(data: TransferPayload) {
                         where: { code: snCode }
                     });
 
-                    if (!existingSn) {
-                        throw new Error(`Serial Number ${snCode} tidak ditemukan di sistem.`);
-                    }
-
-                    if (existingSn.warehouseId !== data.sourceWarehouseId) {
-                        throw new Error(`Serial Number ${snCode} tidak berada di gudang asal yang dipilih.`);
-                    }
-
-                    if (existingSn.statusId) {
-                        const status = await tx.itemStatus.findUnique({ where: { id: existingSn.statusId } });
-                        if (status?.name !== "In Stock") {
-                            throw new Error(`Serial Number ${snCode} tidak berstatus "In Stock". Status saat ini: ${status?.name}`);
+                    // We already validated above, but need the object again (and typescript satisfaction)
+                    if (existingSn) {
+                        if (existingSn.statusId) {
+                            const status = await tx.itemStatus.findUnique({ where: { id: existingSn.statusId } });
+                            if (status?.name !== "In Stock") {
+                                throw new Error(`Serial Number ${snCode} tidak berstatus "In Stock". Status saat ini: ${status?.name}`);
+                            }
                         }
+
+                        // Update SN location to target warehouse
+                        await tx.serialNumber.update({
+                            where: { id: existingSn.id },
+                            data: {
+                                warehouseId: data.targetWarehouseId,
+                                updatedAt: new Date(),
+                            }
+                        });
+
+                        // Link to StockOut
+                        await tx.stockOutSerial.create({
+                            data: {
+                                stockOutId: stockOut.id,
+                                serialNumberId: existingSn.id,
+                                serialCode: existingSn.code
+                            }
+                        });
                     }
-
-                    // Update SN location to target warehouse
-                    await tx.serialNumber.update({
-                        where: { id: existingSn.id },
-                        data: {
-                            warehouseId: data.targetWarehouseId,
-                            updatedAt: new Date(),
-                        }
-                    });
-
-                    // Link to StockOut
-                    await tx.stockOutSerial.create({
-                        data: {
-                            stockOutId: stockOut.id,
-                            serialNumberId: existingSn.id,
-                            serialCode: existingSn.code
-                        }
-                    });
                 }
             }
 
             // 3. Decrement source warehouse stock
             await tx.warehouseStock.update({
                 where: { id: sourceStock.id },
-                data: { stockNew: { decrement: data.qty }, updatedAt: new Date() }
+                data: { 
+                    stockNew: { decrement: qtyNew }, 
+                    stockDismantle: { decrement: qtyDismantle }, 
+                    stockDamaged: { decrement: qtyDamaged }, 
+                    updatedAt: new Date() 
+                }
             });
 
             // 4. Increment target warehouse stock
@@ -121,14 +144,21 @@ export async function createTransfer(data: TransferPayload) {
             if (targetStock) {
                 await tx.warehouseStock.update({
                     where: { id: targetStock.id },
-                    data: { stockNew: { increment: data.qty }, updatedAt: new Date() }
+                    data: { 
+                        stockNew: { increment: qtyNew }, 
+                        stockDismantle: { increment: qtyDismantle }, 
+                        stockDamaged: { increment: qtyDamaged }, 
+                        updatedAt: new Date() 
+                    }
                 });
             } else {
                 await tx.warehouseStock.create({
                     data: {
                         itemId: data.itemId,
                         warehouseId: data.targetWarehouseId,
-                        stockNew: data.qty,
+                        stockNew: qtyNew,
+                        stockDismantle: qtyDismantle,
+                        stockDamaged: qtyDamaged,
                         updatedAt: new Date(),
                     }
                 });

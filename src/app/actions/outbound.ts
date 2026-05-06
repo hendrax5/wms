@@ -58,6 +58,18 @@ export async function createInstallation(data: InstallationPayload) {
             create: { name: "Dipakai" }
         });
 
+        const typeBaru = await prisma.itemType.upsert({
+            where: { name: "Baru" },
+            update: {},
+            create: { name: "Baru" }
+        });
+
+        const typeDismantle = await prisma.itemType.upsert({
+            where: { name: "Dismantle" },
+            update: {},
+            create: { name: "Dismantle" }
+        });
+
         const technicianCombined = [data.techName1, data.techName2].filter(Boolean).join(" & ");
 
         const results = await prisma.$transaction(async (tx) => {
@@ -73,10 +85,36 @@ export async function createInstallation(data: InstallationPayload) {
                     }
                 });
 
-                if (!sourceStock || sourceStock.stockNew < itemPayload.qty) {
-                    const available = sourceStock ? sourceStock.stockNew : 0;
+                let qtyNew = 0;
+                let qtyDismantle = 0;
+                let qtyDamaged = 0;
+
+                // Validate SN and calculate types BEFORE doing stock changes
+                if (itemPayload.serialNumbers.length > 0) {
+                    for (const snCode of itemPayload.serialNumbers) {
+                        const existingSn = await tx.serialNumber.findUnique({
+                            where: { code: snCode }
+                        });
+
+                        if (!existingSn) {
+                            throw new Error(`Serial Number ${snCode} tidak ditemukan di sistem.`);
+                        }
+
+                        if (existingSn.warehouseId !== data.sourceWarehouseId) {
+                            throw new Error(`Serial Number ${snCode} tidak berada di gudang asal yang dipilih.`);
+                        }
+
+                        if (existingSn.typeId === typeBaru.id) qtyNew++;
+                        else if (existingSn.typeId === typeDismantle.id) qtyDismantle++;
+                        else qtyDamaged++;
+                    }
+                } else {
+                    qtyNew = itemPayload.qty;
+                }
+
+                if (!sourceStock || sourceStock.stockNew < qtyNew || sourceStock.stockDismantle < qtyDismantle || sourceStock.stockDamaged < qtyDamaged) {
                     const itemInfo = await tx.item.findUnique({ where: { id: itemPayload.itemId } });
-                    throw new Error(`Stok "${itemInfo?.name || itemPayload.itemId}" tidak mencukupi. Tersedia: ${available}, Diminta: ${itemPayload.qty}`);
+                    throw new Error(`Stok "${itemInfo?.name || itemPayload.itemId}" tidak mencukupi untuk kondisi barang yang dipilih.`);
                 }
 
                 const stockOut = await tx.stockOut.create({
@@ -96,7 +134,12 @@ export async function createInstallation(data: InstallationPayload) {
 
                 await tx.warehouseStock.update({
                     where: { id: sourceStock.id },
-                    data: { stockNew: { decrement: itemPayload.qty }, updatedAt: new Date() }
+                    data: { 
+                        stockNew: { decrement: qtyNew }, 
+                        stockDismantle: { decrement: qtyDismantle }, 
+                        stockDamaged: { decrement: qtyDamaged }, 
+                        updatedAt: new Date() 
+                    }
                 });
 
                 if (itemPayload.serialNumbers.length > 0) {
@@ -105,54 +148,49 @@ export async function createInstallation(data: InstallationPayload) {
                             where: { code: snCode }
                         });
 
-                        if (!existingSn) {
-                            throw new Error(`Serial Number ${snCode} tidak ditemukan di sistem.`);
-                        }
-
-                        if (existingSn.warehouseId !== data.sourceWarehouseId) {
-                            throw new Error(`Serial Number ${snCode} tidak berada di gudang asal yang dipilih.`);
-                        }
-
-                        await tx.serialNumber.update({
-                            where: { id: existingSn.id },
-                            data: {
-                                warehouseId: null,
-                                popId: data.installType === "POP" ? data.targetPopId : null,
-                                customerId: null,
-                                statusId: statusDipakai.id,
-                                updatedAt: new Date(),
-                            }
-                        });
-
-                        await tx.stockOutSerial.create({
-                            data: {
-                                stockOutId: stockOut.id,
-                                serialNumberId: existingSn.id,
-                                serialCode: existingSn.code
-                            }
-                        });
-
-                        if (data.installType === "POP") {
-                            await tx.popInstallation.create({
+                        // We already validated above, but we need the ID
+                        if (existingSn) {
+                            await tx.serialNumber.update({
+                                where: { id: existingSn.id },
                                 data: {
-                                    popId: data.targetPopId!,
-                                    itemId: itemPayload.itemId,
-                                    serialNumberId: existingSn.id,
-                                    installedBy: technicianCombined,
-                                    description: data.description
+                                    warehouseId: null,
+                                    popId: data.installType === "POP" ? data.targetPopId : null,
+                                    customerId: null,
+                                    statusId: statusDipakai.id,
+                                    updatedAt: new Date(),
                                 }
                             });
-                        } else {
-                            await tx.customerInstallation.create({
+
+                            await tx.stockOutSerial.create({
                                 data: {
-                                    customerName: data.targetCustomerName!,
-                                    customerAddress: data.targetCustomerLocation,
-                                    itemId: itemPayload.itemId,
+                                    stockOutId: stockOut.id,
                                     serialNumberId: existingSn.id,
-                                    installedBy: technicianCombined,
-                                    description: data.description
+                                    serialCode: existingSn.code
                                 }
                             });
+
+                            if (data.installType === "POP") {
+                                await tx.popInstallation.create({
+                                    data: {
+                                        popId: data.targetPopId!,
+                                        itemId: itemPayload.itemId,
+                                        serialNumberId: existingSn.id,
+                                        installedBy: technicianCombined,
+                                        description: data.description
+                                    }
+                                });
+                            } else {
+                                await tx.customerInstallation.create({
+                                    data: {
+                                        customerName: data.targetCustomerName!,
+                                        customerAddress: data.targetCustomerLocation,
+                                        itemId: itemPayload.itemId,
+                                        serialNumberId: existingSn.id,
+                                        installedBy: technicianCombined,
+                                        description: data.description
+                                    }
+                                });
+                            }
                         }
                     }
                 } else {
