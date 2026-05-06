@@ -10,19 +10,8 @@ export async function getPops() {
         if (process.env.NEXT_PHASE === 'phase-production-build') {
             return { success: true, data: [] };
         }
-        const session = await auth();
-        let warehouseFilter: any = undefined;
-        if (session?.user && session.user.level !== "MASTER") {
-            const accessibleIds = session.user.accessibleWarehouseIds || [];
-            if (accessibleIds.length > 0) {
-                warehouseFilter = { in: accessibleIds };
-            } else if (session.user.warehouseId) {
-                warehouseFilter = session.user.warehouseId;
-            }
-        }
-
+        // POPs are now universal; we no longer filter them by user's warehouseId
         const pops = await prisma.pop.findMany({
-            where: warehouseFilter ? { warehouseId: warehouseFilter } : undefined,
             orderBy: { name: "asc" },
             include: {
                 area: true,
