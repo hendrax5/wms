@@ -4,54 +4,57 @@ import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { logAudit } from "./audit";
 
-type OutboundItemPayload = {
-    itemId: number;
-    qty: number;
-    qtyNew?: number;
-    qtyDismantle?: number;
-    qtyDamaged?: number;
-    serialNumbers: string[];
-};
+import { z } from "zod";
 
-type InstallationPayload = {
-    sourceWarehouseId: number;
-    items: OutboundItemPayload[];
-    installType: "POP" | "CUSTOMER";
-    targetPopId?: number;
-    targetCustomerName?: string;
-    targetCustomerLocation?: string;
-    techName1?: string;
-    techName2?: string;
-    description?: string;
-};
+const OutboundItemSchema = z.object({
+    itemId: z.number().int().positive(),
+    qty: z.number().int().positive("Quantity setiap barang harus lebih dari 0."),
+    qtyNew: z.number().int().nonnegative().optional(),
+    qtyDismantle: z.number().int().nonnegative().optional(),
+    qtyDamaged: z.number().int().nonnegative().optional(),
+    serialNumbers: z.array(z.string())
+}).refine(data => data.serialNumbers.length === 0 || data.serialNumbers.length === data.qty, {
+    message: "Jumlah Serial Number tidak sesuai dengan Qty untuk salah satu barang.",
+    path: ["serialNumbers"]
+});
 
-export async function createInstallation(data: InstallationPayload) {
+const OutboundInstallationSchema = z.object({
+    sourceWarehouseId: z.number().int().positive(),
+    items: z.array(OutboundItemSchema).min(1, "Minimal 1 barang harus ditambahkan."),
+    installType: z.enum(["POP", "CUSTOMER"]),
+    targetPopId: z.number().int().positive().optional(),
+    targetCustomerName: z.string().optional(),
+    targetCustomerLocation: z.string().optional(),
+    techName1: z.string().optional(),
+    techName2: z.string().optional(),
+    description: z.string().optional()
+}).refine(data => {
+    if (data.installType === "POP" && !data.targetPopId) return false;
+    return true;
+}, {
+    message: "POP Tujuan wajib dipilih.",
+    path: ["targetPopId"]
+}).refine(data => {
+    if (data.installType === "CUSTOMER" && !data.targetCustomerName) return false;
+    return true;
+}, {
+    message: "Nama Customer Tujuan wajib diisi.",
+    path: ["targetCustomerName"]
+});
+
+type OutboundItemPayload = z.infer<typeof OutboundItemSchema>;
+type InstallationPayload = z.infer<typeof OutboundInstallationSchema>;
+
+export async function createInstallation(rawData: InstallationPayload) {
     try {
-        if (!data.items || data.items.length === 0) {
-            await logAudit({ action: "OUTBOUND_INSTALLATION", status: "ERROR", warehouseId: data.sourceWarehouseId, message: "Minimal 1 barang harus ditambahkan." });
-            return { success: false, error: "Minimal 1 barang harus ditambahkan." };
+        const parsed = OutboundInstallationSchema.safeParse(rawData);
+        if (!parsed.success) {
+            const errorMsg = parsed.error.issues[0]?.message || "Input tidak valid.";
+            await logAudit({ action: "OUTBOUND_INSTALLATION", status: "ERROR", warehouseId: rawData.sourceWarehouseId, message: errorMsg });
+            return { success: false, error: errorMsg };
         }
-
-        for (const item of data.items) {
-            if (item.qty <= 0) {
-                await logAudit({ action: "OUTBOUND_INSTALLATION", status: "ERROR", warehouseId: data.sourceWarehouseId, message: "Quantity setiap barang harus lebih dari 0." });
-                return { success: false, error: "Quantity setiap barang harus lebih dari 0." };
-            }
-            if (item.serialNumbers.length > 0 && item.serialNumbers.length !== item.qty) {
-                await logAudit({ action: "OUTBOUND_INSTALLATION", status: "ERROR", warehouseId: data.sourceWarehouseId, message: "Jumlah Serial Number tidak sesuai dengan Qty untuk salah satu barang." });
-                return { success: false, error: `Jumlah Serial Number tidak sesuai dengan Qty untuk salah satu barang.` };
-            }
-        }
-
-        if (data.installType === "POP" && !data.targetPopId) {
-            await logAudit({ action: "OUTBOUND_INSTALLATION", status: "ERROR", warehouseId: data.sourceWarehouseId, message: "POP Tujuan wajib dipilih." });
-            return { success: false, error: "POP Tujuan wajib dipilih." };
-        }
-
-        if (data.installType === "CUSTOMER" && !data.targetCustomerName) {
-            await logAudit({ action: "OUTBOUND_INSTALLATION", status: "ERROR", warehouseId: data.sourceWarehouseId, message: "Nama Customer Tujuan wajib diisi." });
-            return { success: false, error: "Nama Customer Tujuan wajib diisi." };
-        }
+        
+        const data = parsed.data;
 
         const outTypeEnum = data.installType === "POP" ? "POP_INSTALL" : "CUSTOMER_INSTALL";
 
@@ -249,7 +252,7 @@ export async function createInstallation(data: InstallationPayload) {
         await logAudit({ 
             action: "OUTBOUND_INSTALLATION", 
             status: "ERROR", 
-            warehouseId: data.sourceWarehouseId, 
+            warehouseId: rawData.sourceWarehouseId, 
             message: error.message || "Gagal memproses barang keluar / instalasi." 
         });
         return { success: false, error: error.message || "Gagal memproses barang keluar / instalasi." };

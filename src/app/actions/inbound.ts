@@ -4,38 +4,39 @@ import { prisma } from "@/lib/db";
 import { revalidatePath, unstable_noStore as noStore } from "next/cache";
 import { logAudit } from "./audit";
 
-type InboundItemPayload = {
-    itemId: number;
-    qty: number;
-    price: number;
-    serialNumbers: string[];
-    condition: "Baru" | "Bekas";
-};
+import { z } from "zod";
 
-type StockInPayload = {
-    warehouseId: number;
-    items: InboundItemPayload[];
-    description?: string;
-    clientName?: string;
-};
+const InboundItemSchema = z.object({
+    itemId: z.number().int().positive(),
+    qty: z.number().int().positive("Quantity setiap barang harus lebih dari 0."),
+    price: z.number().nonnegative(),
+    serialNumbers: z.array(z.string()),
+    condition: z.enum(["Baru", "Bekas"])
+}).refine(data => data.serialNumbers.length === 0 || data.serialNumbers.length === data.qty, {
+    message: "Jumlah Serial Number tidak sesuai dengan Qty untuk salah satu barang.",
+    path: ["serialNumbers"]
+});
 
-export async function createStockIn(data: StockInPayload) {
+const StockInSchema = z.object({
+    warehouseId: z.number().int().positive(),
+    items: z.array(InboundItemSchema).min(1, "Minimal 1 barang harus ditambahkan."),
+    description: z.string().optional(),
+    clientName: z.string().optional()
+});
+
+type InboundItemPayload = z.infer<typeof InboundItemSchema>;
+type StockInPayload = z.infer<typeof StockInSchema>;
+
+export async function createStockIn(rawData: StockInPayload) {
     try {
-        if (!data.items || data.items.length === 0) {
-            await logAudit({ action: "INBOUND_IMPORT", status: "ERROR", warehouseId: data.warehouseId, message: "Minimal 1 barang harus ditambahkan." });
-            return { success: false, error: "Minimal 1 barang harus ditambahkan." };
+        const parsed = StockInSchema.safeParse(rawData);
+        if (!parsed.success) {
+            const errorMsg = parsed.error.issues[0]?.message || "Input tidak valid.";
+            await logAudit({ action: "INBOUND_IMPORT", status: "ERROR", warehouseId: rawData.warehouseId, message: errorMsg });
+            return { success: false, error: errorMsg };
         }
-
-        for (const item of data.items) {
-            if (item.qty <= 0) {
-                await logAudit({ action: "INBOUND_IMPORT", status: "ERROR", warehouseId: data.warehouseId, message: "Quantity setiap barang harus lebih dari 0." });
-                return { success: false, error: "Quantity setiap barang harus lebih dari 0." };
-            }
-            if (item.serialNumbers.length > 0 && item.serialNumbers.length !== item.qty) {
-                await logAudit({ action: "INBOUND_IMPORT", status: "ERROR", warehouseId: data.warehouseId, message: "Jumlah Serial Number tidak sesuai dengan Qty untuk salah satu barang." });
-                return { success: false, error: "Jumlah Serial Number tidak sesuai dengan Qty untuk salah satu barang." };
-            }
-        }
+        
+        const data = parsed.data;
 
         // Determine IDs for ItemType (Baru/Bekas) and ItemStatus (In Stock)
         const typeBaru = await prisma.itemType.upsert({
@@ -159,7 +160,7 @@ export async function createStockIn(data: StockInPayload) {
         await logAudit({ 
             action: "INBOUND_IMPORT", 
             status: "ERROR", 
-            warehouseId: data.warehouseId, 
+            warehouseId: rawData.warehouseId, 
             message: error.message || "Gagal memproses barang masuk." 
         });
         return { success: false, error: error.message || "Gagal memproses barang masuk." };

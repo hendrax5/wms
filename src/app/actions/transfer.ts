@@ -4,34 +4,38 @@ import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { logAudit } from "./audit";
 
-type TransferPayload = {
-    sourceWarehouseId: number;
-    targetWarehouseId: number;
-    itemId: number;
-    qty: number;
-    qtyNew?: number;
-    qtyDismantle?: number;
-    qtyDamaged?: number;
-    description?: string;
-    serialNumbers: string[];
-};
+import { z } from "zod";
 
-export async function createTransfer(data: TransferPayload) {
+const TransferSchema = z.object({
+    sourceWarehouseId: z.number().int().positive(),
+    targetWarehouseId: z.number().int().positive(),
+    itemId: z.number().int().positive(),
+    qty: z.number().int().positive("Quantity transfer harus lebih dari 0."),
+    qtyNew: z.number().int().nonnegative().optional(),
+    qtyDismantle: z.number().int().nonnegative().optional(),
+    qtyDamaged: z.number().int().nonnegative().optional(),
+    description: z.string().optional(),
+    serialNumbers: z.array(z.string())
+}).refine(data => data.sourceWarehouseId !== data.targetWarehouseId, {
+    message: "Gudang asal dan tujuan tidak boleh sama.",
+    path: ["targetWarehouseId"]
+}).refine(data => data.serialNumbers.length === 0 || data.serialNumbers.length === data.qty, {
+    message: "Jumlah Serial Number tidak sesuai dengan Qty Transfer.",
+    path: ["serialNumbers"]
+});
+
+type TransferPayload = z.infer<typeof TransferSchema>;
+
+export async function createTransfer(rawData: TransferPayload) {
     try {
-        if (data.sourceWarehouseId === data.targetWarehouseId) {
-            await logAudit({ action: "TRANSFER", status: "ERROR", warehouseId: data.sourceWarehouseId, message: "Gudang asal dan tujuan tidak boleh sama." });
-            return { success: false, error: "Gudang asal dan tujuan tidak boleh sama." };
+        const parsed = TransferSchema.safeParse(rawData);
+        if (!parsed.success) {
+            const errorMsg = parsed.error.issues[0]?.message || "Input tidak valid.";
+            await logAudit({ action: "TRANSFER", status: "ERROR", warehouseId: rawData.sourceWarehouseId, message: errorMsg });
+            return { success: false, error: errorMsg };
         }
-
-        if (data.qty <= 0) {
-            await logAudit({ action: "TRANSFER", status: "ERROR", warehouseId: data.sourceWarehouseId, message: "Quantity transfer harus lebih dari 0." });
-            return { success: false, error: "Quantity transfer harus lebih dari 0." };
-        }
-
-        if (data.serialNumbers.length > 0 && data.serialNumbers.length !== data.qty) {
-            await logAudit({ action: "TRANSFER", status: "ERROR", warehouseId: data.sourceWarehouseId, message: "Jumlah Serial Number tidak sesuai dengan Qty Transfer." });
-            return { success: false, error: "Jumlah Serial Number tidak sesuai dengan Qty Transfer." };
-        }
+        
+        const data = parsed.data;
 
         const typeBaru = await prisma.itemType.upsert({ where: { name: "Baru" }, update: {}, create: { name: "Baru" } });
         const typeDismantle = await prisma.itemType.upsert({ where: { name: "Dismantle" }, update: {}, create: { name: "Dismantle" } });
@@ -196,7 +200,7 @@ export async function createTransfer(data: TransferPayload) {
         await logAudit({ 
             action: "TRANSFER", 
             status: "ERROR", 
-            warehouseId: data.sourceWarehouseId, 
+            warehouseId: rawData.sourceWarehouseId, 
             message: error.message || "Gagal memproses transfer stok." 
         });
         return { success: false, error: error.message || "Gagal memproses transfer stok." };

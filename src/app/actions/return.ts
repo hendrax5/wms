@@ -4,25 +4,45 @@ import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { logAudit } from "./audit";
 
-type ReturnItemPayload = {
-    itemId: number;
-    qty: number;
-    qtyNew?: number;
-    qtyDismantle?: number;
-    qtyDamaged?: number;
-    condition?: "NEW" | "DISMANTLE" | "DAMAGED";
-    serialNumbers: string[];
-};
+import { z } from "zod";
 
-type ReturnPayload = {
-    targetWarehouseId: number;
-    returnSource: "POP" | "CUSTOMER";
-    sourcePopId?: number;
-    sourceCustomerName?: string;
-    items: ReturnItemPayload[];
-    techName?: string;
-    description?: string;
-};
+const ReturnItemSchema = z.object({
+    itemId: z.number().int().positive(),
+    qty: z.number().int().positive("Quantity setiap barang harus lebih dari 0."),
+    qtyNew: z.number().int().nonnegative().optional(),
+    qtyDismantle: z.number().int().nonnegative().optional(),
+    qtyDamaged: z.number().int().nonnegative().optional(),
+    condition: z.enum(["NEW", "DISMANTLE", "DAMAGED"]).optional(),
+    serialNumbers: z.array(z.string())
+}).refine(data => data.serialNumbers.length === 0 || data.serialNumbers.length === data.qty, {
+    message: "Jumlah Serial Number tidak sesuai dengan Qty untuk salah satu barang.",
+    path: ["serialNumbers"]
+});
+
+const ReturnSchema = z.object({
+    targetWarehouseId: z.number().int().positive(),
+    returnSource: z.enum(["POP", "CUSTOMER"]),
+    sourcePopId: z.number().int().positive().optional(),
+    sourceCustomerName: z.string().optional(),
+    items: z.array(ReturnItemSchema).min(1, "Minimal 1 barang harus ditambahkan."),
+    techName: z.string().optional(),
+    description: z.string().optional()
+}).refine(data => {
+    if (data.returnSource === "POP" && !data.sourcePopId) return false;
+    return true;
+}, {
+    message: "POP Asal wajib dipilih.",
+    path: ["sourcePopId"]
+}).refine(data => {
+    if (data.returnSource === "CUSTOMER" && !data.sourceCustomerName) return false;
+    return true;
+}, {
+    message: "Nama Customer Asal wajib diisi.",
+    path: ["sourceCustomerName"]
+});
+
+type ReturnItemPayload = z.infer<typeof ReturnItemSchema>;
+type ReturnPayload = z.infer<typeof ReturnSchema>;
 
 export async function verifySerialNumberForReturn(code: string) {
     try {
@@ -48,33 +68,16 @@ export async function verifySerialNumberForReturn(code: string) {
     }
 }
 
-export async function createReturn(data: ReturnPayload) {
+export async function createReturn(rawData: ReturnPayload) {
     try {
-        if (!data.items || data.items.length === 0) {
-            await logAudit({ action: "RETURN", status: "ERROR", warehouseId: data.targetWarehouseId, message: "Minimal 1 barang harus ditambahkan." });
-            return { success: false, error: "Minimal 1 barang harus ditambahkan." };
+        const parsed = ReturnSchema.safeParse(rawData);
+        if (!parsed.success) {
+            const errorMsg = parsed.error.issues[0]?.message || "Input tidak valid.";
+            await logAudit({ action: "RETURN", status: "ERROR", warehouseId: rawData.targetWarehouseId, message: errorMsg });
+            return { success: false, error: errorMsg };
         }
-
-        for (const item of data.items) {
-            if (item.qty <= 0) {
-                await logAudit({ action: "RETURN", status: "ERROR", warehouseId: data.targetWarehouseId, message: "Quantity setiap barang harus lebih dari 0." });
-                return { success: false, error: "Quantity setiap barang harus lebih dari 0." };
-            }
-            if (item.serialNumbers.length > 0 && item.serialNumbers.length !== item.qty) {
-                await logAudit({ action: "RETURN", status: "ERROR", warehouseId: data.targetWarehouseId, message: "Jumlah Serial Number tidak sesuai dengan Qty untuk salah satu barang." });
-                return { success: false, error: `Jumlah Serial Number tidak sesuai dengan Qty untuk salah satu barang.` };
-            }
-        }
-
-        if (data.returnSource === "POP" && !data.sourcePopId) {
-            await logAudit({ action: "RETURN", status: "ERROR", warehouseId: data.targetWarehouseId, message: "POP Asal wajib dipilih." });
-            return { success: false, error: "POP Asal wajib dipilih." };
-        }
-
-        if (data.returnSource === "CUSTOMER" && !data.sourceCustomerName) {
-            await logAudit({ action: "RETURN", status: "ERROR", warehouseId: data.targetWarehouseId, message: "Nama Customer Asal wajib diisi." });
-            return { success: false, error: "Nama Customer Asal wajib diisi." };
-        }
+        
+        const data = parsed.data;
 
         // Determine status for returned SN
         const statusInStock = await prisma.itemStatus.upsert({
@@ -246,9 +249,9 @@ export async function createReturn(data: ReturnPayload) {
         await logAudit({ 
             action: "RETURN", 
             status: "ERROR", 
-            warehouseId: data.targetWarehouseId, 
-            message: error.message || "Gagal memproses barang return." 
+            warehouseId: rawData.targetWarehouseId, 
+            message: error.message || "Gagal memproses return barang." 
         });
-        return { success: false, error: error.message || "Gagal memproses barang return." };
+        return { success: false, error: error.message || "Gagal memproses return barang." };
     }
 }
