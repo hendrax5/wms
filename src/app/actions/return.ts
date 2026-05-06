@@ -120,7 +120,8 @@ export async function createReturn(data: ReturnPayload) {
                     }
                 });
 
-                // 2. Process Serial Numbers if present
+                // 2. Validate and Process Serial Numbers if present
+                let existingSns: any[] = [];
                 if (itemPayload.serialNumbers.length > 0) {
                     for (const snCode of itemPayload.serialNumbers) {
                         const existingSn = await tx.serialNumber.findUnique({
@@ -130,7 +131,12 @@ export async function createReturn(data: ReturnPayload) {
                         if (!existingSn) {
                             throw new Error(`Serial Number ${snCode} tidak ditemukan di sistem.`);
                         }
+                        existingSns.push(existingSn);
+                    }
+                }
 
+                if (existingSns.length > 0) {
+                    for (const existingSn of existingSns) {
                         // Determine type based on condition
                         const snTypeId = itemPayload.condition === "NEW" ? typeBaru.id : typeDismantle.id;
 

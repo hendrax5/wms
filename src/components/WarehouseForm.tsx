@@ -66,8 +66,9 @@ export default function WarehouseForm({ initialData, areas, onClose, onSubmit }:
 
                     <div className="space-y-4">
                         <div>
-                            <label className="block text-sm font-medium text-slate-300 mb-1.5">Nama Gudang/Cabang *</label>
+                            <label htmlFor="name" className="block text-sm font-medium text-slate-300 mb-1.5">Nama Gudang/Cabang *</label>
                             <input
+                                id="name"
                                 type="text"
                                 name="name"
                                 required
@@ -78,8 +79,9 @@ export default function WarehouseForm({ initialData, areas, onClose, onSubmit }:
                         </div>
 
                         <div>
-                            <label className="block text-sm font-medium text-slate-300 mb-1.5">Tipe Gudang *</label>
+                            <label htmlFor="type" className="block text-sm font-medium text-slate-300 mb-1.5">Tipe Gudang *</label>
                             <select
+                                id="type"
                                 name="type"
                                 required
                                 defaultValue={initialData?.type || "CABANG"}
@@ -91,8 +93,9 @@ export default function WarehouseForm({ initialData, areas, onClose, onSubmit }:
                         </div>
 
                         <div>
-                            <label className="block text-sm font-medium text-slate-300 mb-1.5">Area (Opsional)</label>
+                            <label htmlFor="areaId" className="block text-sm font-medium text-slate-300 mb-1.5">Area (Opsional)</label>
                             <select
+                                id="areaId"
                                 name="areaId"
                                 defaultValue={initialData?.areaId || ""}
                                 className="w-full bg-slate-900 border border-[#334155] text-white rounded-xl px-4 py-2.5 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
@@ -105,8 +108,9 @@ export default function WarehouseForm({ initialData, areas, onClose, onSubmit }:
                         </div>
 
                         <div>
-                            <label className="block text-sm font-medium text-slate-300 mb-1.5">Lokasi / Keterangan Alamat</label>
+                            <label htmlFor="location" className="block text-sm font-medium text-slate-300 mb-1.5">Lokasi / Keterangan Alamat</label>
                             <input
+                                id="location"
                                 type="text"
                                 name="location"
                                 defaultValue={initialData?.location || ""}
