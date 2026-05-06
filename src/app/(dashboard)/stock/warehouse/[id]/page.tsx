@@ -400,6 +400,7 @@ export default function WarehouseDetailMasterPage() {
                                             <th className="px-4 py-3 text-right w-32 whitespace-nowrap">Dismantle</th>
                                             <th className="px-4 py-3 text-right w-32 whitespace-nowrap">Rusak</th>
                                             <th className="px-4 py-3 text-right w-48 whitespace-nowrap">Total Fisik</th>
+                                            <th className="px-4 py-3 w-12"></th>
                                         </tr>
                                     </thead>
                                     <tbody className="text-sm">
@@ -467,14 +468,14 @@ export default function WarehouseDetailMasterPage() {
                         Log Aktivitas Terbaru
                     </h3>
 
-                    <div className="card p-0 border border-[#1E293B] overflow-hidden">
+                    <div className="card p-0 border border-[#1E293B] overflow-hidden bg-[#0F172A]">
                         <div className="max-h-[500px] overflow-y-auto custom-scrollbar p-1">
                             {history.length === 0 ? (
                                 <div className="p-8 text-center text-sm text-slate-500">Belum ada aktivitas.</div>
                             ) : (
                                 <div className="divide-y divide-[#1E293B]/50">
                                     {history.map((h, i) => (
-                                        <div key={i} className="p-4 hover:bg-white/[0.02] transition-colors flex gap-3">
+                                        <div key={i} className="p-4 bg-[#0F172A] hover:bg-[#1E293B]/50 transition-colors flex gap-3">
                                             <div className="shrink-0 mt-0.5">
                                                 {h.type === 'IN' ? (
                                                     <div className="w-8 h-8 rounded-full bg-green-500/10 flex items-center justify-center border border-green-500/20">
