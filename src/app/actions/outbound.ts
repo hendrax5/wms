@@ -88,6 +88,7 @@ export async function createInstallation(data: InstallationPayload) {
                 let qtyNew = 0;
                 let qtyDismantle = 0;
                 let qtyDamaged = 0;
+                let existingSns: any[] = [];
 
                 // Validate SN and calculate types BEFORE doing stock changes
                 if (itemPayload.serialNumbers.length > 0) {
@@ -107,6 +108,8 @@ export async function createInstallation(data: InstallationPayload) {
                         if (existingSn.typeId === typeBaru.id) qtyNew++;
                         else if (existingSn.typeId === typeDismantle.id) qtyDismantle++;
                         else qtyDamaged++;
+                        
+                        existingSns.push(existingSn);
                     }
                 } else {
                     qtyNew = itemPayload.qty;
@@ -142,55 +145,48 @@ export async function createInstallation(data: InstallationPayload) {
                     }
                 });
 
-                if (itemPayload.serialNumbers.length > 0) {
-                    for (const snCode of itemPayload.serialNumbers) {
-                        const existingSn = await tx.serialNumber.findUnique({
-                            where: { code: snCode }
+                if (existingSns.length > 0) {
+                    for (const existingSn of existingSns) {
+                        await tx.serialNumber.update({
+                            where: { id: existingSn.id },
+                            data: {
+                                warehouseId: null,
+                                popId: data.installType === "POP" ? data.targetPopId : null,
+                                customerId: null,
+                                statusId: statusDipakai.id,
+                                updatedAt: new Date(),
+                            }
                         });
 
-                        // We already validated above, but we need the ID
-                        if (existingSn) {
-                            await tx.serialNumber.update({
-                                where: { id: existingSn.id },
-                                data: {
-                                    warehouseId: null,
-                                    popId: data.installType === "POP" ? data.targetPopId : null,
-                                    customerId: null,
-                                    statusId: statusDipakai.id,
-                                    updatedAt: new Date(),
-                                }
-                            });
-
-                            await tx.stockOutSerial.create({
-                                data: {
-                                    stockOutId: stockOut.id,
-                                    serialNumberId: existingSn.id,
-                                    serialCode: existingSn.code
-                                }
-                            });
-
-                            if (data.installType === "POP") {
-                                await tx.popInstallation.create({
-                                    data: {
-                                        popId: data.targetPopId!,
-                                        itemId: itemPayload.itemId,
-                                        serialNumberId: existingSn.id,
-                                        installedBy: technicianCombined,
-                                        description: data.description
-                                    }
-                                });
-                            } else {
-                                await tx.customerInstallation.create({
-                                    data: {
-                                        customerName: data.targetCustomerName!,
-                                        customerAddress: data.targetCustomerLocation,
-                                        itemId: itemPayload.itemId,
-                                        serialNumberId: existingSn.id,
-                                        installedBy: technicianCombined,
-                                        description: data.description
-                                    }
-                                });
+                        await tx.stockOutSerial.create({
+                            data: {
+                                stockOutId: stockOut.id,
+                                serialNumberId: existingSn.id,
+                                serialCode: existingSn.code
                             }
+                        });
+
+                        if (data.installType === "POP") {
+                            await tx.popInstallation.create({
+                                data: {
+                                    popId: data.targetPopId!,
+                                    itemId: itemPayload.itemId,
+                                    serialNumberId: existingSn.id,
+                                    installedBy: technicianCombined,
+                                    description: data.description
+                                }
+                            });
+                        } else {
+                            await tx.customerInstallation.create({
+                                data: {
+                                    customerName: data.targetCustomerName!,
+                                    customerAddress: data.targetCustomerLocation,
+                                    itemId: itemPayload.itemId,
+                                    serialNumberId: existingSn.id,
+                                    installedBy: technicianCombined,
+                                    description: data.description
+                                }
+                            });
                         }
                     }
                 } else {

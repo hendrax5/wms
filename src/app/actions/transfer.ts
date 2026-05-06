@@ -47,6 +47,7 @@ export async function createTransfer(data: TransferPayload) {
             let qtyNew = 0;
             let qtyDismantle = 0;
             let qtyDamaged = 0;
+            let existingSns: any[] = [];
 
             if (data.serialNumbers.length > 0) {
                 for (const snCode of data.serialNumbers) {
@@ -60,6 +61,8 @@ export async function createTransfer(data: TransferPayload) {
                     if (existingSn.typeId === typeBaru.id) qtyNew++;
                     else if (existingSn.typeId === typeDismantle.id) qtyDismantle++;
                     else qtyDamaged++;
+
+                    existingSns.push(existingSn);
                 }
             } else {
                 qtyNew = data.qty;
@@ -83,40 +86,32 @@ export async function createTransfer(data: TransferPayload) {
             });
 
             // 2. Process Serial Numbers if present
-            if (data.serialNumbers.length > 0) {
-                for (const snCode of data.serialNumbers) {
-                    // Find the precise SN in the Source Warehouse
-                    const existingSn = await tx.serialNumber.findUnique({
-                        where: { code: snCode }
+            if (existingSns.length > 0) {
+                for (const existingSn of existingSns) {
+                    if (existingSn.statusId) {
+                        const status = await tx.itemStatus.findUnique({ where: { id: existingSn.statusId } });
+                        if (status?.name !== "In Stock") {
+                            throw new Error(`Serial Number ${existingSn.code} tidak berstatus "In Stock". Status saat ini: ${status?.name}`);
+                        }
+                    }
+
+                    // Update SN location to target warehouse
+                    await tx.serialNumber.update({
+                        where: { id: existingSn.id },
+                        data: {
+                            warehouseId: data.targetWarehouseId,
+                            updatedAt: new Date(),
+                        }
                     });
 
-                    // We already validated above, but need the object again (and typescript satisfaction)
-                    if (existingSn) {
-                        if (existingSn.statusId) {
-                            const status = await tx.itemStatus.findUnique({ where: { id: existingSn.statusId } });
-                            if (status?.name !== "In Stock") {
-                                throw new Error(`Serial Number ${snCode} tidak berstatus "In Stock". Status saat ini: ${status?.name}`);
-                            }
+                    // Link to StockOut
+                    await tx.stockOutSerial.create({
+                        data: {
+                            stockOutId: stockOut.id,
+                            serialNumberId: existingSn.id,
+                            serialCode: existingSn.code
                         }
-
-                        // Update SN location to target warehouse
-                        await tx.serialNumber.update({
-                            where: { id: existingSn.id },
-                            data: {
-                                warehouseId: data.targetWarehouseId,
-                                updatedAt: new Date(),
-                            }
-                        });
-
-                        // Link to StockOut
-                        await tx.stockOutSerial.create({
-                            data: {
-                                stockOutId: stockOut.id,
-                                serialNumberId: existingSn.id,
-                                serialCode: existingSn.code
-                            }
-                        });
-                    }
+                    });
                 }
             }
 
