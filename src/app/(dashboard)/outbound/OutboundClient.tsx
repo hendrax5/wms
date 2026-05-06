@@ -17,6 +17,8 @@ type CartItem = {
     itemCode: string;
     hasSN: boolean;
     qty: number;
+    qtyNew?: number;
+    qtyDismantle?: number;
     serialNumbers: string[];
 };
 
@@ -139,6 +141,8 @@ export default function OutboundClient() {
             itemCode: item.code,
             hasSN: item.hasSN,
             qty: item.hasSN ? 0 : addingQty, // SN items start at 0, qty follows scan
+            qtyNew: item.hasSN ? 0 : addingQty,
+            qtyDismantle: 0,
             serialNumbers: [],
         };
 
@@ -160,10 +164,20 @@ export default function OutboundClient() {
         }
     };
 
-    const updateCartItemQty = (idx: number, newQty: number) => {
+    const updateCartItemQtyNew = (idx: number, newQty: number) => {
         const newCart = [...cartItems];
         if (!newCart[idx].hasSN) {
-            newCart[idx].qty = newQty;
+            newCart[idx].qtyNew = newQty;
+            newCart[idx].qty = newQty + (newCart[idx].qtyDismantle || 0);
+            setCartItems(newCart);
+        }
+    };
+
+    const updateCartItemQtyDismantle = (idx: number, newQty: number) => {
+        const newCart = [...cartItems];
+        if (!newCart[idx].hasSN) {
+            newCart[idx].qtyDismantle = newQty;
+            newCart[idx].qty = (newCart[idx].qtyNew || 0) + newQty;
             setCartItems(newCart);
         }
     };
@@ -292,6 +306,8 @@ export default function OutboundClient() {
             items: cartItems.map(ci => ({
                 itemId: Number(ci.itemId),
                 qty: ci.qty,
+                qtyNew: ci.hasSN ? 0 : ci.qtyNew,
+                qtyDismantle: ci.hasSN ? 0 : ci.qtyDismantle,
                 serialNumbers: ci.serialNumbers,
             })),
             installType,
@@ -494,14 +510,30 @@ export default function OutboundClient() {
                                                             {ci.hasSN ? (
                                                                 <span className="font-mono text-rose-300 font-bold">{ci.qty}</span>
                                                             ) : (
-                                                                <input
-                                                                    type="number"
-                                                                    min="1"
-                                                                    value={ci.qty}
-                                                                    onClick={(e) => e.stopPropagation()}
-                                                                    onChange={(e) => updateCartItemQty(idx, Number(e.target.value))}
-                                                                    className="w-full min-w-[60px] bg-[#0f172a] border border-[#334155] text-white rounded px-2 py-1 text-center text-xs focus:ring-1 focus:ring-rose-500"
-                                                                />
+                                                                <div className="flex flex-col gap-1 items-center">
+                                                                    <div className="flex items-center gap-1">
+                                                                        <span className="text-[9px] text-slate-500 w-8 text-right">Baru:</span>
+                                                                        <input
+                                                                            type="number"
+                                                                            min="0"
+                                                                            value={ci.qtyNew || 0}
+                                                                            onClick={(e) => e.stopPropagation()}
+                                                                            onChange={(e) => updateCartItemQtyNew(idx, Number(e.target.value))}
+                                                                            className="w-12 bg-[#0f172a] border border-[#334155] text-white rounded px-1 py-0.5 text-center text-[10px] focus:ring-1 focus:ring-rose-500"
+                                                                        />
+                                                                    </div>
+                                                                    <div className="flex items-center gap-1">
+                                                                        <span className="text-[9px] text-slate-500 w-8 text-right">Dismantle:</span>
+                                                                        <input
+                                                                            type="number"
+                                                                            min="0"
+                                                                            value={ci.qtyDismantle || 0}
+                                                                            onClick={(e) => e.stopPropagation()}
+                                                                            onChange={(e) => updateCartItemQtyDismantle(idx, Number(e.target.value))}
+                                                                            className="w-12 bg-[#0f172a] border border-[#334155] text-white rounded px-1 py-0.5 text-center text-[10px] focus:ring-1 focus:ring-rose-500"
+                                                                        />
+                                                                    </div>
+                                                                </div>
                                                             )}
                                                         </td>
                                                         <td className="px-4 py-3 text-center">

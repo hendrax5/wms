@@ -68,7 +68,9 @@ describe('Return Action: createReturn', () => {
         expect(prismaMock.warehouseStock.update).toHaveBeenCalledWith({
             where: { id: 1000 },
             data: {
+                stockNew: { increment: 0 },
                 stockDismantle: { increment: 5 },
+                stockDamaged: { increment: 0 },
                 updatedAt: expect.any(Date)
             }
         });
@@ -119,6 +121,8 @@ describe('Return Action: createReturn', () => {
             data: {
                 itemId: 100,
                 warehouseId: 1,
+                stockNew: 0,
+                stockDismantle: 0,
                 stockDamaged: 1,
                 updatedAt: expect.any(Date)
             }

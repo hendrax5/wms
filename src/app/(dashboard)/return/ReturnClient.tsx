@@ -16,7 +16,11 @@ type CartItem = {
     itemCode: string;
     hasSN: boolean;
     qty: number;
-    condition: "NEW" | "DISMANTLE" | "DAMAGED";
+    qty: number;
+    qtyNew?: number;
+    qtyDismantle?: number;
+    qtyDamaged?: number;
+    condition?: "NEW" | "DISMANTLE" | "DAMAGED";
     serialNumbers: string[];
 };
 
@@ -111,7 +115,10 @@ export default function ReturnClient() {
             itemCode: item.code,
             hasSN: item.hasSN,
             qty: item.hasSN ? 0 : addingQty,
-            condition: addingCondition,
+            qtyNew: item.hasSN ? 0 : 0,
+            qtyDismantle: item.hasSN ? 0 : addingQty,
+            qtyDamaged: 0,
+            condition: item.hasSN ? addingCondition : undefined,
             serialNumbers: [],
         };
 
@@ -133,10 +140,29 @@ export default function ReturnClient() {
         }
     };
 
-    const updateCartItemQty = (idx: number, newQty: number) => {
+    const updateCartItemQtyNew = (idx: number, newQty: number) => {
         const newCart = [...cartItems];
         if (!newCart[idx].hasSN) {
-            newCart[idx].qty = newQty;
+            newCart[idx].qtyNew = newQty;
+            newCart[idx].qty = newQty + (newCart[idx].qtyDismantle || 0) + (newCart[idx].qtyDamaged || 0);
+            setCartItems(newCart);
+        }
+    };
+
+    const updateCartItemQtyDismantle = (idx: number, newQty: number) => {
+        const newCart = [...cartItems];
+        if (!newCart[idx].hasSN) {
+            newCart[idx].qtyDismantle = newQty;
+            newCart[idx].qty = (newCart[idx].qtyNew || 0) + newQty + (newCart[idx].qtyDamaged || 0);
+            setCartItems(newCart);
+        }
+    };
+
+    const updateCartItemQtyDamaged = (idx: number, newQty: number) => {
+        const newCart = [...cartItems];
+        if (!newCart[idx].hasSN) {
+            newCart[idx].qtyDamaged = newQty;
+            newCart[idx].qty = (newCart[idx].qtyNew || 0) + (newCart[idx].qtyDismantle || 0) + newQty;
             setCartItems(newCart);
         }
     };
@@ -253,7 +279,10 @@ export default function ReturnClient() {
             items: cartItems.map(ci => ({
                 itemId: Number(ci.itemId),
                 qty: ci.qty,
-                condition: ci.condition,
+                qtyNew: ci.hasSN ? 0 : (ci.qtyNew || 0),
+                qtyDismantle: ci.hasSN ? 0 : (ci.qtyDismantle || 0),
+                qtyDamaged: ci.hasSN ? 0 : (ci.qtyDamaged || 0),
+                condition: ci.hasSN ? ci.condition : undefined,
                 serialNumbers: ci.serialNumbers,
             })),
             techName,
@@ -460,27 +489,58 @@ export default function ReturnClient() {
                                                         {ci.hasSN ? (
                                                             <span className="font-mono text-purple-300 font-bold">{ci.qty}</span>
                                                         ) : (
-                                                            <input
-                                                                type="number"
-                                                                min="1"
-                                                                value={ci.qty}
-                                                                onClick={(e) => e.stopPropagation()}
-                                                                onChange={(e) => updateCartItemQty(idx, Number(e.target.value))}
-                                                                className="w-16 bg-[#0f172a] border border-[#334155] text-white rounded px-2 py-1 text-center text-xs focus:ring-1 focus:ring-purple-500"
-                                                            />
+                                                            <div className="flex flex-col gap-1 items-center">
+                                                                <div className="flex items-center gap-1">
+                                                                    <span className="text-[9px] text-slate-500 w-8 text-right">Baru:</span>
+                                                                    <input
+                                                                        type="number"
+                                                                        min="0"
+                                                                        value={ci.qtyNew || 0}
+                                                                        onClick={(e) => e.stopPropagation()}
+                                                                        onChange={(e) => updateCartItemQtyNew(idx, Number(e.target.value))}
+                                                                        className="w-12 bg-[#0f172a] border border-[#334155] text-white rounded px-1 py-0.5 text-center text-[10px] focus:ring-1 focus:ring-purple-500"
+                                                                    />
+                                                                </div>
+                                                                <div className="flex items-center gap-1">
+                                                                    <span className="text-[9px] text-slate-500 w-8 text-right">Dsmtl:</span>
+                                                                    <input
+                                                                        type="number"
+                                                                        min="0"
+                                                                        value={ci.qtyDismantle || 0}
+                                                                        onClick={(e) => e.stopPropagation()}
+                                                                        onChange={(e) => updateCartItemQtyDismantle(idx, Number(e.target.value))}
+                                                                        className="w-12 bg-[#0f172a] border border-[#334155] text-white rounded px-1 py-0.5 text-center text-[10px] focus:ring-1 focus:ring-purple-500"
+                                                                    />
+                                                                </div>
+                                                                <div className="flex items-center gap-1">
+                                                                    <span className="text-[9px] text-slate-500 w-8 text-right">Rsk:</span>
+                                                                    <input
+                                                                        type="number"
+                                                                        min="0"
+                                                                        value={ci.qtyDamaged || 0}
+                                                                        onClick={(e) => e.stopPropagation()}
+                                                                        onChange={(e) => updateCartItemQtyDamaged(idx, Number(e.target.value))}
+                                                                        className="w-12 bg-[#0f172a] border border-[#334155] text-white rounded px-1 py-0.5 text-center text-[10px] focus:ring-1 focus:ring-purple-500"
+                                                                    />
+                                                                </div>
+                                                            </div>
                                                         )}
                                                     </td>
                                                     <td className="px-4 py-3 text-center">
-                                                        <select
-                                                            value={ci.condition}
-                                                            onClick={(e) => e.stopPropagation()}
-                                                            onChange={(e) => { e.stopPropagation(); updateCartItemCondition(idx, e.target.value as any); }}
-                                                            className={`text-[10px] font-semibold px-2 py-1 rounded-full border bg-transparent ${condOpt?.color} ${condOpt?.bg}`}
-                                                        >
-                                                            <option value="NEW" className="bg-[#0f172a] text-white">Baru</option>
-                                                            <option value="DISMANTLE" className="bg-[#0f172a] text-white">Dismantle</option>
-                                                            <option value="DAMAGED" className="bg-[#0f172a] text-white">Rusak</option>
-                                                        </select>
+                                                        {ci.hasSN ? (
+                                                            <select
+                                                                value={ci.condition}
+                                                                onClick={(e) => e.stopPropagation()}
+                                                                onChange={(e) => { e.stopPropagation(); updateCartItemCondition(idx, e.target.value as any); }}
+                                                                className={`text-[10px] font-semibold px-2 py-1 rounded-full border bg-transparent ${condOpt?.color} ${condOpt?.bg}`}
+                                                            >
+                                                                <option value="NEW" className="bg-[#0f172a] text-white">Baru</option>
+                                                                <option value="DISMANTLE" className="bg-[#0f172a] text-white">Dismantle</option>
+                                                                <option value="DAMAGED" className="bg-[#0f172a] text-white">Rusak</option>
+                                                            </select>
+                                                        ) : (
+                                                            <span className="text-[10px] text-slate-600 italic">Multi</span>
+                                                        )}
                                                     </td>
                                                     <td className="px-4 py-3 text-center">
                                                         {ci.hasSN ? (

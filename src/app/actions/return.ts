@@ -7,7 +7,10 @@ import { logAudit } from "./audit";
 type ReturnItemPayload = {
     itemId: number;
     qty: number;
-    condition: "NEW" | "DISMANTLE" | "DAMAGED";
+    qtyNew?: number;
+    qtyDismantle?: number;
+    qtyDamaged?: number;
+    condition?: "NEW" | "DISMANTLE" | "DAMAGED";
     serialNumbers: string[];
 };
 
@@ -162,11 +165,27 @@ export async function createReturn(data: ReturnPayload) {
                     }
                 }
 
-                // 3. Upsert WarehouseStock — increment the appropriate column based on condition
-                const stockField =
-                    itemPayload.condition === "NEW" ? "stockNew" :
-                    itemPayload.condition === "DAMAGED" ? "stockDamaged" :
-                    "stockDismantle";
+                // 3. Upsert WarehouseStock — increment the appropriate columns
+                let qtyNew = 0;
+                let qtyDismantle = 0;
+                let qtyDamaged = 0;
+
+                if (itemPayload.serialNumbers.length > 0) {
+                    if (itemPayload.condition === "NEW") qtyNew = itemPayload.qty;
+                    else if (itemPayload.condition === "DAMAGED") qtyDamaged = itemPayload.qty;
+                    else qtyDismantle = itemPayload.qty;
+                } else {
+                    qtyNew = itemPayload.qtyNew ?? 0;
+                    qtyDismantle = itemPayload.qtyDismantle ?? 0;
+                    qtyDamaged = itemPayload.qtyDamaged ?? 0;
+                    
+                    if (qtyNew === 0 && qtyDismantle === 0 && qtyDamaged === 0 && itemPayload.qty > 0) {
+                        // Fallback for legacy requests without separate quantities
+                        if (itemPayload.condition === "NEW") qtyNew = itemPayload.qty;
+                        else if (itemPayload.condition === "DAMAGED") qtyDamaged = itemPayload.qty;
+                        else qtyDismantle = itemPayload.qty;
+                    }
+                }
 
                 const currentStock = await tx.warehouseStock.findUnique({
                     where: {
@@ -181,7 +200,9 @@ export async function createReturn(data: ReturnPayload) {
                     await tx.warehouseStock.update({
                         where: { id: currentStock.id },
                         data: {
-                            [stockField]: { increment: itemPayload.qty },
+                            stockNew: { increment: qtyNew },
+                            stockDismantle: { increment: qtyDismantle },
+                            stockDamaged: { increment: qtyDamaged },
                             updatedAt: new Date(),
                         }
                     });
@@ -190,7 +211,9 @@ export async function createReturn(data: ReturnPayload) {
                         data: {
                             itemId: itemPayload.itemId,
                             warehouseId: data.targetWarehouseId,
-                            [stockField]: itemPayload.qty,
+                            stockNew: qtyNew,
+                            stockDismantle: qtyDismantle,
+                            stockDamaged: qtyDamaged,
                             updatedAt: new Date(),
                         }
                     });

@@ -7,6 +7,9 @@ import { logAudit } from "./audit";
 type OutboundItemPayload = {
     itemId: number;
     qty: number;
+    qtyNew?: number;
+    qtyDismantle?: number;
+    qtyDamaged?: number;
     serialNumbers: string[];
 };
 
@@ -112,7 +115,9 @@ export async function createInstallation(data: InstallationPayload) {
                         existingSns.push(existingSn);
                     }
                 } else {
-                    qtyNew = itemPayload.qty;
+                    qtyNew = itemPayload.qtyNew ?? itemPayload.qty;
+                    qtyDismantle = itemPayload.qtyDismantle ?? 0;
+                    qtyDamaged = itemPayload.qtyDamaged ?? 0;
                 }
 
                 if (!sourceStock || sourceStock.stockNew < qtyNew || sourceStock.stockDismantle < qtyDismantle || sourceStock.stockDamaged < qtyDamaged) {

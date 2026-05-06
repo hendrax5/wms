@@ -26,7 +26,8 @@ export default function TransferClient() {
     const [sourceId, setSourceId] = useState("");
     const [targetId, setTargetId] = useState("");
     const [selectedItemId, setSelectedItemId] = useState("");
-    const [qty, setQty] = useState(1);
+    const [qtyNew, setQtyNew] = useState(0);
+    const [qtyDismantle, setQtyDismantle] = useState(0);
     const [description, setDescription] = useState("");
 
     // Barcode Scanning State
@@ -116,9 +117,6 @@ export default function TransferClient() {
             if (validRes.success) {
                 const newSNs = [...serialNumbers, scannedSN];
                 setSerialNumbers(newSNs);
-                if (requiresSN) {
-                    setQty(newSNs.length);
-                }
             } else {
                 setError(validRes.error || "Gagal verifikasi SN.");
             }
@@ -131,18 +129,12 @@ export default function TransferClient() {
     const removeSN = (snToRemove: string) => {
         const newSNs = serialNumbers.filter(sn => sn !== snToRemove);
         setSerialNumbers(newSNs);
-        if (requiresSN) {
-            setQty(newSNs.length);
-        }
     };
 
     const addSNFromPicker = (snCode: string) => {
         if (serialNumbers.includes(snCode)) return;
         const newSNs = [...serialNumbers, snCode];
         setSerialNumbers(newSNs);
-        if (requiresSN) {
-            setQty(newSNs.length);
-        }
     };
 
     const filteredAvailableSNs = availableSNs.filter(sn =>
@@ -164,13 +156,15 @@ export default function TransferClient() {
             return;
         }
 
-        if (qty <= 0) {
+        const totalQty = requiresSN ? serialNumbers.length : (qtyNew + qtyDismantle);
+
+        if (totalQty <= 0) {
             setError("Quantity harus lebih dari 0");
             return;
         }
 
-        if (requiresSN && serialNumbers.length !== qty) {
-            setError(`Barang ini membutuhkan Serial Number. Anda men-scan ${serialNumbers.length} SN, tetapi Qty diatur ke ${qty}. Jumlah harus sama.`);
+        if (requiresSN && serialNumbers.length === 0) {
+            setError(`Barang ini membutuhkan Serial Number. Silakan scan SN terlebih dahulu.`);
             return;
         }
 
@@ -180,7 +174,9 @@ export default function TransferClient() {
             sourceWarehouseId: Number(sourceId),
             targetWarehouseId: Number(targetId),
             itemId: Number(selectedItemId),
-            qty: qty,
+            qty: totalQty,
+            qtyNew: requiresSN ? 0 : qtyNew,
+            qtyDismantle: requiresSN ? 0 : qtyDismantle,
             description: description,
             serialNumbers: serialNumbers
         };
@@ -191,7 +187,8 @@ export default function TransferClient() {
             setSuccessMsg("Transfer stok berhasil diproses.");
             // Reset Form Partially
             setSelectedItemId("");
-            setQty(1);
+            setQtyNew(0);
+            setQtyDismantle(0);
             setDescription("");
             setSerialNumbers([]);
             setTimeout(() => setSuccessMsg(""), 4000);
@@ -282,20 +279,42 @@ export default function TransferClient() {
                                 )}
                             </div>
 
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium text-slate-300">Quantity <span className="text-red-400">*</span></label>
-                                <input
-                                    type="number"
-                                    min="1"
-                                    value={qty}
-                                    onChange={(e) => setQty(Number(e.target.value))}
-                                    readOnly={requiresSN} // ReadOnly if SN
-                                    className={`w-full bg-[#0f172a] border border-[#334155] text-white rounded-lg px-4 py-2.5 focus:ring-1 focus:ring-amber-500 focus:border-amber-500 ${requiresSN ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                    required
-                                    placeholder="0"
-                                />
-                                {requiresSN && <p className="text-[10px] text-slate-500">Qty mengikuti total scan SN</p>}
-                            </div>
+                            {requiresSN ? (
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium text-slate-300">Quantity <span className="text-red-400">*</span></label>
+                                    <input
+                                        type="number"
+                                        value={serialNumbers.length}
+                                        readOnly
+                                        className="w-full bg-[#0f172a] border border-[#334155] text-white rounded-lg px-4 py-2.5 opacity-50 cursor-not-allowed"
+                                        placeholder="0"
+                                    />
+                                    <p className="text-[10px] text-slate-500">Qty mengikuti total scan SN</p>
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium text-slate-300">Qty Baru</label>
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            value={qtyNew}
+                                            onChange={(e) => setQtyNew(Number(e.target.value))}
+                                            className="w-full bg-[#0f172a] border border-[#334155] text-white rounded-lg px-4 py-2.5 focus:ring-1 focus:ring-amber-500 focus:border-amber-500"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium text-slate-300">Qty Dismantle</label>
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            value={qtyDismantle}
+                                            onChange={(e) => setQtyDismantle(Number(e.target.value))}
+                                            className="w-full bg-[#0f172a] border border-[#334155] text-white rounded-lg px-4 py-2.5 focus:ring-1 focus:ring-amber-500 focus:border-amber-500"
+                                        />
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
                         <div className="space-y-2">
@@ -315,7 +334,7 @@ export default function TransferClient() {
                                 className="bg-amber-600 hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-2.5 rounded-lg flex items-center gap-2 font-medium transition-colors"
                             >
                                 {submitting ? <Loader2 size={18} className="animate-spin" /> : <Building2 size={18} />}
-                                Proses Transfer ({qty} Unit)
+                                Proses Transfer ({requiresSN ? serialNumbers.length : (qtyNew + qtyDismantle)} Unit)
                             </button>
                         </div>
                     </form>
