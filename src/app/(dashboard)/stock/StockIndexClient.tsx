@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { getWarehouseList, createWarehouse, updateWarehouse, deleteWarehouse } from "@/app/actions/master";
+import { auditAllStock } from "@/app/actions/stockAudit";
 import {
     Building2, Package, Search, ArrowRight, X, Plus, Pencil, Trash2,
     AlertTriangle, Loader2, MapPin, LayoutGrid, List, AlertCircle,
@@ -89,6 +90,7 @@ export default function StockIndexClient() {
     const [editingWH, setEditingWH] = useState<WarehouseData | null>(null);
     const [form, setForm] = useState({ name: "", location: "", type: "CABANG" });
     const [submitLoading, setSubmitLoading] = useState(false);
+    const [auditLoading, setAuditLoading] = useState(false);
     const [errorMsg, setErrorMsg] = useState("");
     const [deleteTarget, setDeleteTarget] = useState<WarehouseData | null>(null);
 
@@ -177,6 +179,23 @@ export default function StockIndexClient() {
         setSubmitLoading(false);
     };
 
+    const handleAudit = async () => {
+        if (!confirm("Audit stok akan memverifikasi dan menyelaraskan total stok di semua gudang dengan data Serial Number. Lanjutkan?")) return;
+        setAuditLoading(true);
+        try {
+            const res = await auditAllStock();
+            if (res.success) {
+                alert(res.message);
+                loadData();
+            } else {
+                alert("Error: " + res.error);
+            }
+        } catch (err: any) {
+            alert("Gagal menjalankan audit: " + err.message);
+        }
+        setAuditLoading(false);
+    };
+
     /* ────────────── RENDER ────────────── */
     if (loading) {
         return (
@@ -199,6 +218,10 @@ export default function StockIndexClient() {
                     <p className="text-[12px] sm:text-[13px] text-slate-400 mt-0.5 truncate">Pilih gudang untuk melihat stok & aktivitas</p>
                 </div>
                 <div className="flex items-center gap-2">
+                    <button type="button" onClick={handleAudit} disabled={auditLoading} className="px-3 sm:px-4 h-8 sm:h-9 rounded-lg bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 hover:bg-indigo-500/20 hover:border-indigo-500/40 text-xs sm:text-sm font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 shrink-0">
+                        {auditLoading ? <Loader2 size={14} className="animate-spin" /> : <AlertTriangle size={14} />} 
+                        Audit Stok
+                    </button>
                     <button type="button" onClick={exportToExcel} disabled={filtered.length === 0} className="px-3 sm:px-4 h-8 sm:h-9 rounded-lg bg-green-500/10 text-green-400 border border-green-500/20 hover:bg-green-500/20 hover:border-green-500/40 text-xs sm:text-sm font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 shrink-0">
                         <Download size={14} /> Export
                     </button>

@@ -39,9 +39,9 @@ export async function getCategoriesForSelect() {
     }
 }
 
-export async function createItem(data: { code: string; name: string; categoryId: number; minStock?: number; hasSN?: boolean; price?: number; unit?: string }) {
-    if (!data.code || !data.name || !data.categoryId) {
-        return { success: false, error: "Kode, Nama, dan Kategori wajib diisi" };
+export async function createItem(data: { code: string; name: string; categoryId: number; minStock?: number; hasSN: boolean; price?: number; unit?: string }) {
+    if (!data.code || !data.name || !data.categoryId || data.hasSN === undefined) {
+        return { success: false, error: "Kode, Nama, Kategori, dan Status SN wajib diisi" };
     }
 
     try {
@@ -56,7 +56,7 @@ export async function createItem(data: { code: string; name: string; categoryId:
                 name: data.name,
                 categoryId: data.categoryId,
                 minStock: data.minStock || 0,
-                hasSN: data.hasSN ?? true,
+                hasSN: data.hasSN,
                 unit: data.unit || "Pcs",
                 price: data.price || 0,
                 updatedAt: new Date(),
@@ -70,9 +70,9 @@ export async function createItem(data: { code: string; name: string; categoryId:
     }
 }
 
-export async function updateItem(id: number, data: { code: string; name: string; categoryId: number; minStock?: number; hasSN?: boolean; price?: number; unit?: string }) {
-    if (!data.code || !data.name || !data.categoryId) {
-        return { success: false, error: "Kode, Nama, dan Kategori wajib diisi" };
+export async function updateItem(id: number, data: { code: string; name: string; categoryId: number; minStock?: number; hasSN: boolean; price?: number; unit?: string }) {
+    if (!data.code || !data.name || !data.categoryId || data.hasSN === undefined) {
+        return { success: false, error: "Kode, Nama, Kategori, dan Status SN wajib diisi" };
     }
 
     try {
@@ -88,7 +88,7 @@ export async function updateItem(id: number, data: { code: string; name: string;
                 name: data.name,
                 categoryId: data.categoryId,
                 minStock: data.minStock || 0,
-                hasSN: data.hasSN ?? true,
+                hasSN: data.hasSN,
                 unit: data.unit || "Pcs",
                 price: data.price || 0,
                 updatedAt: new Date(),
