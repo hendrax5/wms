@@ -123,7 +123,7 @@ export async function getItems() {
         });
 
         const stockMap = stocks.reduce((acc: Record<number, number>, curr: any) => {
-            acc[curr.itemId] = (curr._sum.stockNew || 0) + (curr._sum.stockDismantle || 0) + (curr._sum.stockDamaged || 0);
+            acc[curr.itemId] = (curr._sum.stockNew || 0) + (curr._sum.stockDismantle || 0); // Exclude stockDamaged
             return acc;
         }, {} as Record<number, number>);
 
@@ -185,7 +185,7 @@ export async function getItemDetails(id: number) {
 
         const warehouseStocks = item.warehousestock || [];
         const serialNumbers = item.serialnumber || [];
-        const totalFisik = warehouseStocks.reduce((acc: number, curr: any) => acc + curr.stockNew + curr.stockDismantle + curr.stockDamaged, 0);
+        const totalFisik = warehouseStocks.reduce((acc: number, curr: any) => acc + curr.stockNew + curr.stockDismantle, 0); // Exclude stockDamaged
 
         // Normalize SN status/type property names for the client
         const normalizedSNs = serialNumbers.map((sn: any) => ({
@@ -220,7 +220,7 @@ export async function getItemDetails(id: number) {
                     where: { itemId: id },
                     include: { warehouse: true }
                 });
-                const totalFisik = stocks.reduce((acc: number, curr: any) => acc + (curr.stockNew || 0) + (curr.stockDismantle || 0) + (curr.stockDamaged || 0), 0);
+                const totalFisik = stocks.reduce((acc: number, curr: any) => acc + (curr.stockNew || 0) + (curr.stockDismantle || 0), 0); // Exclude stockDamaged
 
                 return {
                     success: true,

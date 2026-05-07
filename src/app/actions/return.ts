@@ -98,6 +98,18 @@ export async function createReturn(rawData: ReturnPayload) {
             create: { name: "Baru" }
         });
 
+        const typeRusak = await prisma.itemType.upsert({
+            where: { name: "Rusak" },
+            update: {},
+            create: { name: "Rusak" }
+        });
+
+        const statusRusak = await prisma.itemStatus.upsert({
+            where: { name: "Rusak" },
+            update: {},
+            create: { name: "Rusak" }
+        });
+
         // Build description prefix
         let sourceDesc = "";
         if (data.returnSource === "POP" && data.sourcePopId) {
@@ -143,8 +155,16 @@ export async function createReturn(rawData: ReturnPayload) {
 
                 if (existingSns.length > 0) {
                     for (const existingSn of existingSns) {
-                        // Determine type based on condition
-                        const snTypeId = itemPayload.condition === "NEW" ? typeBaru.id : typeDismantle.id;
+                        // Determine type and status based on condition
+                        let snTypeId = typeDismantle.id;
+                        let snStatusId = statusInStock.id;
+
+                        if (itemPayload.condition === "NEW") {
+                            snTypeId = typeBaru.id;
+                        } else if (itemPayload.condition === "DAMAGED") {
+                            snTypeId = typeRusak.id;
+                            snStatusId = statusRusak.id;
+                        }
 
                         await tx.serialNumber.update({
                             where: { id: existingSn.id },
@@ -152,7 +172,7 @@ export async function createReturn(rawData: ReturnPayload) {
                                 warehouseId: data.targetWarehouseId,
                                 popId: null,
                                 customerId: null,
-                                statusId: statusInStock.id,
+                                statusId: snStatusId,
                                 typeId: snTypeId,
                                 updatedAt: new Date(),
                             }

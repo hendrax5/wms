@@ -63,7 +63,7 @@ export async function getDashboardStats() {
             }),
         ]);
 
-        const totalFisik = stocks.reduce((acc, curr) => acc + curr.stockNew + curr.stockDismantle + curr.stockDamaged, 0);
+        const totalFisik = stocks.reduce((acc, curr) => acc + curr.stockNew + curr.stockDismantle, 0); // Exclude stockDamaged
         const totalItems = warehouseFilter
             ? new Set(stocks.map(s => s.itemId)).size
             : await prisma.item.count();
@@ -99,7 +99,7 @@ export async function getLowStockAlerts() {
         });
 
         const lowStocks = stocks.filter(stock => {
-            const sum = stock.stockNew + stock.stockDismantle + stock.stockDamaged;
+            const sum = stock.stockNew + stock.stockDismantle; // Exclude stockDamaged
             return sum <= stock.minStock;
         });
 
