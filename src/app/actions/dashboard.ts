@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/db";
 import { unstable_noStore as noStore } from "next/cache";
 import { auth, getBranchScope } from "@/lib/auth";
+import { InventoryService } from "@/lib/services/InventoryService";
 
 async function getDashboardFilter() {
     const session = await auth();
@@ -63,7 +64,7 @@ export async function getDashboardStats() {
             }),
         ]);
 
-        const totalFisik = stocks.reduce((acc, curr) => acc + curr.stockNew + curr.stockDismantle, 0); // Exclude stockDamaged
+        const totalFisik = InventoryService.calculateTotalFisik(stocks);
         const totalItems = warehouseFilter
             ? new Set(stocks.map(s => s.itemId)).size
             : await prisma.item.count();
@@ -99,7 +100,7 @@ export async function getLowStockAlerts() {
         });
 
         const lowStocks = stocks.filter(stock => {
-            const sum = stock.stockNew + stock.stockDismantle; // Exclude stockDamaged
+            const sum = InventoryService.calculateTotalFisik([stock]);
             return sum <= stock.minStock;
         });
 

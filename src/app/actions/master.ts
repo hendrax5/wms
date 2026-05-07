@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/db";
 import { revalidatePath, unstable_noStore as noStore } from "next/cache";
 import { auth, getBranchScope } from "@/lib/auth";
+import { InventoryService } from "@/lib/services/InventoryService";
 
 // ------------------------------------------------------------------
 // CATEGORIES
@@ -116,16 +117,7 @@ export async function getItems() {
 
         const warehouseFilter = await getWarehouseFilter();
 
-        const stocks = await (prisma as any).warehouseStock.groupBy({
-            by: ['itemId'],
-            where: warehouseFilter ? { warehouseId: warehouseFilter } : undefined,
-            _sum: { stockNew: true, stockDismantle: true, stockDamaged: true }
-        });
-
-        const stockMap = stocks.reduce((acc: Record<number, number>, curr: any) => {
-            acc[curr.itemId] = (curr._sum.stockNew || 0) + (curr._sum.stockDismantle || 0); // Exclude stockDamaged
-            return acc;
-        }, {} as Record<number, number>);
+        const stockMap = await InventoryService.getAggregatedStockMap(warehouseFilter);
 
         const snCounts = await (prisma as any).serialNumber.groupBy({
             by: ['itemId'],
@@ -144,7 +136,7 @@ export async function getItems() {
         }));
 
         if (warehouseFilter) {
-            const itemIdsInWarehouse = new Set(stocks.map((s: any) => s.itemId));
+            const itemIdsInWarehouse = new Set(Object.keys(stockMap).map(Number));
             return { success: true, data: fullItems.filter((item: any) => itemIdsInWarehouse.has(item.id)) };
         }
 
@@ -185,7 +177,7 @@ export async function getItemDetails(id: number) {
 
         const warehouseStocks = item.warehousestock || [];
         const serialNumbers = item.serialnumber || [];
-        const totalFisik = warehouseStocks.reduce((acc: number, curr: any) => acc + curr.stockNew + curr.stockDismantle, 0); // Exclude stockDamaged
+        const totalFisik = InventoryService.calculateTotalFisik(warehouseStocks);
 
         // Normalize SN status/type property names for the client
         const normalizedSNs = serialNumbers.map((sn: any) => ({
@@ -220,7 +212,7 @@ export async function getItemDetails(id: number) {
                     where: { itemId: id },
                     include: { warehouse: true }
                 });
-                const totalFisik = stocks.reduce((acc: number, curr: any) => acc + (curr.stockNew || 0) + (curr.stockDismantle || 0), 0); // Exclude stockDamaged
+                const totalFisik = InventoryService.calculateTotalFisik(stocks);
 
                 return {
                     success: true,
