@@ -77,12 +77,16 @@ export async function resetOperationalData(confirmCompanyName: string) {
             await tx.customerInstallation.deleteMany({});
             await tx.assetDepreciation.deleteMany({});
             await tx.assetMaintenanceLog.deleteMany({});
+            await tx.assetLocationLog.deleteMany({});
+            await tx.purchaseOrderItem.deleteMany({});
             
             // Level 2
             await tx.serialNumber.deleteMany({});
             await tx.inventoryLog.deleteMany({});
             await tx.damagedItem.deleteMany({});
             await tx.deliveryManifest.deleteMany({});
+            await tx.auditLog.deleteMany({});
+            await tx.purchaseOrder.deleteMany({});
             
             // Level 1
             await tx.stockIn.deleteMany({});
@@ -96,6 +100,7 @@ export async function resetOperationalData(confirmCompanyName: string) {
             
             // Level 0 (Stock counts)
             await tx.warehouseStock.deleteMany({});
+            await tx.itemBatch.deleteMany({});
         }, { maxWait: 20000, timeout: 300000 });
 
         // Also reset Item's computed/denormalized fields if any, but our schema doesn't seem to have totalFisik in Item.
