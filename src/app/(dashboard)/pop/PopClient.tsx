@@ -1,13 +1,14 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { Plus, Edit2, Trash2, Building, MapPin, Search, Loader2, X, Tags, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
+import { Plus, Edit2, Trash2, Building, MapPin, Search, Loader2, X, Tags, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Upload, Download, FileSpreadsheet } from "lucide-react";
 import PopForm from "@/components/PopForm";
-import { getPops, getWarehousesForSelect, createPop, updatePop, deletePop } from "@/app/actions/pop";
+import { getPops, getWarehousesForSelect, createPop, updatePop, deletePop, importPopBatch } from "@/app/actions/pop";
 import { getAreasForSelect } from "@/app/actions/warehouse";
 import { Prisma } from "@prisma/client";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import * as XLSX from "xlsx";
 
 type PopProps = {
     id: number;
@@ -69,6 +70,11 @@ export default function PopClient() {
     const [warehouses, setWarehouses] = useState<{ id: number; name: string; type: string }[]>([]);
     const router = useRouter();
 
+    // Import Excel State
+    const [isImportOpen, setIsImportOpen] = useState(false);
+    const [importRows, setImportRows] = useState<any[]>([]);
+    const [importLoading, setImportLoading] = useState(false);
+
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
     const [searchInput, setSearchInput] = useState("");
@@ -119,6 +125,146 @@ export default function PopClient() {
     useEffect(() => {
         loadData();
     }, []);
+
+    const exportToExcel = () => {
+        if (filteredPops.length === 0) return;
+
+        const exportData = filteredPops.map(p => ({
+            "Nama POP": p.name,
+            "Gudang Pengelola": p.warehouse?.name || "-",
+            "Area": p.area?.name || "-",
+            "Lokasi": p.location || "-",
+            "Total Perangkat SN": p._count.serialnumber || 0,
+            "Total Riwayat Instalasi": p._count.popinstallation || 0
+        }));
+
+        const ws = XLSX.utils.json_to_sheet(exportData);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Data POP");
+        XLSX.writeFile(wb, `Data_POP_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    };
+
+    const downloadTemplatePop = () => {
+        const templateData = [
+            {
+                "Nama POP": "POP Cabang Denpasar 1",
+                "Gudang Pengelola": warehouses[0]?.name || "Gudang Cabang Bali",
+                "Area": "Bali",
+                "Lokasi": "Jl. Gatot Subroto No. 12, Denpasar"
+            },
+            {
+                "Nama POP": "POP Pusat Gubeng",
+                "Gudang Pengelola": warehouses[1]?.name || "Gudang Pusat Surabaya",
+                "Area": "Jawa Timur",
+                "Lokasi": "Jl. Raya Gubeng No. 45, Surabaya"
+            }
+        ];
+        const ws = XLSX.utils.json_to_sheet(templateData);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Template POP");
+        XLSX.writeFile(wb, "Template_Import_POP.xlsx");
+    };
+
+    const handlePopFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+            try {
+                const bstr = evt.target?.result;
+                const wb = XLSX.read(bstr, { type: "binary" });
+                const wsname = wb.SheetNames[0];
+                const ws = wb.Sheets[wsname];
+                const rawData = XLSX.utils.sheet_to_json<any>(ws);
+
+                if (rawData.length === 0) {
+                    alert("File Excel kosong atau format tidak sesuai.");
+                    return;
+                }
+
+                const validated = rawData.map((row: any) => {
+                    const name = (row["Nama POP"] || row["Nama"] || row["name"] || "").toString().trim();
+                    const warehouseName = (row["Gudang Pengelola"] || row["Gudang"] || row["warehouseName"] || "").toString().trim();
+                    const areaName = (row["Area"] || row["areaName"] || "").toString().trim();
+                    const location = (row["Lokasi"] || row["location"] || "").toString().trim();
+
+                    const errors: string[] = [];
+                    const warnings: string[] = [];
+
+                    if (!name) {
+                        errors.push("Nama POP wajib diisi");
+                    }
+
+                    // Check if Warehouse Pengelola exists (if provided)
+                    if (warehouseName) {
+                        const whExists = warehouses.some(
+                            w => w.name.toLowerCase().trim() === warehouseName.toLowerCase().trim()
+                        );
+                        if (!whExists) {
+                            errors.push(`Gudang "${warehouseName}" tidak terdaftar`);
+                        }
+                    }
+
+                    // Check if Area exists in loaded areas
+                    if (areaName) {
+                        const areaExists = areas.some(
+                            a => a.name.toLowerCase().trim() === areaName.toLowerCase().trim()
+                        );
+                        if (!areaExists) {
+                            warnings.push(`Area "${areaName}" baru (akan dibuat otomatis)`);
+                        }
+                    }
+
+                    return {
+                        name,
+                        warehouseName,
+                        areaName,
+                        location,
+                        errors,
+                        warnings,
+                        isValid: errors.length === 0
+                    };
+                });
+
+                setImportRows(validated);
+            } catch (err: any) {
+                alert("Gagal membaca file Excel: " + err.message);
+            }
+        };
+        reader.readAsBinaryString(file);
+    };
+
+    const submitPopImport = async () => {
+        if (importRows.length === 0) return;
+        const hasErrors = importRows.some(r => r.errors.length > 0);
+        if (hasErrors) {
+            alert("Harap perbaiki semua baris yang error sebelum melanjutkan.");
+            return;
+        }
+
+        setImportLoading(true);
+        try {
+            const payload = importRows.map(r => ({
+                name: r.name,
+                warehouseName: r.warehouseName || undefined,
+                areaName: r.areaName || undefined,
+                location: r.location || undefined
+            }));
+            const res = await importPopBatch(payload);
+            if (res.success) {
+                alert(`Berhasil mengimpor ${res.createdCount} POP.`);
+                setIsImportOpen(false);
+                setImportRows([]);
+                loadData();
+            } else {
+                alert(res.error || "Gagal mengimpor data POP.");
+            }
+        } catch (err: any) {
+            alert("Terjadi kesalahan sistem: " + err.message);
+        }
+        setImportLoading(false);
+    };
 
     // Build suggestions
     const uniqueAreas = Array.from(new Set(pops.map(p => p.area?.name).filter(Boolean))) as string[];
@@ -211,7 +357,7 @@ export default function PopClient() {
                     <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 z-20" />
                     <input
                         type="text"
-                        className="w-full bg-[#020617] border border-[#1E293B] text-white rounded-lg pl-8 pr-4 py-2 text-xs placeholder:text-slate-500 focus:outline-none focus:border-purple-500/50 focus:ring-1 focus:ring-purple-500/30 transition-all"
+                        className="w-full bg-[#020617] border border-[#1E293B] text-white rounded-lg pl-8 pr-4 py-2 text-xs placeholder:text-slate-500 focus:outline-none focus:border-purple-500/50 focus:ring-1 focus:ring-purple-500/30 transition-all font-medium"
                         placeholder="Ketik untuk filter: area, gudang pengelola, nama POP..."
                         value={searchInput}
                         onChange={(e) => { setSearchInput(e.target.value); setIsSuggestionsOpen(true); }}
@@ -257,9 +403,17 @@ export default function PopClient() {
                         </>
                     )}
                 </div>
-                <button onClick={openCreate} className="btn bg-purple-600 hover:bg-purple-700 text-white flex items-center gap-2 whitespace-nowrap px-4 py-2 rounded-xl transition-colors font-medium">
-                    <Plus size={18} /> Tambah POP
-                </button>
+                <div className="flex items-center gap-2">
+                    <button type="button" onClick={exportToExcel} disabled={filteredPops.length === 0} className="px-3 sm:px-4 h-8 sm:h-9 rounded-lg bg-green-500/10 text-green-400 border border-green-500/20 hover:bg-green-500/20 hover:border-green-500/40 text-xs sm:text-sm font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 shrink-0 font-sans">
+                        <Download size={14} /> Export
+                    </button>
+                    <button type="button" onClick={() => { setIsImportOpen(true); setImportRows([]); }} className="px-3 sm:px-4 h-8 sm:h-9 rounded-lg bg-purple-500/10 text-purple-400 border border-purple-500/20 hover:bg-purple-500/20 hover:border-purple-500/40 text-xs sm:text-sm font-semibold transition-all flex items-center gap-1.5 shrink-0 font-sans">
+                        <Upload size={14} /> Import
+                    </button>
+                    <button onClick={openCreate} className="btn bg-purple-600 hover:bg-purple-700 text-white flex items-center gap-1.5 whitespace-nowrap px-3 sm:px-4 h-8 sm:h-9 rounded-lg transition-all font-semibold text-xs sm:text-sm shrink-0 flex items-center justify-center font-sans shadow-lg shadow-purple-500/20">
+                        <Plus size={14} /> Tambah POP
+                    </button>
+                </div>
             </div>
 
             {/* Active Filter Badges */}
@@ -362,6 +516,125 @@ export default function PopClient() {
                     onClose={() => setIsFormOpen(false)}
                     onSubmit={editingPop ? handleUpdate : handleCreate}
                 />
+            )}
+
+            {/* ── IMPORT EXCEL MODAL ── */}
+            {isImportOpen && (
+                <div className="fixed inset-0 z-[100] bg-[#020617]/85 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setIsImportOpen(false)}>
+                    <div className="bg-[#0F172A] border border-[#1E293B] rounded-2xl w-full max-w-4xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]" onClick={e => e.stopPropagation()}>
+                        {/* Header */}
+                        <div className="p-5 border-b border-[#1E293B] flex items-center justify-between bg-[#020617]/50">
+                            <div>
+                                <h3 className="font-bold text-white text-lg flex items-center gap-2">
+                                    <FileSpreadsheet className="text-purple-400" size={20} />
+                                    Import POP via Excel
+                                </h3>
+                                <p className="text-xs text-slate-400 mt-1">Unggah file Excel untuk menambah banyak POP secara batch</p>
+                            </div>
+                            <button type="button" onClick={() => setIsImportOpen(false)} className="text-slate-500 hover:text-white transition-colors">
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        {/* Content */}
+                        <div className="p-6 space-y-6 overflow-y-auto flex-1 custom-scrollbar">
+                            {/* Upload & Instructions */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="border-2 border-dashed border-[#334155] hover:border-purple-500/50 rounded-xl p-6 flex flex-col items-center justify-center text-center group transition-all relative cursor-pointer font-sans">
+                                    <input type="file" accept=".xlsx, .xls" onChange={handlePopFileUpload} className="absolute inset-0 opacity-0 cursor-pointer" />
+                                    <Upload size={32} className="text-slate-500 group-hover:text-purple-400 transition-colors mb-3" />
+                                    <p className="text-sm font-semibold text-white">Pilih File Excel atau Drag & Drop</p>
+                                    <p className="text-xs text-slate-500 mt-1 font-mono">Format: .xlsx, .xls</p>
+                                </div>
+                                <div className="bg-[#020617]/40 border border-[#1E293B] rounded-xl p-5 flex flex-col justify-between font-sans">
+                                    <div>
+                                        <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Panduan Kolom Excel</h4>
+                                        <ul className="text-xs text-slate-400 space-y-1.5 list-disc list-inside">
+                                            <li><strong className="text-white font-medium">Nama POP</strong>: Wajib diisi (mis. POP Cabang Denpasar 1)</li>
+                                            <li><strong className="text-white font-medium">Gudang Pengelola</strong>: Opsional. Harus cocok dengan nama gudang terdaftar</li>
+                                            <li><strong className="text-white font-medium">Area</strong>: Opsional. Jika nama area baru, area dibuat otomatis!</li>
+                                            <li><strong className="text-white font-medium">Lokasi</strong>: Opsional, alamat/deskripsi lokasi POP</li>
+                                        </ul>
+                                    </div>
+                                    <button type="button" onClick={downloadTemplatePop} className="mt-4 px-4 py-2 w-full rounded-lg bg-purple-500/10 text-purple-400 border border-purple-500/20 hover:bg-purple-500/20 hover:border-purple-500/40 text-xs font-semibold transition-all flex items-center justify-center gap-1.5">
+                                        <Download size={14} /> Download Template Excel
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Preview Grid */}
+                            {importRows.length > 0 && (
+                                <div className="space-y-3 font-sans">
+                                    <div className="flex items-center justify-between">
+                                        <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">Pratinjau & Validasi Data</h4>
+                                        <span className="text-xs text-slate-500 font-mono">Total: <span className="text-white font-semibold font-sans">{importRows.length}</span> baris</span>
+                                    </div>
+                                    <div className="border border-[#1E293B] rounded-xl overflow-hidden bg-[#020617]/20">
+                                        <div className="overflow-x-auto max-h-60 custom-scrollbar">
+                                            <table className="w-full text-left border-collapse">
+                                                <thead>
+                                                    <tr className="border-b border-[#1E293B] bg-[#020617]/50 text-[10px] uppercase tracking-wider text-slate-500 font-semibold sticky top-0 z-10">
+                                                        <th className="px-4 py-2">Baris</th>
+                                                        <th className="px-4 py-2">Nama POP</th>
+                                                        <th className="px-4 py-2">Gudang Pengelola</th>
+                                                        <th className="px-4 py-2">Area</th>
+                                                        <th className="px-4 py-2">Lokasi</th>
+                                                        <th className="px-4 py-2 text-center w-40">Status / Catatan</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="text-xs">
+                                                    {importRows.map((row, idx) => {
+                                                        const hasError = row.errors.length > 0;
+                                                        const hasWarning = row.warnings.length > 0;
+                                                        
+                                                        let badgeBg = "bg-green-500/10 text-green-400 border-green-500/20";
+                                                        let badgeText = "Valid";
+                                                        if (hasError) {
+                                                            badgeBg = "bg-red-500/10 text-red-400 border-red-500/20";
+                                                            badgeText = row.errors.join(", ");
+                                                        } else if (hasWarning) {
+                                                            badgeBg = "bg-amber-500/10 text-amber-400 border-amber-500/20";
+                                                            badgeText = row.warnings.join(", ");
+                                                        }
+
+                                                        return (
+                                                            <tr key={idx} className="border-b border-[#1E293B]/40 hover:bg-white/[0.01]">
+                                                                <td className="px-4 py-2.5 font-mono text-slate-600">{idx + 1}</td>
+                                                                <td className="px-4 py-2.5 text-white font-medium">{row.name || <span className="text-red-500/60 italic">Kosong</span>}</td>
+                                                                <td className="px-4 py-2.5 text-slate-300">{row.warehouseName || "-"}</td>
+                                                                <td className="px-4 py-2.5 text-slate-300">{row.areaName || "-"}</td>
+                                                                <td className="px-4 py-2.5 text-slate-500 truncate max-w-[150px]">{row.location || "-"}</td>
+                                                                <td className="px-4 py-2.5 text-center">
+                                                                    <span className={`inline-block px-2 py-0.5 rounded border text-[10px] font-semibold text-left max-w-full truncate ${badgeBg}`} title={badgeText}>
+                                                                        {badgeText}
+                                                                    </span>
+                                                                </td>
+                                                            </tr>
+                                                        );
+                                                    })}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Footer */}
+                        <div className="p-5 border-t border-[#1E293B] bg-[#020617]/50 flex items-center justify-between font-sans">
+                            <button type="button" onClick={() => { setIsImportOpen(false); setImportRows([]); }} className="px-4 py-2 rounded-lg bg-slate-800 text-white hover:bg-slate-700 transition-colors text-sm font-medium">Batal</button>
+                            <button
+                                type="button"
+                                onClick={submitPopImport}
+                                disabled={importRows.length === 0 || importRows.some(r => r.errors.length > 0) || importLoading}
+                                className="px-5 py-2 rounded-lg bg-purple-600 text-white font-bold hover:bg-purple-500 disabled:opacity-30 disabled:cursor-not-allowed transition-all text-sm flex items-center gap-1.5 shrink-0"
+                            >
+                                {importLoading ? <Loader2 size={16} className="animate-spin" /> : <FileSpreadsheet size={16} />}
+                                {importRows.some(r => r.errors.length > 0) ? "Ada Error di Excel" : "Konfirmasi Impor"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     );

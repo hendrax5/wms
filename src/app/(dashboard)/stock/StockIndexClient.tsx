@@ -6,10 +6,11 @@ import { auditAllStock } from "@/app/actions/stockAudit";
 import {
     Building2, Package, Search, ArrowRight, X, Plus, Pencil, Trash2,
     AlertTriangle, Loader2, MapPin, LayoutGrid, List, AlertCircle,
-    ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Download
+    ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Download, Upload, FileSpreadsheet
 } from "lucide-react";
 import Link from "next/link";
 import * as XLSX from "xlsx";
+import { getAreasForSelect, importWarehouseBatch } from "@/app/actions/warehouse";
 
 /* ────────────── Types ────────────── */
 type WarehouseData = {
@@ -97,12 +98,22 @@ export default function StockIndexClient() {
     const [errorMsg, setErrorMsg] = useState("");
     const [deleteTarget, setDeleteTarget] = useState<WarehouseData | null>(null);
 
+    // Import Excel State
+    const [isImportOpen, setIsImportOpen] = useState(false);
+    const [importRows, setImportRows] = useState<any[]>([]);
+    const [existingAreas, setExistingAreas] = useState<{ id: number; name: string }[]>([]);
+    const [importLoading, setImportLoading] = useState(false);
+
     /* ────────────── Data ────────────── */
     const loadData = async () => {
         setLoading(true);
         try {
-            const res = await getWarehouseList();
+            const [res, areaRes] = await Promise.all([
+                getWarehouseList(),
+                getAreasForSelect()
+            ]);
             if (res.success && res.data) setWarehouses(res.data as WarehouseData[]);
+            if (areaRes.success && areaRes.data) setExistingAreas(areaRes.data as any);
         } catch (err) { console.error("Load error:", err); }
         setLoading(false);
     };
@@ -143,6 +154,128 @@ export default function StockIndexClient() {
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Direktori Gudang");
         XLSX.writeFile(wb, `Direktori_Gudang_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    };
+
+    const downloadTemplateWarehouse = () => {
+        const templateData = [
+            {
+                "Nama Gudang": "Gudang Cabang Bali",
+                "Tipe (PUSAT/CABANG)": "CABANG",
+                "Area": "Bali",
+                "Lokasi": "Denpasar, Bali"
+            },
+            {
+                "Nama Gudang": "Gudang Pusat Surabaya",
+                "Tipe (PUSAT/CABANG)": "PUSAT",
+                "Area": "Jawa Timur",
+                "Lokasi": "Surabaya, Jawa Timur"
+            }
+        ];
+        const ws = XLSX.utils.json_to_sheet(templateData);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Template");
+        XLSX.writeFile(wb, "Template_Import_Gudang.xlsx");
+    };
+
+    const handleWarehouseFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+            try {
+                const bstr = evt.target?.result;
+                const wb = XLSX.read(bstr, { type: "binary" });
+                const wsname = wb.SheetNames[0];
+                const ws = wb.Sheets[wsname];
+                const rawData = XLSX.utils.sheet_to_json<any>(ws);
+
+                if (rawData.length === 0) {
+                    alert("File Excel kosong atau format tidak sesuai.");
+                    return;
+                }
+
+                const validated = rawData.map((row: any) => {
+                    const name = (row["Nama Gudang"] || row["Nama"] || row["name"] || "").toString().trim();
+                    const typeRaw = (row["Tipe (PUSAT/CABANG)"] || row["Tipe"] || row["type"] || "").toString().trim().toUpperCase();
+                    const areaName = (row["Area"] || row["areaName"] || row["area"] || "").toString().trim();
+                    const location = (row["Lokasi"] || row["location"] || "").toString().trim();
+
+                    const errors: string[] = [];
+                    const warnings: string[] = [];
+
+                    if (!name) {
+                        errors.push("Nama gudang wajib diisi");
+                    }
+                    if (!areaName) {
+                        errors.push("Area wajib diisi");
+                    }
+                    
+                    let type: "PUSAT" | "CABANG" = "CABANG";
+                    if (typeRaw === "PUSAT") {
+                        type = "PUSAT";
+                    } else if (typeRaw === "CABANG" || typeRaw === "") {
+                        type = "CABANG";
+                    } else {
+                        errors.push("Tipe harus PUSAT atau CABANG");
+                    }
+
+                    // Check if Area exists in existingAreas
+                    const areaExists = existingAreas.some(
+                        a => a.name.toLowerCase().trim() === areaName.toLowerCase().trim()
+                    );
+                    if (areaName && !areaExists) {
+                        warnings.push(`Area "${areaName}" baru (akan dibuat otomatis)`);
+                    }
+
+                    return {
+                        name,
+                        type,
+                        areaName,
+                        location,
+                        errors,
+                        warnings,
+                        isValid: errors.length === 0
+                    };
+                });
+
+                setImportRows(validated);
+            } catch (err: any) {
+                alert("Gagal membaca file Excel: " + err.message);
+            }
+        };
+        reader.readAsBinaryString(file);
+    };
+
+    const submitWarehouseImport = async () => {
+        if (importRows.length === 0) return;
+        const hasErrors = importRows.some(r => r.errors.length > 0);
+        if (hasErrors) {
+            alert("Harap perbaiki semua baris yang error sebelum melanjutkan.");
+            return;
+        }
+
+        setImportLoading(true);
+        try {
+            const payload = importRows.map(r => ({
+                name: r.name,
+                type: r.type,
+                areaName: r.areaName,
+                location: r.location || undefined
+            }));
+            const res = await importWarehouseBatch(payload);
+            if (res.success) {
+                alert(`Berhasil mengimpor ${res.createdCount} gudang.`);
+                setIsImportOpen(false);
+                setImportRows([]);
+                loadData();
+            } else {
+                alert(res.error || "Gagal mengimpor data.");
+            }
+        } catch (err: any) {
+            alert("Terjadi kesalahan sistem: " + err.message);
+        }
+        setImportLoading(false);
     };
 
     // Pagination
@@ -230,6 +363,9 @@ export default function StockIndexClient() {
                     </button>
                     <button type="button" onClick={exportToExcel} disabled={filtered.length === 0} className="px-3 sm:px-4 h-8 sm:h-9 rounded-lg bg-green-500/10 text-green-400 border border-green-500/20 hover:bg-green-500/20 hover:border-green-500/40 text-xs sm:text-sm font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 shrink-0">
                         <Download size={14} /> Export
+                    </button>
+                    <button type="button" onClick={() => { setIsImportOpen(true); setImportRows([]); }} className="px-3 sm:px-4 h-8 sm:h-9 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20 hover:bg-amber-500/20 hover:border-amber-500/40 text-xs sm:text-sm font-semibold transition-all flex items-center gap-1.5 shrink-0">
+                        <Upload size={14} /> Import
                     </button>
                     <button type="button" onClick={() => openModal()} className="btn btn-primary text-xs sm:text-sm px-3 sm:px-4 h-8 sm:h-9 flex items-center gap-1.5 shrink-0">
                         <Plus size={14} /> Tambah Gudang
@@ -487,6 +623,125 @@ export default function StockIndexClient() {
                             <button type="button" onClick={() => { setDeleteTarget(null); setErrorMsg(""); }} className="flex-1 px-4 py-2 rounded-lg bg-slate-800 text-white hover:bg-slate-700 transition-colors text-sm font-medium">Batal</button>
                             <button type="button" onClick={handleDelete} disabled={submitLoading} className="flex-1 px-4 py-2 rounded-lg bg-red-500 text-white hover:bg-red-600 shadow-lg shadow-red-500/25 transition-all text-sm font-medium">
                                 {submitLoading ? <Loader2 size={16} className="animate-spin mx-auto" /> : "Ya, Hapus"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ── IMPORT EXCEL MODAL ── */}
+            {isImportOpen && (
+                <div className="fixed inset-0 z-[100] bg-[#020617]/85 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setIsImportOpen(false)}>
+                    <div className="bg-[#0F172A] border border-[#1E293B] rounded-2xl w-full max-w-4xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]" onClick={e => e.stopPropagation()}>
+                        {/* Header */}
+                        <div className="p-5 border-b border-[#1E293B] flex items-center justify-between bg-[#020617]/50">
+                            <div>
+                                <h3 className="font-bold text-white text-lg flex items-center gap-2">
+                                    <FileSpreadsheet className="text-amber-400" size={20} />
+                                    Import Gudang via Excel
+                                </h3>
+                                <p className="text-xs text-slate-400 mt-1">Unggah file Excel untuk menambah banyak gudang secara batch</p>
+                            </div>
+                            <button type="button" onClick={() => setIsImportOpen(false)} className="text-slate-500 hover:text-white transition-colors">
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        {/* Content */}
+                        <div className="p-6 space-y-6 overflow-y-auto flex-1 custom-scrollbar">
+                            {/* Upload & Instructions */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="border-2 border-dashed border-[#334155] hover:border-amber-500/50 rounded-xl p-6 flex flex-col items-center justify-center text-center group transition-all relative cursor-pointer">
+                                    <input type="file" accept=".xlsx, .xls" onChange={handleWarehouseFileUpload} className="absolute inset-0 opacity-0 cursor-pointer" />
+                                    <Upload size={32} className="text-slate-500 group-hover:text-amber-400 transition-colors mb-3" />
+                                    <p className="text-sm font-semibold text-white">Pilih File Excel atau Drag & Drop</p>
+                                    <p className="text-xs text-slate-500 mt-1 font-mono">Format: .xlsx, .xls</p>
+                                </div>
+                                <div className="bg-[#020617]/40 border border-[#1E293B] rounded-xl p-5 flex flex-col justify-between">
+                                    <div>
+                                        <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Panduan Kolom Excel</h4>
+                                        <ul className="text-xs text-slate-400 space-y-1.5 list-disc list-inside">
+                                            <li><strong className="text-white font-medium">Nama Gudang</strong>: Wajib diisi (mis. Gudang Bali)</li>
+                                            <li><strong className="text-white font-medium">Tipe (PUSAT/CABANG)</strong>: Opsional, default CABANG</li>
+                                            <li><strong className="text-white font-medium">Area</strong>: Wajib diisi. Jika nama area baru, area dibuat otomatis!</li>
+                                            <li><strong className="text-white font-medium">Lokasi</strong>: Opsional, alamat/deskripsi lokasi</li>
+                                        </ul>
+                                    </div>
+                                    <button type="button" onClick={downloadTemplateWarehouse} className="mt-4 px-4 py-2 w-full rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20 hover:bg-amber-500/20 hover:border-amber-500/40 text-xs font-semibold transition-all flex items-center justify-center gap-1.5">
+                                        <Download size={14} /> Download Template Excel
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Preview Grid */}
+                            {importRows.length > 0 && (
+                                <div className="space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">Pratinjau & Validasi Data</h4>
+                                        <span className="text-xs text-slate-500 font-mono">Total: <span className="text-white font-semibold font-sans">{importRows.length}</span> baris</span>
+                                    </div>
+                                    <div className="border border-[#1E293B] rounded-xl overflow-hidden bg-[#020617]/20">
+                                        <div className="overflow-x-auto max-h-60 custom-scrollbar">
+                                            <table className="w-full text-left border-collapse">
+                                                <thead>
+                                                    <tr className="border-b border-[#1E293B] bg-[#020617]/50 text-[10px] uppercase tracking-wider text-slate-500 font-semibold sticky top-0 z-10">
+                                                        <th className="px-4 py-2">Baris</th>
+                                                        <th className="px-4 py-2">Nama Gudang</th>
+                                                        <th className="px-4 py-2">Tipe</th>
+                                                        <th className="px-4 py-2">Area</th>
+                                                        <th className="px-4 py-2">Lokasi</th>
+                                                        <th className="px-4 py-2 text-center w-40">Status / Catatan</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="text-xs">
+                                                    {importRows.map((row, idx) => {
+                                                        const hasError = row.errors.length > 0;
+                                                        const hasWarning = row.warnings.length > 0;
+                                                        
+                                                        let badgeBg = "bg-green-500/10 text-green-400 border-green-500/20";
+                                                        let badgeText = "Valid";
+                                                        if (hasError) {
+                                                            badgeBg = "bg-red-500/10 text-red-400 border-red-500/20";
+                                                            badgeText = row.errors.join(", ");
+                                                        } else if (hasWarning) {
+                                                            badgeBg = "bg-amber-500/10 text-amber-400 border-amber-500/20";
+                                                            badgeText = row.warnings.join(", ");
+                                                        }
+
+                                                        return (
+                                                            <tr key={idx} className="border-b border-[#1E293B]/40 hover:bg-white/[0.01]">
+                                                                <td className="px-4 py-2.5 font-mono text-slate-600">{idx + 1}</td>
+                                                                <td className="px-4 py-2.5 text-white font-medium">{row.name || <span className="text-red-500/60 italic">Kosong</span>}</td>
+                                                                <td className="px-4 py-2.5 font-mono">{row.type}</td>
+                                                                <td className="px-4 py-2.5 text-slate-300">{row.areaName || <span className="text-red-500/60 italic">Kosong</span>}</td>
+                                                                <td className="px-4 py-2.5 text-slate-500 truncate max-w-[150px]">{row.location || "-"}</td>
+                                                                <td className="px-4 py-2.5 text-center">
+                                                                    <span className={`inline-block px-2 py-0.5 rounded border text-[10px] font-semibold text-left max-w-full truncate ${badgeBg}`} title={badgeText}>
+                                                                        {badgeText}
+                                                                    </span>
+                                                                </td>
+                                                            </tr>
+                                                        );
+                                                    })}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Footer */}
+                        <div className="p-5 border-t border-[#1E293B] bg-[#020617]/50 flex items-center justify-between">
+                            <button type="button" onClick={() => { setIsImportOpen(false); setImportRows([]); }} className="px-4 py-2 rounded-lg bg-slate-800 text-white hover:bg-slate-700 transition-colors text-sm font-medium">Batal</button>
+                            <button
+                                type="button"
+                                onClick={submitWarehouseImport}
+                                disabled={importRows.length === 0 || importRows.some(r => r.errors.length > 0) || importLoading}
+                                className="px-5 py-2 rounded-lg bg-amber-500 text-slate-950 font-bold hover:bg-amber-400 disabled:opacity-30 disabled:cursor-not-allowed transition-all text-sm flex items-center gap-1.5 shrink-0"
+                            >
+                                {importLoading ? <Loader2 size={16} className="animate-spin" /> : <FileSpreadsheet size={16} />}
+                                {importRows.some(r => r.errors.length > 0) ? "Ada Error di Excel" : "Konfirmasi Impor"}
                             </button>
                         </div>
                     </div>

@@ -345,3 +345,92 @@ export async function getInstallationsForPop(popId: number) {
         return { success: false, error: "Gagal mengambil data instalasi" };
     }
 }
+
+export async function importPopBatch(
+    data: {
+        name: string;
+        warehouseName?: string;
+        areaName?: string;
+        location?: string;
+    }[]
+) {
+    try {
+        if (!data || data.length === 0) {
+            return { success: false, error: "Data impor kosong atau tidak valid" };
+        }
+
+        const result = await prisma.$transaction(async (tx) => {
+            // Pre-load all warehouses to memory map
+            const existingWarehouses = await tx.warehouse.findMany({ select: { id: true, name: true } });
+            const warehouseMap = new Map<string, number>();
+            existingWarehouses.forEach(w => {
+                warehouseMap.set(w.name.toLowerCase().trim(), w.id);
+            });
+
+            // Pre-load all areas to memory map
+            const existingAreas = await tx.area.findMany();
+            const areaMap = new Map<string, number>();
+            existingAreas.forEach(a => {
+                areaMap.set(a.name.toLowerCase().trim(), a.id);
+            });
+
+            let createdCount = 0;
+
+            for (const row of data) {
+                const name = row.name?.trim();
+                const warehouseName = row.warehouseName?.trim() || null;
+                const areaName = row.areaName?.trim() || null;
+                const location = row.location?.trim() || null;
+
+                if (!name) {
+                    throw new Error("Nama POP wajib diisi");
+                }
+
+                // Resolve Warehouse ID (Optional but must match if provided)
+                let warehouseId: number | null = null;
+                if (warehouseName) {
+                    warehouseId = warehouseMap.get(warehouseName.toLowerCase());
+                    if (!warehouseId) {
+                        throw new Error(`Gudang Pengelola "${warehouseName}" tidak terdaftar di database.`);
+                    }
+                }
+
+                // Resolve Area ID (Optional)
+                let areaId: number | null = null;
+                if (areaName) {
+                    areaId = areaMap.get(areaName.toLowerCase());
+                    if (!areaId) {
+                        // Auto-create Area
+                        const newArea = await tx.area.create({
+                            data: { name: areaName }
+                        });
+                        areaId = newArea.id;
+                        areaMap.set(areaName.toLowerCase(), areaId);
+                    }
+                }
+
+                // Create POP
+                await tx.pop.create({
+                    data: {
+                        name,
+                        warehouseId,
+                        areaId,
+                        location,
+                        updatedAt: new Date()
+                    }
+                });
+
+                createdCount++;
+            }
+
+            return { createdCount };
+        });
+
+        revalidatePath("/pop");
+        return { success: true, createdCount: result.createdCount };
+    } catch (error: any) {
+        console.error("IMPORT POP BATCH ERROR:", error);
+        return { success: false, error: error.message || "Gagal mengimpor data POP" };
+    }
+}
+

@@ -84,9 +84,11 @@ describe('Return Action: createReturn', () => {
             items: [{ itemId: 100, qty: 1, condition: 'DAMAGED' as const, serialNumbers: ['SN-1'] }],
         };
 
-        prismaMock.itemStatus.upsert.mockResolvedValue({ id: 1, name: 'In Stock' } as any);
+        prismaMock.itemStatus.upsert.mockResolvedValueOnce({ id: 1, name: 'In Stock' } as any);
+        prismaMock.itemStatus.upsert.mockResolvedValueOnce({ id: 4, name: 'Rusak' } as any);
         prismaMock.itemType.upsert.mockResolvedValueOnce({ id: 2, name: 'Dismantle' } as any);
         prismaMock.itemType.upsert.mockResolvedValueOnce({ id: 1, name: 'Baru' } as any);
+        prismaMock.itemType.upsert.mockResolvedValueOnce({ id: 3, name: 'Rusak' } as any);
         
         prismaMock.stockIn.create.mockResolvedValue({ id: 500 } as any);
         
@@ -103,15 +105,15 @@ describe('Return Action: createReturn', () => {
         
         expect(result.success).toBe(true);
         
-        // SN typeId is set to Dismantle for DAMAGED condition according to business logic in return.ts
+        // SN typeId and statusId are set to Rusak for DAMAGED condition according to business logic in ReturnService.ts
         expect(prismaMock.serialNumber.update).toHaveBeenCalledWith({
             where: { id: 2000 },
             data: {
                 warehouseId: 1,
                 popId: null,
                 customerId: null,
-                statusId: 1,
-                typeId: 2, // typeDismantle.id since condition is not NEW
+                statusId: 4, // statusRusak.id
+                typeId: 3, // typeRusak.id
                 updatedAt: expect.any(Date)
             }
         });

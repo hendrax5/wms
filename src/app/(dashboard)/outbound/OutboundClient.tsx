@@ -9,6 +9,7 @@ import { getWarehousesForSelect, getPops } from "@/app/actions/pop";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import SearchableSelect from "@/components/SearchableSelect";
+import * as XLSX from "xlsx";
 
 type CartItem = {
     id: string; // unique key for react
@@ -57,6 +58,8 @@ export default function OutboundClient() {
     const [currentScan, setCurrentScan] = useState("");
     const [isVerifying, setIsVerifying] = useState(false);
     const scannerInputRef = useRef<HTMLInputElement>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null); // For active item single import
+    const globalFileInputRef = useRef<HTMLInputElement>(null); // For batch import
 
     // SN Picker for active cart item
     const [availableSNs, setAvailableSNs] = useState<{ id: number; code: string }[]>([]);
@@ -254,6 +257,237 @@ export default function OutboundClient() {
         setCartItems(newCart);
     };
 
+    const handleImportExcel = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file || activeCartIdx === null) return;
+        if (!sourceId) {
+            setError("Pilih Gudang Asal terlebih dahulu.");
+            return;
+        }
+
+        const cart = cartItems[activeCartIdx];
+        const reader = new FileReader();
+        reader.onload = async (evt) => {
+            try {
+                const bstr = evt.target?.result;
+                const wb = XLSX.read(bstr, { type: 'binary' });
+                const wsname = wb.SheetNames[0];
+                const ws = wb.Sheets[wsname];
+                const rawData = XLSX.utils.sheet_to_json(ws, { header: 1 }) as any[][];
+
+                const importedSNs: string[] = [];
+                for (let i = 0; i < rawData.length; i++) {
+                    const sn = rawData[i][0]; // Assume SN is in the first column
+                    if (sn && typeof sn === 'string' && sn.trim() !== '') {
+                        importedSNs.push(sn.trim());
+                    } else if (sn && typeof sn === 'number') {
+                        importedSNs.push(sn.toString().trim());
+                    }
+                }
+
+                if (importedSNs.length === 0) {
+                    setError("Tidak ada Serial Number yang valid ditemukan di file Excel.");
+                    return;
+                }
+
+                setIsVerifying(true);
+                setError("");
+                
+                let addedCount = 0;
+                let duplicateCount = 0;
+                let errorCount = 0;
+                const errors: string[] = [];
+                const newSNs = [...cart.serialNumbers];
+
+                for (const sn of importedSNs) {
+                    if (newSNs.includes(sn)) {
+                        duplicateCount++;
+                        continue;
+                    }
+                    
+                    let globalDup = false;
+                    for (const ci of cartItems) {
+                        if (ci.serialNumbers.includes(sn)) {
+                            globalDup = true;
+                            break;
+                        }
+                    }
+
+                    if (globalDup) {
+                        duplicateCount++;
+                        continue;
+                    }
+
+                    const validRes = await checkSerialInWarehouse(sn, Number(sourceId), Number(cart.itemId));
+                    if (validRes.success) {
+                        newSNs.push(sn);
+                        addedCount++;
+                    } else {
+                        errorCount++;
+                        errors.push(`SN "${sn}": ${validRes.error || "Gagal"}`);
+                    }
+                }
+
+                const newCart = [...cartItems];
+                newCart[activeCartIdx].serialNumbers = newSNs;
+                newCart[activeCartIdx].qty = newSNs.length;
+                setCartItems(newCart);
+                
+                let msg = `Berhasil import ${addedCount} SN.`;
+                if (duplicateCount > 0) msg += ` ${duplicateCount} SN dilewati karena duplikat.`;
+                
+                if (errorCount > 0) {
+                    setError(`${msg} Ada ${errorCount} SN gagal divalidasi:\n${errors.slice(0, 5).join('\n')}${errors.length > 5 ? '\n...dan lainnya' : ''}`);
+                } else {
+                    setError("");
+                    setSuccessMsg(`${msg} Semua SN valid.`);
+                    setTimeout(() => setSuccessMsg(""), 4000);
+                }
+            } catch (err) {
+                console.error(err);
+                setError("Gagal memproses file Excel.");
+            } finally {
+                setIsVerifying(false);
+            }
+        };
+        reader.readAsBinaryString(file);
+        
+        if (fileInputRef.current) fileInputRef.current.value = "";
+    };
+
+    const handleBatchImportExcel = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        if (!sourceId) {
+            setError("Pilih Gudang Asal terlebih dahulu.");
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = async (evt) => {
+            try {
+                const bstr = evt.target?.result;
+                const wb = XLSX.read(bstr, { type: 'binary' });
+                const wsname = wb.SheetNames[0];
+                const ws = wb.Sheets[wsname];
+                const rawData = XLSX.utils.sheet_to_json(ws) as any[];
+
+                if (rawData.length === 0) {
+                    setError("File Excel kosong.");
+                    return;
+                }
+
+                setIsVerifying(true);
+                setError("");
+
+                let addedItems = 0;
+                let addedSNs = 0;
+                let errorCount = 0;
+                let duplicateCount = 0;
+                const errors: string[] = [];
+                const newCartItems = [...cartItems];
+
+                for (let index = 0; index < rawData.length; index++) {
+                    const row = rawData[index];
+                    const sn = row['Serial Number'] || row['SN'] || row['serial number'] || row['sn'];
+                    const type = row['Type'] || row['Tipe'] || row['type'] || row['Item Name'] || row['Nama Barang'] || row['Item Code'];
+                    const merk = row['Merk'] || row['Brand'] || row['merk'] || row['brand'];
+
+                    if (!sn) continue;
+
+                    const snStr = String(sn).trim();
+                    const typeStr = type ? String(type).trim().toLowerCase() : '';
+                    const merkStr = merk ? String(merk).trim().toLowerCase() : '';
+
+                    const matchedItem = items.find(i => 
+                        i.name.toLowerCase() === typeStr || 
+                        i.code.toLowerCase() === typeStr
+                    );
+
+                    if (!matchedItem) {
+                        errorCount++;
+                        errors.push(`Baris ${index + 2}: Tipe barang tidak dikenali ("${type}")`);
+                        continue;
+                    }
+
+                    if (!matchedItem.hasSN) {
+                        errorCount++;
+                        errors.push(`Baris ${index + 2}: Barang "${matchedItem.name}" tidak membutuhkan SN.`);
+                        continue;
+                    }
+
+                    let isDuplicate = false;
+                    for (const ci of newCartItems) {
+                        if (ci.serialNumbers.includes(snStr)) {
+                            isDuplicate = true;
+                            break;
+                        }
+                    }
+                    if (isDuplicate) {
+                        duplicateCount++;
+                        continue;
+                    }
+
+                    const validRes = await checkSerialInWarehouse(snStr, Number(sourceId), matchedItem.id);
+                    if (!validRes.success) {
+                        errorCount++;
+                        errors.push(`Baris ${index + 2}: SN "${snStr}" tidak valid di gudang asal (${validRes.error || "Gagal"})`);
+                        continue;
+                    }
+
+                    let cartItemIdx = newCartItems.findIndex(ci => ci.itemId === matchedItem.id.toString());
+                    if (cartItemIdx === -1) {
+                        newCartItems.push({
+                            id: `${Date.now()}-${matchedItem.id}`,
+                            itemId: matchedItem.id.toString(),
+                            itemName: matchedItem.name,
+                            itemCode: matchedItem.code,
+                            hasSN: matchedItem.hasSN,
+                            qty: 0,
+                            serialNumbers: [],
+                        });
+                        cartItemIdx = newCartItems.length - 1;
+                        addedItems++;
+                    }
+
+                    newCartItems[cartItemIdx].serialNumbers.push(snStr);
+                    newCartItems[cartItemIdx].qty = newCartItems[cartItemIdx].serialNumbers.length;
+                    addedSNs++;
+                }
+
+                setCartItems(newCartItems);
+
+                let summaryMsg = `Berhasil import ${addedSNs} SN dari ${addedItems} tipe barang.`;
+                if (duplicateCount > 0) summaryMsg += ` ${duplicateCount} SN dilewati karena duplikat.`;
+
+                if (errors.length > 0) {
+                    setError(`${summaryMsg} Namun ada ${errorCount} error:\n${errors.slice(0, 5).join('\n')}${errors.length > 5 ? '\n...dan lainnya' : ''}`);
+                } else {
+                    setError("");
+                    setSuccessMsg(`${summaryMsg} Semua SN berhasil di-import.`);
+                    setTimeout(() => setSuccessMsg(""), 5000);
+                }
+            } catch (err) {
+                console.error(err);
+                setError("Gagal memproses file Excel.");
+            } finally {
+                setIsVerifying(false);
+            }
+        };
+        reader.readAsBinaryString(file);
+        if (globalFileInputRef.current) globalFileInputRef.current.value = "";
+    };
+
+    const downloadTemplate = () => {
+        const ws = XLSX.utils.json_to_sheet([
+            { "Serial Number": "SN123456", "Type": "F609", "Merk": "ZTE" },
+            { "Serial Number": "SN654321", "Type": "HG8245H", "Merk": "Huawei" }
+        ]);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Template Outbound");
+        XLSX.writeFile(wb, "Template_Outbound_WMS.xlsx");
+    };
+
     // Filter available SNs
     const allSelectedSNs = cartItems.flatMap(ci => ci.serialNumbers);
     const filteredAvailableSNs = availableSNs.filter(sn =>
@@ -443,40 +677,74 @@ export default function OutboundClient() {
                             </h3>
 
                             {/* Add item row */}
-                            <div className="flex gap-3 items-end">
-                                <div className="flex-1">
-                                    <label className="text-xs text-slate-500 mb-1 block">Tambah Barang</label>
-                                    <SearchableSelect
-                                        options={items
-                                            .filter(i => !cartItems.some(ci => ci.itemId === i.id.toString()))
-                                            .map(i => ({ value: i.id.toString(), label: `${i.code} - ${i.name}`, subLabel: i.hasSN ? 'SN Required' : 'Non-SN' }))}
-                                        value={addingItemId}
-                                        onChange={setAddingItemId}
-                                        placeholder="Cari barang..."
-                                        accentColor="rose"
-                                        icon={<Package size={14} />}
-                                    />
-                                </div>
-                                {addingItemId && !items.find(i => i.id.toString() === addingItemId)?.hasSN && (
-                                    <div className="w-full min-w-[80px]">
-                                        <label className="text-xs text-slate-500 mb-1 block">Qty</label>
-                                        <input
-                                            type="number"
-                                            min="1"
-                                            value={addingQty}
-                                            onChange={(e) => setAddingQty(Number(e.target.value))}
-                                            className="w-full bg-[#0f172a] border border-[#334155] text-white rounded-lg px-3 py-2.5 focus:ring-1 focus:ring-rose-500 focus:border-rose-500 text-sm"
+                            <div className="flex flex-col gap-3">
+                                <div className="flex gap-3 items-end">
+                                    <div className="flex-1">
+                                        <label className="text-xs text-slate-500 mb-1 block">Tambah Barang</label>
+                                        <SearchableSelect
+                                            options={items
+                                                .filter(i => !cartItems.some(ci => ci.itemId === i.id.toString()))
+                                                .map(i => ({ value: i.id.toString(), label: `${i.code} - ${i.name}`, subLabel: i.hasSN ? 'SN Required' : 'Non-SN' }))}
+                                            value={addingItemId}
+                                            onChange={setAddingItemId}
+                                            placeholder="Cari barang..."
+                                            accentColor="rose"
+                                            icon={<Package size={14} />}
                                         />
                                     </div>
-                                )}
-                                <button
-                                    type="button"
-                                    onClick={addItemToCart}
-                                    disabled={!addingItemId}
-                                    className="bg-rose-600 hover:bg-rose-700 disabled:opacity-40 disabled:cursor-not-allowed text-white px-4 py-2.5 rounded-lg flex items-center gap-1.5 font-medium transition-colors text-sm shrink-0"
-                                >
-                                    <Plus size={16} /> Tambah
-                                </button>
+                                    {addingItemId && !items.find(i => i.id.toString() === addingItemId)?.hasSN && (
+                                        <div className="w-full min-w-[80px]">
+                                            <label className="text-xs text-slate-500 mb-1 block">Qty</label>
+                                            <input
+                                                type="number"
+                                                min="1"
+                                                value={addingQty}
+                                                onChange={(e) => setAddingQty(Number(e.target.value))}
+                                                className="w-full bg-[#0f172a] border border-[#334155] text-white rounded-lg px-3 py-2.5 focus:ring-1 focus:ring-rose-500 focus:border-rose-500 text-sm"
+                                            />
+                                        </div>
+                                    )}
+                                    <button
+                                        type="button"
+                                        onClick={addItemToCart}
+                                        disabled={!addingItemId}
+                                        className="bg-rose-600 hover:bg-rose-700 disabled:opacity-40 disabled:cursor-not-allowed text-white px-4 py-2.5 rounded-lg flex items-center gap-1.5 font-medium transition-colors text-sm shrink-0"
+                                    >
+                                        <Plus size={16} /> Tambah
+                                    </button>
+                                </div>
+                                <div className="flex items-center gap-3 flex-wrap">
+                                    <button
+                                        type="button"
+                                        onClick={() => globalFileInputRef.current?.click()}
+                                        className="text-xs text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 px-3 py-1.5 rounded-md flex items-center gap-1.5 font-medium transition-all"
+                                    >
+                                        <Upload size={14} className="text-rose-400" />
+                                        Import Batch Excel (Global)
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={downloadTemplate}
+                                        className="text-xs text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 px-3 py-1.5 rounded-md flex items-center gap-1.5 font-medium transition-all"
+                                    >
+                                        <Download size={14} className="text-rose-400" />
+                                        Unduh Template Excel
+                                    </button>
+                                    <input
+                                        type="file"
+                                        ref={globalFileInputRef}
+                                        onChange={handleBatchImportExcel}
+                                        className="hidden"
+                                        accept=".xlsx, .xls"
+                                    />
+                                    <input
+                                        type="file"
+                                        ref={fileInputRef}
+                                        onChange={handleImportExcel}
+                                        className="hidden"
+                                        accept=".xlsx, .xls"
+                                    />
+                                </div>
                             </div>
 
                             {/* Cart items table */}
@@ -720,7 +988,7 @@ export default function OutboundClient() {
 
                 {activeItem?.hasSN && (
                     <>
-                        <div className="p-4 bg-slate-900/80">
+                        <div className="p-4 bg-slate-900/80 space-y-3">
                             <input
                                 ref={scannerInputRef}
                                 type="text"
@@ -731,6 +999,16 @@ export default function OutboundClient() {
                                 placeholder={sourceId ? "Scan S/N Barang..." : "Pilih Gudang Asal dulu"}
                                 className="w-full bg-black/50 border border-rose-500/50 focus:border-rose-400 shadow-[0_0_15px_rgba(244,63,94,0.2)] text-white rounded-lg px-4 py-3 font-mono text-center focus:outline-none transition-all disabled:opacity-50"
                             />
+                            {sourceId && (
+                                <button
+                                    type="button"
+                                    onClick={() => fileInputRef.current?.click()}
+                                    className="w-full text-xs text-rose-300 hover:text-white bg-rose-950/20 hover:bg-rose-950/40 border border-rose-500/30 px-3 py-2 rounded-lg flex items-center justify-center gap-1.5 font-medium transition-all"
+                                >
+                                    <Upload size={14} className="text-rose-400" />
+                                    Import SN dari Excel
+                                </button>
+                            )}
                         </div>
 
                         {/* SN PICKER */}

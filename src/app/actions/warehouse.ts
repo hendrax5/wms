@@ -108,3 +108,77 @@ export async function deleteWarehouse(id: number) {
         return { success: false, error: "Gagal menghapus gudang. Pastikan tidak ada stok atau user terkait." };
     }
 }
+
+export async function importWarehouseBatch(
+    data: {
+        name: string;
+        type: "PUSAT" | "CABANG";
+        areaName: string;
+        location?: string;
+    }[]
+) {
+    try {
+        if (!data || data.length === 0) {
+            return { success: false, error: "Data impor kosong atau tidak valid" };
+        }
+
+        const result = await prisma.$transaction(async (tx) => {
+            // Pre-load all areas to memory map (case-insensitive key)
+            const existingAreas = await tx.area.findMany();
+            const areaMap = new Map<string, number>();
+            existingAreas.forEach(a => {
+                areaMap.set(a.name.toLowerCase().trim(), a.id);
+            });
+
+            let createdCount = 0;
+
+            for (const row of data) {
+                const name = row.name?.trim();
+                const type = (row.type?.trim().toUpperCase() as "PUSAT" | "CABANG") || "CABANG";
+                const areaName = row.areaName?.trim();
+                const location = row.location?.trim() || null;
+
+                if (!name) {
+                    throw new Error("Nama gudang wajib diisi");
+                }
+
+                if (!areaName) {
+                    throw new Error(`Gudang "${name}" wajib memiliki Area.`);
+                }
+
+                // Resolve Area ID
+                let areaId = areaMap.get(areaName.toLowerCase());
+                if (!areaId) {
+                    // Auto-create Area
+                    const newArea = await tx.area.create({
+                        data: { name: areaName }
+                    });
+                    areaId = newArea.id;
+                    areaMap.set(areaName.toLowerCase(), areaId);
+                }
+
+                // Create Warehouse
+                await tx.warehouse.create({
+                    data: {
+                        name,
+                        type,
+                        location,
+                        areaId
+                    }
+                });
+
+                createdCount++;
+            }
+
+            return { createdCount };
+        });
+
+        revalidatePath("/stock");
+        revalidatePath("/master/warehouses");
+        return { success: true, createdCount: result.createdCount };
+    } catch (error: any) {
+        console.error("IMPORT WAREHOUSE BATCH ERROR:", error);
+        return { success: false, error: error.message || "Gagal mengimpor data gudang" };
+    }
+}
+

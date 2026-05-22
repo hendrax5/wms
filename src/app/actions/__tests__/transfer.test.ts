@@ -1,6 +1,6 @@
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { prismaMock } from '@/lib/db.mock';
-import { createTransfer } from '../transfer';
+import { createTransfer, createBatchTransfer } from '../transfer';
 
 vi.mock('next/cache', () => ({
     revalidatePath: vi.fn(),
@@ -183,3 +183,133 @@ describe('Transfer Action: createTransfer', () => {
         });
     });
 });
+
+describe('Transfer Action: createBatchTransfer', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+        prismaMock.$transaction.mockImplementation(async (cb) => {
+            if (typeof cb === 'function') {
+                return cb(prismaMock);
+            }
+            return cb;
+        });
+    });
+
+    it('should return error if source and target warehouses are identical', async () => {
+        const payload = {
+            sourceWarehouseId: 1,
+            targetWarehouseId: 1,
+            items: [
+                { itemId: 10, qty: 5, serialNumbers: [] }
+            ]
+        };
+
+        const result = await createBatchTransfer(payload);
+        expect(result.success).toBe(false);
+        expect(result.error).toBe('Gudang asal dan tujuan tidak boleh sama.');
+    });
+
+    it('should return error if batch items array is empty', async () => {
+        const payload = {
+            sourceWarehouseId: 1,
+            targetWarehouseId: 2,
+            items: []
+        };
+
+        const result = await createBatchTransfer(payload);
+        expect(result.success).toBe(false);
+        expect(result.error).toContain('Minimal 1 barang harus ditambahkan.');
+    });
+
+    it('should process batch transfer of mixed items (SN and Non-SN) successfully', async () => {
+        const payload = {
+            sourceWarehouseId: 1,
+            targetWarehouseId: 2,
+            description: 'Batch Test Description',
+            items: [
+                {
+                    itemId: 10, // Non-SN Item
+                    qty: 5,
+                    qtyNew: 5,
+                    qtyDismantle: 0,
+                    qtyDamaged: 0,
+                    serialNumbers: []
+                },
+                {
+                    itemId: 11, // SN Item
+                    qty: 2,
+                    serialNumbers: ['SN-B-1', 'SN-B-2']
+                }
+            ]
+        };
+
+        prismaMock.itemType.upsert.mockResolvedValueOnce({ id: 1, name: 'Baru' } as any);
+        prismaMock.itemType.upsert.mockResolvedValueOnce({ id: 2, name: 'Dismantle' } as any);
+
+        prismaMock.warehouseStock.findUnique.mockImplementation((args: any) => {
+            if (args.where.itemId_warehouseId.itemId === 10) {
+                if (args.where.itemId_warehouseId.warehouseId === 1) {
+                    return Promise.resolve({ id: 101, warehouseId: 1, itemId: 10, stockNew: 10, stockDismantle: 0, stockDamaged: 0 } as any);
+                }
+                return Promise.resolve({ id: 201, warehouseId: 2, itemId: 10, stockNew: 0, stockDismantle: 0, stockDamaged: 0 } as any);
+            }
+            if (args.where.itemId_warehouseId.itemId === 11) {
+                if (args.where.itemId_warehouseId.warehouseId === 1) {
+                    return Promise.resolve({ id: 102, warehouseId: 1, itemId: 11, stockNew: 5, stockDismantle: 0, stockDamaged: 0 } as any);
+                }
+                return Promise.resolve({ id: 202, warehouseId: 2, itemId: 11, stockNew: 0, stockDismantle: 0, stockDamaged: 0 } as any);
+            }
+            return Promise.resolve(null);
+        });
+
+        prismaMock.serialNumber.findUnique.mockImplementation((args: any) => {
+            if (args.where.code === 'SN-B-1') {
+                return Promise.resolve({ id: 2001, code: 'SN-B-1', typeId: 1, warehouseId: 1, itemId: 11, statusId: 99 } as any);
+            }
+            if (args.where.code === 'SN-B-2') {
+                return Promise.resolve({ id: 2002, code: 'SN-B-2', typeId: 1, warehouseId: 1, itemId: 11, statusId: 99 } as any);
+            }
+            return Promise.resolve(null);
+        });
+
+        prismaMock.itemStatus.findUnique.mockResolvedValue({ id: 99, name: 'In Stock' } as any);
+        prismaMock.stockOut.create.mockResolvedValue({ id: 400 } as any);
+
+        const result = await createBatchTransfer(payload);
+
+        expect(result.success).toBe(true);
+
+        // Verify that stock was decremented correctly for Non-SN item (item 10)
+        expect(prismaMock.warehouseStock.update).toHaveBeenCalledWith({
+            where: { id: 101 },
+            data: {
+                stockNew: { decrement: 5 },
+                stockDismantle: { decrement: 0 },
+                stockDamaged: { decrement: 0 },
+                updatedAt: expect.any(Date)
+            }
+        });
+
+        // Verify that stock was incremented correctly for Non-SN item (item 10)
+        expect(prismaMock.warehouseStock.update).toHaveBeenCalledWith({
+            where: { id: 201 },
+            data: {
+                stockNew: { increment: 5 },
+                stockDismantle: { increment: 0 },
+                stockDamaged: { increment: 0 },
+                updatedAt: expect.any(Date)
+            }
+        });
+
+        // Verify SN updates
+        expect(prismaMock.serialNumber.update).toHaveBeenCalledWith({
+            where: { id: 2001 },
+            data: { warehouseId: 2, updatedAt: expect.any(Date) }
+        });
+        expect(prismaMock.serialNumber.update).toHaveBeenCalledWith({
+            where: { id: 2002 },
+            data: { warehouseId: 2, updatedAt: expect.any(Date) }
+        });
+    });
+});
+
