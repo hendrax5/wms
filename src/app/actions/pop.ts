@@ -22,8 +22,9 @@ export async function getPops() {
             }
         });
         return { success: true, data: pops };
-    } catch (error) {
-        return { success: false, error: "Gagal mengambil data POP" };
+    } catch (error: any) {
+        console.error("getPops error:", error);
+        return { success: false, error: "Gagal mengambil data POP: " + (error?.message || error) };
     }
 }
 

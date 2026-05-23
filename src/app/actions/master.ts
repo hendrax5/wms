@@ -100,6 +100,63 @@ export async function deleteCategory(id: number) {
     }
 }
 
+export async function importCategoryBatch(
+    data: {
+        name: string;
+        code?: string;
+        hasSN: boolean;
+    }[]
+) {
+    try {
+        if (!data || data.length === 0) {
+            return { success: false, error: "Data impor kosong atau tidak valid" };
+        }
+
+        const result = await prisma.$transaction(async (tx) => {
+            // Pre-load all categories to check for duplicates
+            const existingCategories = await tx.category.findMany({ select: { name: true } });
+            const existingSet = new Set(existingCategories.map(c => c.name.toLowerCase().trim()));
+
+            let createdCount = 0;
+            for (const row of data) {
+                const name = row.name?.trim();
+                const code = row.code?.trim() || null;
+                const hasSN = row.hasSN ?? true;
+
+                if (!name) {
+                    throw new Error("Nama kategori wajib diisi");
+                }
+
+                if (existingSet.has(name.toLowerCase())) {
+                    throw new Error(`Kategori "${name}" sudah terdaftar`);
+                }
+
+                await (tx as any).category.create({
+                    data: {
+                        name,
+                        code,
+                        hasSN,
+                        updatedAt: new Date()
+                    }
+                });
+
+                existingSet.add(name.toLowerCase());
+                createdCount++;
+            }
+
+            return { createdCount };
+        });
+
+        revalidatePath("/master/categories");
+        revalidatePath("/master/items");
+        revalidatePath("/master");
+        return { success: true, createdCount: result.createdCount };
+    } catch (error: any) {
+        console.error("IMPORT CATEGORY BATCH ERROR:", error);
+        return { success: false, error: error.message || "Gagal mengimpor data kategori" };
+    }
+}
+
 // ------------------------------------------------------------------
 // ITEMS
 // ------------------------------------------------------------------

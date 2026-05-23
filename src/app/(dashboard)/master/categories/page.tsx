@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { getCategories, createCategory, updateCategory, deleteCategory } from "@/app/actions/master";
-import { Tags, Plus, Pencil, Trash2, Loader2, Search, AlertTriangle, ArrowLeft, Package, X } from "lucide-react";
+import { getCategories, createCategory, updateCategory, deleteCategory, importCategoryBatch } from "@/app/actions/master";
+import { Tags, Plus, Pencil, Trash2, Loader2, Search, AlertTriangle, ArrowLeft, Package, X, Download, Upload, FileSpreadsheet } from "lucide-react";
 import Link from "next/link";
+import * as XLSX from "xlsx";
 
 type Category = {
     id: number;
@@ -57,6 +58,132 @@ export default function CategoryMasterPage() {
     useEffect(() => {
         loadData();
     }, []);
+
+    // Import Category Excel State
+    const [isImportOpen, setIsImportOpen] = useState(false);
+    const [importRows, setImportRows] = useState<any[]>([]);
+    const [importLoading, setImportLoading] = useState(false);
+
+    const exportToExcel = () => {
+        if (filtered.length === 0) return;
+
+        const exportData = filtered.map(c => ({
+            "Nama Kategori": c.name,
+            "Kode Prefix": c.code || "-",
+            "Memiliki SN?": c.hasSN ? "YA" : "TIDAK",
+            "Total Item": c._count?.item || 0
+        }));
+
+        const ws = XLSX.utils.json_to_sheet(exportData);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Kategori Barang");
+        XLSX.writeFile(wb, `Kategori_Barang_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    };
+
+    const downloadTemplateCategory = () => {
+        const templateData = [
+            {
+                "Nama Kategori": "Router",
+                "Kode Prefix": "RT",
+                "Memiliki SN? (YA/TIDAK)": "YA"
+            },
+            {
+                "Nama Kategori": "Kabel FO",
+                "Kode Prefix": "KFO",
+                "Memiliki SN? (YA/TIDAK)": "TIDAK"
+            }
+        ];
+        const ws = XLSX.utils.json_to_sheet(templateData);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Template Kategori");
+        XLSX.writeFile(wb, "Template_Import_Kategori.xlsx");
+    };
+
+    const handleCategoryFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+            try {
+                const bstr = evt.target?.result;
+                const wb = XLSX.read(bstr, { type: "binary" });
+                const wsname = wb.SheetNames[0];
+                const ws = wb.Sheets[wsname];
+                const rawData = XLSX.utils.sheet_to_json<any>(ws);
+
+                if (rawData.length === 0) {
+                    alert("File Excel kosong atau format tidak sesuai.");
+                    return;
+                }
+
+                const validated = rawData.map((row: any) => {
+                    const name = (row["Nama Kategori"] || row["Nama"] || row["name"] || "").toString().trim();
+                    const code = (row["Kode Prefix"] || row["Prefix"] || row["code"] || "").toString().trim();
+                    const snText = (row["Memiliki SN? (YA/TIDAK)"] || row["Memiliki SN?"] || row["hasSN"] || "YA").toString().trim().toUpperCase();
+                    const hasSN = snText === "YA" || snText === "YES" || snText === "TRUE" || snText === "1";
+
+                    const errors: string[] = [];
+                    const warnings: string[] = [];
+
+                    if (!name) {
+                        errors.push("Nama kategori wajib diisi");
+                    } else {
+                        const catExists = categories.some(
+                            c => c.name.toLowerCase().trim() === name.toLowerCase().trim()
+                        );
+                        if (catExists) {
+                            errors.push("Kategori sudah terdaftar di sistem");
+                        }
+                    }
+
+                    return {
+                        name,
+                        code,
+                        hasSN,
+                        errors,
+                        warnings,
+                        isValid: errors.length === 0
+                    };
+                });
+
+                setImportRows(validated);
+            } catch (err: any) {
+                alert("Gagal membaca file Excel: " + err.message);
+            }
+        };
+        reader.readAsBinaryString(file);
+    };
+
+    const submitCategoryImport = async () => {
+        if (importRows.length === 0) return;
+        const hasErrors = importRows.some(r => r.errors.length > 0);
+        if (hasErrors) {
+            alert("Harap perbaiki semua baris yang error sebelum melanjutkan.");
+            return;
+        }
+
+        setImportLoading(true);
+        try {
+            const payload = importRows.map(r => ({
+                name: r.name,
+                code: r.code || undefined,
+                hasSN: r.hasSN
+            }));
+            const res = await importCategoryBatch(payload);
+            if (res.success) {
+                alert(`Berhasil mengimpor ${res.createdCount} kategori.`);
+                setIsImportOpen(false);
+                setImportRows([]);
+                loadData();
+            } else {
+                alert(res.error || "Gagal mengimpor data kategori.");
+            }
+        } catch (err: any) {
+            alert("Terjadi kesalahan sistem: " + err.message);
+        }
+        setImportLoading(false);
+    };
 
     const handleOpenModal = (cat?: Category) => {
         setErrorMsg("");
@@ -142,12 +269,17 @@ export default function CategoryMasterPage() {
                         <p className="text-[13px] text-slate-400 mt-0.5">Kelola data master kategori / jenis perangkat.</p>
                     </div>
                 </div>
-                <button
-                    onClick={() => handleOpenModal()}
-                    className="btn btn-primary text-sm px-4 h-9 flex items-center gap-2"
-                >
-                    <Plus size={16} /> Tambah Kategori
-                </button>
+                <div className="flex items-center gap-2">
+                    <button type="button" onClick={exportToExcel} disabled={filtered.length === 0} className="px-3 sm:px-4 h-8 sm:h-9 rounded-lg bg-green-500/10 text-green-400 border border-green-500/20 hover:bg-green-500/20 hover:border-green-500/40 text-xs sm:text-sm font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 shrink-0 font-sans">
+                        <Download size={14} /> Export
+                    </button>
+                    <button type="button" onClick={() => { setIsImportOpen(true); setImportRows([]); }} className="px-3 sm:px-4 h-8 sm:h-9 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20 hover:bg-blue-500/20 hover:border-blue-500/40 text-xs sm:text-sm font-semibold transition-all flex items-center gap-1.5 shrink-0 font-sans">
+                        <Upload size={14} /> Import
+                    </button>
+                    <button onClick={() => handleOpenModal()} className="btn btn-primary text-sm px-3 sm:px-4 h-8 sm:h-9 flex items-center gap-1.5 whitespace-nowrap rounded-lg transition-all font-semibold shrink-0 shadow-lg shadow-blue-500/20">
+                        <Plus size={14} /> Tambah Kategori
+                    </button>
+                </div>
             </div>
 
             {/* Content Card */}
@@ -410,6 +542,128 @@ export default function CategoryMasterPage() {
                     </div>
                 )
             }
+
+            {/* ── IMPORT EXCEL MODAL ── */}
+            {isImportOpen && (
+                <div className="fixed inset-0 z-[100] bg-[#020617]/85 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setIsImportOpen(false)}>
+                    <div className="bg-[#0F172A] border border-[#1E293B] rounded-2xl w-full max-w-4xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]" onClick={e => e.stopPropagation()}>
+                        {/* Header */}
+                        <div className="p-5 border-b border-[#1E293B] flex items-center justify-between bg-[#020617]/50">
+                            <div>
+                                <h3 className="font-bold text-white text-lg flex items-center gap-2">
+                                    <FileSpreadsheet className="text-blue-400" size={20} />
+                                    Import Kategori via Excel
+                                </h3>
+                                <p className="text-xs text-slate-400 mt-1">Unggah file Excel untuk menambah banyak kategori sekaligus secara batch</p>
+                            </div>
+                            <button type="button" onClick={() => setIsImportOpen(false)} className="text-slate-500 hover:text-white transition-colors">
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        {/* Content */}
+                        <div className="p-6 space-y-6 overflow-y-auto flex-1 custom-scrollbar">
+                            {/* Upload & Instructions */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="border-2 border-dashed border-[#334155] hover:border-blue-500/50 rounded-xl p-6 flex flex-col items-center justify-center text-center group transition-all relative cursor-pointer font-sans">
+                                    <input type="file" accept=".xlsx, .xls" onChange={handleCategoryFileUpload} className="absolute inset-0 opacity-0 cursor-pointer" />
+                                    <Upload size={32} className="text-slate-500 group-hover:text-blue-400 transition-colors mb-3" />
+                                    <p className="text-sm font-semibold text-white">Pilih File Excel atau Drag & Drop</p>
+                                    <p className="text-xs text-slate-500 mt-1 font-mono">Format: .xlsx, .xls</p>
+                                </div>
+                                <div className="bg-[#020617]/40 border border-[#1E293B] rounded-xl p-5 flex flex-col justify-between font-sans">
+                                    <div>
+                                        <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Panduan Kolom Excel</h4>
+                                        <ul className="text-xs text-slate-400 space-y-1.5 list-disc list-inside">
+                                            <li><strong className="text-white font-medium">Nama Kategori</strong>: Wajib diisi (mis. Router, Switch)</li>
+                                            <li><strong className="text-white font-medium">Kode Prefix</strong>: Opsional (mis. RT, SW). Digunakan awalan SN</li>
+                                            <li><strong className="text-white font-medium">Memiliki SN? (YA/TIDAK)</strong>: Opsional, default YA.</li>
+                                        </ul>
+                                    </div>
+                                    <button type="button" onClick={downloadTemplateCategory} className="mt-4 px-4 py-2 w-full rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20 hover:bg-blue-500/20 hover:border-blue-500/40 text-xs font-semibold transition-all flex items-center justify-center gap-1.5">
+                                        <Download size={14} /> Download Template Excel
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Preview Grid */}
+                            {importRows.length > 0 && (
+                                <div className="space-y-3 font-sans">
+                                    <div className="flex items-center justify-between">
+                                        <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">Pratinjau & Validasi Data</h4>
+                                        <span className="text-xs text-slate-500 font-mono">Total: <span className="text-white font-semibold font-sans">{importRows.length}</span> baris</span>
+                                    </div>
+                                    <div className="border border-[#1E293B] rounded-xl overflow-hidden bg-[#020617]/20">
+                                        <div className="overflow-x-auto max-h-60 custom-scrollbar">
+                                            <table className="w-full text-left border-collapse">
+                                                <thead>
+                                                    <tr className="border-b border-[#1E293B] bg-[#020617]/50 text-[10px] uppercase tracking-wider text-slate-500 font-semibold sticky top-0 z-10">
+                                                        <th className="px-4 py-2">Baris</th>
+                                                        <th className="px-4 py-2">Nama Kategori</th>
+                                                        <th className="px-4 py-2">Kode Prefix</th>
+                                                        <th className="px-4 py-2 text-center">Tipe SN</th>
+                                                        <th className="px-4 py-2 text-center w-40">Status / Catatan</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="text-xs">
+                                                    {importRows.map((row, idx) => {
+                                                        const hasError = row.errors.length > 0;
+                                                        const hasWarning = row.warnings.length > 0;
+                                                        
+                                                        let badgeBg = "bg-green-500/10 text-green-400 border-green-500/20";
+                                                        let badgeText = "Valid";
+                                                        if (hasError) {
+                                                            badgeBg = "bg-red-500/10 text-red-400 border-red-500/20";
+                                                            badgeText = row.errors.join(", ");
+                                                        } else if (hasWarning) {
+                                                            badgeBg = "bg-amber-500/10 text-amber-400 border-amber-500/20";
+                                                            badgeText = row.warnings.join(", ");
+                                                        }
+
+                                                        return (
+                                                            <tr key={idx} className="border-b border-[#1E293B]/40 hover:bg-white/[0.01]">
+                                                                <td className="px-4 py-2.5 font-mono text-slate-600">{idx + 1}</td>
+                                                                <td className="px-4 py-2.5 text-white font-medium">{row.name || <span className="text-red-500/60 italic">Kosong</span>}</td>
+                                                                <td className="px-4 py-2.5 text-slate-300 font-mono">{row.code || "-"}</td>
+                                                                <td className="px-4 py-2.5 text-center text-slate-300">
+                                                                    {row.hasSN ? (
+                                                                        <span className="bg-blue-500/10 text-blue-400 border border-blue-500/20 px-2 py-0.5 rounded text-[10px] font-semibold">SN</span>
+                                                                    ) : (
+                                                                        <span className="bg-amber-500/10 text-amber-400 border border-amber-500/20 px-2 py-0.5 rounded text-[10px] font-semibold">Non-SN</span>
+                                                                    )}
+                                                                </td>
+                                                                <td className="px-4 py-2.5 text-center">
+                                                                    <span className={`inline-block px-2 py-0.5 rounded border text-[10px] font-semibold text-left max-w-full truncate ${badgeBg}`} title={badgeText}>
+                                                                        {badgeText}
+                                                                    </span>
+                                                                </td>
+                                                            </tr>
+                                                        );
+                                                    })}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Footer */}
+                        <div className="p-5 border-t border-[#1E293B] bg-[#020617]/50 flex items-center justify-between font-sans">
+                            <button type="button" onClick={() => { setIsImportOpen(false); setImportRows([]); }} className="px-4 py-2 rounded-lg bg-slate-800 text-white hover:bg-slate-700 transition-colors text-sm font-medium">Batal</button>
+                            <button
+                                type="button"
+                                onClick={submitCategoryImport}
+                                disabled={importRows.length === 0 || importRows.some(r => r.errors.length > 0) || importLoading}
+                                className="px-5 py-2 rounded-lg bg-blue-600 text-white font-bold hover:bg-blue-500 disabled:opacity-30 disabled:cursor-not-allowed transition-all text-sm flex items-center gap-1.5 shrink-0"
+                            >
+                                {importLoading ? <Loader2 size={16} className="animate-spin" /> : <FileSpreadsheet size={16} />}
+                                {importRows.some(r => r.errors.length > 0) ? "Ada Error di Excel" : "Konfirmasi Impor"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div >
     );
 }
